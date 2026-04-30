@@ -112,6 +112,22 @@ DockerPanel/
 ./scripts/deploy.sh development
 ```
 
+### GitHub Actions 镜像发布
+
+仓库包含 Docker 镜像发布工作流，推送 `main`/`master` 分支、推送 `v*.*.*` 标签或手动触发时，会构建根目录 `Dockerfile` 并推送到：
+
+- Docker Hub：`docker.io/<DOCKERHUB_USERNAME>/dockerpanel`
+- GitHub Container Registry：`ghcr.io/<owner>/dockerpanel`
+
+发布前需要在 GitHub 仓库 `Settings` → `Secrets and variables` → `Actions` 中配置：
+
+| Secret | 说明 |
+|--------|------|
+| `DOCKERHUB_USERNAME` | Docker Hub 用户名或组织名 |
+| `DOCKERHUB_TOKEN` | Docker Hub Access Token |
+
+`ghcr.io` 使用仓库内置 `GITHUB_TOKEN` 推送，工作流已声明 `packages: write` 权限。
+
 ## 📊 功能特性
 
 ### 核心功能

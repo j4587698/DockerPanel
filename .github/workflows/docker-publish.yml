@@ -5,21 +5,26 @@ on:
     branches:
       - main
       - master
-    tags:
-      - "v*.*.*"
   pull_request:
     branches:
       - main
       - master
   workflow_dispatch:
+    inputs:
+      force_publish:
+        description: Force publish even when the backend version tag already exists
+        required: false
+        default: false
+        type: boolean
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  FORCE_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.force_publish || 'false' }}
   PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
@@ -30,9 +35,81 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read backend version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(${PYTHON:-python3} - <<'PY'
+          import re
+          import sys
+          import xml.etree.ElementTree as ET
+
+          project = 'Backend/DockerPanel.API/DockerPanel.API.csproj'
+          root = ET.parse(project).getroot()
+
+          def text(name):
+              node = root.find(f'.//{name}')
+              return (node.text or '').strip() if node is not None else ''
+
+          version = text('Version') or text('VersionPrefix')
+          if not version:
+              print('Backend project must define <Version> or <VersionPrefix>.', file=sys.stderr)
+              sys.exit(1)
+
+          if not re.fullmatch(r'\d+\.\d+(\.\d+)?(-[0-9A-Za-z.-]+)?', version):
+              print(f'Invalid backend version: {version}', file=sys.stderr)
+              sys.exit(1)
+
+          print(version)
+          PY
+          )"
+
+          core="${version%%[-+]*}"
+          IFS='.' read -r major minor patch_extra <<< "${core}"
+          major_minor="${major}.${minor}"
+          tag="v${version}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            version_tag_exists=true
+          else
+            version_tag_exists=false
+          fi
+
+          should_publish=false
+          should_build=true
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            should_publish=false
+          elif [[ "${version_tag_exists}" == "true" && "${FORCE_PUBLISH}" != "true" ]]; then
+            should_build=false
+          else
+            should_publish=true
+          fi
+
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "major_minor=${major_minor}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "version_tag_exists=${version_tag_exists}" >> "${GITHUB_OUTPUT}"
+          echo "should_build=${should_build}" >> "${GITHUB_OUTPUT}"
+          echo "should_publish=${should_publish}" >> "${GITHUB_OUTPUT}"
+
+          echo "Backend version: ${version}"
+          echo "Release tag: ${tag}"
+          echo "Version tag exists: ${version_tag_exists}"
+          echo "Should build: ${should_build}"
+          echo "Should publish: ${should_publish}"
+
+      - name: Skip unchanged backend version
+        if: steps.version.outputs.should_build != 'true'
+        run: |
+          echo "Backend version ${{ steps.version.outputs.version }} already has tag ${{ steps.version.outputs.tag }}. Skipping Docker publish."
 
       - name: Validate Docker Hub credentials
-        if: github.event_name != 'pull_request' && (env.DOCKERHUB_USERNAME == '' || env.DOCKERHUB_TOKEN == '')
+        if: steps.version.outputs.should_publish == 'true' && (env.DOCKERHUB_USERNAME == '' || env.DOCKERHUB_TOKEN == '')
         run: |
           echo "::error::Missing Docker Hub credentials. Configure repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN before publishing."
           exit 1
@@ -60,13 +137,15 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
 
       - name: Set up QEMU
+        if: steps.version.outputs.should_build == 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
+        if: steps.version.outputs.should_build == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
+        if: steps.version.outputs.should_publish == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -74,37 +153,56 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: steps.version.outputs.should_publish == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ env.DOCKERHUB_TOKEN }}
 
       - name: Extract Docker metadata
+        if: steps.version.outputs.should_build == 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.prep.outputs.images }}
           tags: |
-            type=ref,event=branch
             type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=${{ steps.version.outputs.major_minor }}
+            type=raw,value=latest,enable=${{ github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch }}
+            type=sha,prefix=sha-,enable=${{ github.event_name == 'pull_request' }}
           labels: |
             org.opencontainers.image.title=DockerPanel
             org.opencontainers.image.description=Modern Docker container management panel
             org.opencontainers.image.vendor=DockerPanel
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
       - name: Build and push Docker image
+        if: steps.version.outputs.should_build == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || env.PLATFORMS }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ steps.version.outputs.should_publish == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Mark backend version as published
+        if: steps.version.outputs.should_publish == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.version.outputs.tag }}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${tag}" -m "Release ${tag}"
+          git push origin "${tag}"

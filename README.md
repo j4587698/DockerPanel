@@ -114,7 +114,9 @@ DockerPanel/
 
 ### GitHub Actions 镜像发布
 
-仓库包含 Docker 镜像发布工作流，推送 `main`/`master` 分支、推送 `v*.*.*` 标签或手动触发时，会构建根目录 `Dockerfile` 并推送到：
+仓库包含 Docker 镜像发布工作流。工作流会读取后端项目 `Backend/DockerPanel.API/DockerPanel.API.csproj` 里的 `<Version>`，仅当对应的 Git tag（例如 `v0.1.0`）不存在时，才构建根目录 `Dockerfile` 并推送镜像。普通提交如果没有提升后端版本号，不会重复发布镜像。
+
+当前后端版本从 `0.1.0` 开始。发布新镜像时先提升后端 `<Version>`，合并到 `main`/`master` 后会推送到：
 
 - Docker Hub：`docker.io/<DOCKERHUB_USERNAME>/dockerpanel`
 - GitHub Container Registry：`ghcr.io/<owner>/dockerpanel`
@@ -126,7 +128,13 @@ DockerPanel/
 | `DOCKERHUB_USERNAME` | Docker Hub 用户名或组织名 |
 | `DOCKERHUB_TOKEN` | Docker Hub Access Token |
 
-`ghcr.io` 使用仓库内置 `GITHUB_TOKEN` 推送，工作流已声明 `packages: write` 权限。
+镜像 tag 规则：
+
+- 完整后端版本号：例如 `0.1.0`
+- 主次版本号：例如 `0.1`
+- 默认分支发布时同时更新 `latest`
+
+成功发布后工作流会创建 `v<Version>` Git tag，后续相同版本提交会自动跳过 Docker 发布。`ghcr.io` 使用仓库内置 `GITHUB_TOKEN` 推送，工作流已声明 `packages: write` 与 `contents: write` 权限。
 
 ## 📊 功能特性
 

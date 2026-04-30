@@ -1,0 +1,103 @@
+export default {
+  title: 'Volumes',
+  subtitle: 'Persistent storage management',
+  create: 'Create Volume',
+  prune: 'Prune Unused',
+  mountpoint: 'Mountpoint',
+  driver: 'Driver',
+  volumeName: 'Volume Name',
+  volumeDriver: 'Driver Type',
+  volumePath: 'Storage Path',
+  usageCount: 'Usage Count',
+  labels: 'Labels',
+  options: 'Options',
+  createTitle: 'Create Volume',
+  volumeNamePlaceholder: 'Enter volume name',
+  volumeDriverPlaceholder: 'Default local',
+  removeVolume: 'Delete Volume',
+  inspectVolume: 'View Details',
+  backupVolume: 'Backup Volume',
+  restoreVolume: 'Restore Volume',
+  duplicateVolume: 'Duplicate Volume',
+  pruneTitle: 'Prune Unused Volumes',
+  pruneDescription: 'This will delete all volumes not used by any container',
+  pruneWarning: 'Warning: This will permanently delete data',
+  pruneSuccess: 'Prune complete',
+  pruneCount: 'Deleted {count} volumes, freed {size}',
+  // New translations
+  searchPlaceholder: 'Search volumes...',
+  volumesCount: 'volumes',
+  pruneUnused: 'Prune Unused',
+  usage: 'Usage',
+  detailTitle: 'Volume Details',
+  loadDetailFailed: 'Failed to load volume details',
+  deleteConfirm: 'Are you sure to delete volume {name}?',
+  pruneConfirm: 'Are you sure to prune all unused volumes?',
+  pruneFailed: 'Prune failed',
+  createForm: {
+    namePlaceholder: 'Leave empty for auto-generated name'
+  },
+  usageInfo: 'Usage',
+  containers: 'containers',
+  noContainersUsing: 'No containers using this volume',
+  // Date formats
+  date: {
+    today: 'Today',
+    yesterday: 'Yesterday',
+    daysAgo: '{count} days ago'
+  },
+  // Empty state
+  empty: {
+    noVolumes: 'No volumes',
+    createFirst: 'Create a volume to persist your container data'
+  },
+  // File manager - volume specific
+  fileManager: {
+    info: 'Volume: {name}'
+  },
+  browseFiles: 'Browse Files',
+  downloadVolume: 'Download Archive',
+  // Restore from archive
+  restoreFromArchive: 'Restore from Archive',
+  archiveFile: 'Archive File',
+  selectArchive: 'Select Archive',
+  archiveFileTip: 'Supports .tar.gz or .tgz format archives',
+  restoreVolumeNamePlaceholder: 'Leave empty for auto-generated name',
+  archiveFileRequired: 'Archive file is required',
+  restoreSuccess: 'Restored successfully',
+  restoreFailed: 'Failed to restore volume',
+  createSuccess: 'Created successfully',
+  createFailed: 'Failed to create',
+  // Cleanup volumes dialog
+  cleanupVolumes: {
+    dialogTitle: 'Prune Unused Volumes',
+    cleanupType: 'Cleanup Type',
+    unusedVolumes: 'Unused Volumes',
+    danglingVolumes: 'Anonymous Volumes',
+    allVolumes: 'All Volumes',
+    selectNode: 'Select a node',
+    forceDelete: 'Force Delete',
+    forceEnable: 'Enable',
+    forceDisable: 'Disable',
+    warningTitle: 'Warning',
+    warningMessageUnused: 'This will delete all volumes not used by any container. This may include important data.',
+    warningMessageDangling: 'This will delete all anonymous volumes (volumes without a name), typically created automatically by containers.',
+    warningMessageAll: 'This will delete ALL volumes, including those in use! This action cannot be undone.',
+    validationNodeRequired: 'Please select a node',
+    confirmCleanupTitle: 'Confirm Cleanup',
+    confirmCleanupMessage: 'Are you sure you want to prune {type}? This action cannot be undone.',
+    startCleanup: 'Start Cleanup',
+    progressTitle: 'Cleanup Progress',
+    progressCleaning: 'Cleaning...',
+    progressPercent: 'Progress: {percent}%',
+    progressComplete: 'Cleanup Complete',
+    progressFailed: 'Cleanup failed: {error}',
+    resultDeleted: 'Volumes Deleted',
+    resultSpaceReclaimed: 'Space Reclaimed',
+    resultError: 'Error',
+    cleanupSuccess: 'Cleanup complete',
+    noVolumesToClean: 'No volumes to clean',
+    cleanupFailed: 'Cleanup failed',
+    loadNodesFailed: 'Failed to load nodes'
+  }
+}

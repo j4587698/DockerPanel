@@ -1,0 +1,15 @@
+* text=auto eol=lf
+
+# Keep binary assets untouched
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.db binary
+
+# Windows solution files are safe as text, but keep common tooling-friendly CRLF
+*.sln text eol=crlf

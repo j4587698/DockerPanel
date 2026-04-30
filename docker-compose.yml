@@ -1,0 +1,46 @@
+services:
+  dockerpanel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dockerpanel-app
+    ports:
+      # HTTP-01 ACME 校验必须从公网 80 端口访问；容器内部也直接监听 80。
+      - "${DOCKERPANEL_HTTP_HOST_PORT:-80}:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - HTTP_PORT=80
+      - ENABLE_HTTPS=false
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__Microsoft.AspNetCore=Warning
+    volumes:
+      # 挂载Docker socket以允许管理Docker容器
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 持久化数据存储
+      - dockerpanel_data:/app/Data
+      # 日志文件
+      - dockerpanel_logs:/app/Logs
+    networks:
+      - dockerpanel-network
+    # 支持 host.docker.internal（Linux 需要）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  dockerpanel_data:
+    driver: local
+  dockerpanel_logs:
+    driver: local
+
+networks:
+  dockerpanel-network:
+    driver: bridge
+    name: dockerpanel-network

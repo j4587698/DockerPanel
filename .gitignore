@@ -1,0 +1,50 @@
+# Secrets and local settings
+.env
+.env.*
+!*.example
+Backend/DockerPanel.API/account.json
+Backend/DockerPanel.API/appsettings.*.local.json
+
+# Runtime data
+Backend/DockerPanel.API/Data/
+Backend/DockerPanel.API/logs/
+Backend/DockerPanel.API/Logs/
+logs/
+.temp/
+.tmp/
+*.db
+*.db-shm
+*.db-wal
+
+# Build outputs
+**/bin/
+**/obj/
+Backend/DockerPanel.API/wwwroot/
+
+# Frontend dependencies and caches
+Frontend/node_modules/
+Frontend/dist/
+Frontend/.vite/
+
+# IDE / OS files
+.vs/
+.vscode/
+.idea/
+.agent/
+.playwright-mcp/
+.shared/
+.spec-workflow/
+*.user
+*.suo
+Thumbs.db
+.DS_Store
+
+# Local screenshots / analysis artifacts
+/*.jpg
+/*.jpeg
+/*.png
+/*.webp
+
+# Unused scaffold assets
+Frontend/public/docker-logo.png
+Frontend/src/assets/vue.svg

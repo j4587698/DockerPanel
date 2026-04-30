@@ -5,15 +5,12 @@
     <main class="login-shell">
       <section class="login-card saas-card">
         <div class="brand-row">
-          <div class="brand-logo">
-            <el-icon><Monitor /></el-icon>
-          </div>
-          <span>DockerPanel</span>
+          <AppLogo :name="appName" size="lg" />
         </div>
 
         <div class="form-header">
           <span class="mode-badge">{{ isSetupMode ? '首次安装' : '安全登录' }}</span>
-          <h1>{{ isSetupMode ? '初始化 DockerPanel' : '欢迎回来' }}</h1>
+          <h1>{{ isSetupMode ? `初始化 ${appName}` : '欢迎回来' }}</h1>
           <p>{{ isSetupMode ? '创建第一个管理员账户，完成后自动进入控制台。' : '登录后继续管理容器、镜像、网络和证书。' }}</p>
         </div>
 
@@ -105,17 +102,22 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { Avatar, Check, Close, Lock, Monitor, User } from '@element-plus/icons-vue'
+import { Avatar, Check, Close, Lock, User } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSettingsStore } from '@/stores/settings'
+import AppLogo from '@/components/common/AppLogo.vue'
+import { APP_NAME } from '@/utils/branding'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const settingsStore = useSettingsStore()
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const status = computed(() => authStore.status)
 const isSetupMode = computed(() => route.name === 'Setup' || Boolean(status.value?.requiresSetup))
+const appName = computed(() => settingsStore.systemName || APP_NAME)
 
 const form = reactive({
   username: '',
@@ -173,6 +175,7 @@ const rules: FormRules = {
 
 onMounted(async () => {
   try {
+    settingsStore.loadPublicSettings().catch(() => {})
     const currentStatus = await authStore.loadStatus()
     if (route.name === 'Setup' && !currentStatus.requiresSetup) {
       await router.replace('/login')
@@ -257,19 +260,6 @@ const handleSubmit = async () => {
   font-weight: 700;
 }
 
-.brand-logo {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  background: var(--color-primary);
-  color: var(--text-inverse);
-  font-size: 22px;
-  flex-shrink: 0;
-}
-
 .login-hero {
   padding: 36px;
   border: 1px solid var(--border-color);
@@ -289,7 +279,6 @@ const handleSubmit = async () => {
   font-weight: 700;
 }
 
-.login-brand-logo,
 .form-icon {
   display: flex;
   align-items: center;
@@ -297,17 +286,6 @@ const handleSubmit = async () => {
   flex-shrink: 0;
   background: var(--color-primary);
   color: var(--text-inverse);
-}
-
-.login-brand-logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-}
-
-.docker-icon {
-  width: 22px;
-  height: 22px;
 }
 
 .hero-copy {
@@ -593,8 +571,6 @@ html.dark .login-page {
     var(--bg-app);
 }
 
-html.dark .login-brand-logo,
-html.dark .brand-logo,
 html.dark .form-icon {
   background: var(--color-secondary);
 }

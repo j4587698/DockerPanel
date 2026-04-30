@@ -14,6 +14,10 @@ export default {
   users: '用户管理',
   nodes: '节点管理',
   registries: '镜像仓库',
+  login: '登录',
+  setup: '首次安装',
+  containerDetail: '容器详情',
+  realtimeLogs: '实时日志',
   
   // 基础操作
   refresh: '刷新',

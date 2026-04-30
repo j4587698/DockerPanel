@@ -14,6 +14,10 @@ export default {
   users: 'Users',
   nodes: 'Nodes',
   registries: 'Registries',
+  login: 'Login',
+  setup: 'First Setup',
+  containerDetail: 'Container Details',
+  realtimeLogs: 'Realtime Logs',
   
   // Basic Actions
   refresh: 'Refresh',

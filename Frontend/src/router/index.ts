@@ -29,13 +29,13 @@ const routes = [
     path: '/setup',
     name: 'Setup',
     component: Login,
-    meta: { public: true, setup: true, title: '首次安装' }
+    meta: { public: true, setup: true, title: '首次安装', titleKey: 'common.setup' }
   },
   {
     path: '/login',
     name: 'Login',
     component: Login,
-    meta: { public: true, title: '登录' }
+    meta: { public: true, title: '登录', titleKey: 'common.login' }
   },
   {
     path: '/',
@@ -46,97 +46,97 @@ const routes = [
         path: 'dashboard',
         name: 'Dashboard',
         component: Dashboard,
-        meta: { title: '仪表盘', icon: 'Monitor' }
+        meta: { title: '仪表盘', titleKey: 'common.dashboard', icon: 'Monitor' }
       },
       {
         path: 'containers',
         name: 'Containers',
         component: Containers,
-        meta: { title: '容器管理', icon: 'Box' }
+        meta: { title: '容器管理', titleKey: 'common.containers', icon: 'Box' }
       },
       {
         path: 'containers/:id',
         name: 'ContainerDetail',
         component: ContainerDetail,
-        meta: { title: '容器详情', icon: 'Box' }
+        meta: { title: '容器详情', titleKey: 'common.containerDetail', icon: 'Box' }
       },
       {
         path: 'images',
         name: 'Images',
         component: Images,
-        meta: { title: '镜像管理', icon: 'Picture' }
+        meta: { title: '镜像管理', titleKey: 'common.images', icon: 'Picture' }
       },
       {
         path: 'networks',
         name: 'Networks',
         component: Networks,
-        meta: { title: '网络管理', icon: 'Connection' }
+        meta: { title: '网络管理', titleKey: 'common.networks', icon: 'Connection' }
       },
       {
         path: 'volumes',
         name: 'Volumes',
         component: Volumes,
-        meta: { title: '存储卷管理', icon: 'Folder' }
+        meta: { title: '存储卷管理', titleKey: 'common.volumes', icon: 'Folder' }
       },
       {
         path: 'yarp',
         name: 'YarpManagement',
         component: YarpManagement,
-        meta: { title: 'YARP网关', icon: 'Link', roles: ['Admin', 'Operator'] }
+        meta: { title: 'YARP网关', titleKey: 'common.yarp', icon: 'Link', roles: ['Admin', 'Operator'] }
       },
       {
         path: 'nodes',
         name: 'Nodes',
         component: NodeList,
-        meta: { title: '节点管理', icon: 'Platform', roles: ['Admin'] }
+        meta: { title: '节点管理', titleKey: 'common.nodes', icon: 'Platform', roles: ['Admin'] }
       },
       {
         path: 'compose',
         name: 'Compose',
         component: ComposeList,
-        meta: { title: 'Compose管理', icon: 'Grid', roles: ['Admin', 'Operator'] }
+        meta: { title: 'Compose管理', titleKey: 'common.compose', icon: 'Grid', roles: ['Admin', 'Operator'] }
       },
       {
         path: 'registries',
         name: 'Registries',
         component: RegistryList,
-        meta: { title: '镜像仓库', icon: 'Connection', roles: ['Admin'] }
+        meta: { title: '镜像仓库', titleKey: 'common.registries', icon: 'Connection', roles: ['Admin'] }
       },
       {
         path: 'certificates',
         name: 'Certificates',
         component: CertificateList,
-        meta: { title: '证书管理', icon: 'Document', roles: ['Admin', 'Operator'] }
+        meta: { title: '证书管理', titleKey: 'common.certificates', icon: 'Document', roles: ['Admin', 'Operator'] }
       },
       {
         path: 'realtime-logs',
         name: 'RealtimeLogs',
         component: RealtimeLogs,
-        meta: { title: '实时日志', icon: 'Document' }
+        meta: { title: '实时日志', titleKey: 'common.realtimeLogs', icon: 'Document' }
       },
       {
         path: 'audit',
         name: 'AuditLogs',
         component: AuditLogs,
-        meta: { title: '操作审计', icon: 'Document', roles: ['Admin'] }
+        meta: { title: '操作审计', titleKey: 'common.audit', icon: 'Document', roles: ['Admin'] }
       },
       {
         path: 'ssh',
         name: 'SshManagement',
         component: SshManagement,
-        meta: { title: 'SSH管理', icon: 'Monitor', roles: ['Admin'] }
+        meta: { title: 'SSH管理', titleKey: 'common.ssh', icon: 'Monitor', roles: ['Admin'] }
       },
       {
         path: 'settings',
         name: 'Settings',
         component: Settings,
-        meta: { title: '系统设置', icon: 'Setting', roles: ['Admin'] }
+        meta: { title: '系统设置', titleKey: 'common.settings', icon: 'Setting', roles: ['Admin'] }
       },
       {
         path: 'users',
         name: 'Users',
         component: UserManagement,
-        meta: { title: '用户管理', icon: 'User', roles: ['Admin'] }
+        meta: { title: '用户管理', titleKey: 'common.users', icon: 'User', roles: ['Admin'] }
       }
     ]
   }

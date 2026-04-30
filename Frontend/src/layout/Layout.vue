@@ -17,16 +17,7 @@
     >
       <!-- Brand Section -->
       <div class="sidebar-brand">
-        <div class="brand-logo">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="docker-icon">
-            <path d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.186.186 0 00-.185.186v1.887c0 .102.083.185.185.185zm-2.954-5.43h2.118a.186.186 0 00.186-.185V3.576a.186.186 0 00-.186-.186h-2.118a.186.186 0 00-.185.186v1.887c0 .102.082.185.185.185zm0 2.716h2.118a.186.186 0 00.186-.185V6.292a.186.186 0 00-.186-.186h-2.118a.186.186 0 00-.185.186v1.887c0 .102.082.185.185.185zm-2.93 0h2.12a.186.186 0 00.184-.185V6.292a.186.186 0 00-.185-.186H8.1a.186.186 0 00-.185.186v1.887c0 .102.083.185.185.185zm-2.964 0h2.119a.186.186 0 00.185-.185V6.292a.186.186 0 00-.185-.186H5.136a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185zm5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.186.186 0 00-.185.186v1.887c0 .102.082.185.185.185zm-2.93 0h2.12a.186.186 0 00.184-.185V9.006a.186.186 0 00-.184-.186h-2.12a.186.186 0 00-.184.186v1.887c0 .102.083.185.185.185zm-2.964 0h2.119a.186.186 0 00.185-.185V9.006a.186.186 0 00-.185-.186H5.136a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185zm-2.92 0h2.12a.186.186 0 00.184-.185V9.006a.186.186 0 00-.184-.186h-2.12a.186.186 0 00-.184.186v1.887c0 .102.082.185.184.185zm12.815 0h2.119a.186.186 0 00.185-.185V9.006a.186.186 0 00-.185-.186h-2.119a.186.186 0 00-.185.186v1.887c0 .102.082.185.185.185zM23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 00-.75.748 11.376 11.376 0 00.692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 003.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288z"/>
-          </svg>
-        </div>
-        <transition name="fade">
-          <div v-show="!isCollapsed || isMobile" class="brand-info">
-            <span class="brand-name">{{ settingsStore.systemName || 'DockerPanel' }}</span>
-          </div>
-        </transition>
+        <AppLogo :name="settingsStore.systemName || APP_NAME" :show-text="!isCollapsed || isMobile" size="sm" />
       </div>
 
       <!-- Navigation Menu -->
@@ -276,6 +267,8 @@ import { authApi } from '@/api/auth'
 import { formatLocalizedTime } from '@/utils/date'
 import { tasksApi } from '@/api/tasks'
 import { signalrService } from '../services/signalr'
+import AppLogo from '@/components/common/AppLogo.vue'
+import { APP_NAME } from '@/utils/branding'
 import {
   Monitor, Box, Picture, Connection, Folder,
   Setting, User, SwitchButton,
@@ -865,38 +858,8 @@ html.dark .task-badge {
   display: flex;
   align-items: center;
   padding: 0 16px;
-  gap: 12px;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
-}
-
-.brand-logo {
-  width: 32px;
-  height: 32px;
-  background: var(--color-primary);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.docker-icon {
-  width: 20px;
-  height: 20px;
-  color: var(--text-inverse);
-}
-
-.brand-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.brand-name {
-  color: var(--text-main);
-  font-weight: 700;
-  font-size: 16px;
-  white-space: nowrap;
 }
 
 /* Navigation */

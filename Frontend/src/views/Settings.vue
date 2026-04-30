@@ -73,7 +73,7 @@
         <div class="card-body">
           <div class="form-group">
             <label class="form-label">{{ t('settings.systemName') }}</label>
-            <input v-model="form.systemName" type="text" class="form-input" placeholder="DockerPanel" @change="handleGeneralChange" />
+            <input v-model="form.systemName" type="text" class="form-input" :placeholder="APP_NAME" @change="handleGeneralChange" />
           </div>
 
           <div class="form-group">
@@ -313,6 +313,7 @@ import { useAppStore } from '@/stores/app'
 import { setLocale, getLocale } from '@/i18n'
 import { useSettingsStore } from '@/stores/settings'
 import { settingsApi } from '@/api/settings'
+import { APP_NAME } from '@/utils/branding'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const { t } = useI18n()
@@ -323,7 +324,7 @@ const importInputRef = ref<HTMLInputElement | null>(null)
 const form = ref({
   theme: 'auto' as 'light' | 'dark' | 'auto',
   language: 'zh-CN',
-  systemName: 'DockerPanel',
+  systemName: APP_NAME,
   systemDescription: 'Docker容器管理平台',
   adminEmail: '',
   defaultTimezone: 'Asia/Shanghai',

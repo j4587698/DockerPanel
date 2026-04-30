@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DockerPanel">
+  <defs>
+    <linearGradient id="bg" x1="10" y1="8" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="0.55" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1E40AF"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="17" y1="17" x2="49" y2="49" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DBEAFE"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#bg)"/>
+  <path fill="#0F172A" fill-opacity="0.12" d="M16 48h34a4 4 0 0 0 4-4V24l-9-9H20a4 4 0 0 0-4 4v29Z"/>
+  <path fill="url(#panel)" d="M14 43.5A4.5 4.5 0 0 0 18.5 48h27A4.5 4.5 0 0 0 50 43.5v-23A4.5 4.5 0 0 0 45.5 16h-27A4.5 4.5 0 0 0 14 20.5v23Zm6-20.75c0-.97.78-1.75 1.75-1.75h20.5c.97 0 1.75.78 1.75 1.75v2.5c0 .97-.78 1.75-1.75 1.75h-20.5c-.97 0-1.75-.78-1.75-1.75v-2.5Zm0 9c0-.97.78-1.75 1.75-1.75h8.5c.97 0 1.75.78 1.75 1.75v8.5c0 .97-.78 1.75-1.75 1.75h-8.5c-.97 0-1.75-.78-1.75-1.75v-8.5Zm15 0c0-.97.78-1.75 1.75-1.75h5.5c.97 0 1.75.78 1.75 1.75v1.5c0 .97-.78 1.75-1.75 1.75h-5.5c-.97 0-1.75-.78-1.75-1.75v-1.5Zm0 8c0-.97.78-1.75 1.75-1.75h5.5c.97 0 1.75.78 1.75 1.75v.5c0 .97-.78 1.75-1.75 1.75h-5.5c-.97 0-1.75-.78-1.75-1.75v-.5Z"/>
+</svg>

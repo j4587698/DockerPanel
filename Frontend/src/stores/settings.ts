@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { settingsApi, type PanelSystemSettings, type PanelUiSettings, type PublicSystemSettings } from '@/api/settings'
+import { APP_NAME } from '@/utils/branding'
 
 export interface AlertThresholds {
   cpu: number
@@ -17,7 +18,7 @@ const STORAGE_KEY = 'dockerpanel-settings'
 
 // 默认设置
 const defaultSettings = {
-  systemName: 'DockerPanel',
+  systemName: APP_NAME,
   systemDescription: 'Docker容器管理平台',
   adminEmail: '',
   defaultLanguage: 'zh-CN',
@@ -153,7 +154,6 @@ export const useSettingsStore = defineStore('settings', () => {
   // 设置方法
   const setSystemName = (name: string) => {
     systemName.value = name
-    document.title = name ? `${name} - DockerPanel` : 'DockerPanel'
   }
 
   const setGeneralSettings = (settings: {
@@ -168,7 +168,6 @@ export const useSettingsStore = defineStore('settings', () => {
     adminEmail.value = settings.adminEmail
     defaultLanguage.value = settings.defaultLanguage
     defaultTimezone.value = settings.defaultTimezone
-    document.title = systemName.value ? `${systemName.value} - DockerPanel` : 'DockerPanel'
   }
 
   const setRefreshInterval = (interval: number) => {
@@ -301,7 +300,6 @@ export const useSettingsStore = defineStore('settings', () => {
     passwordRequireNumbers.value = settings.security.passwordRequireNumbers
     passwordRequireSpecialChars.value = settings.security.passwordRequireSpecialChars
     enableTwoFactorAuth.value = settings.security.enableTwoFactorAuth
-    document.title = systemName.value ? `${systemName.value} - DockerPanel` : 'DockerPanel'
   }
 
   const applyPublicSettings = (settings: PublicSystemSettings) => {
@@ -311,7 +309,6 @@ export const useSettingsStore = defineStore('settings', () => {
     defaultTimezone.value = settings.defaultTimezone
     refreshInterval.value = settings.refreshInterval
     defaultPageSize.value = settings.defaultPageSize
-    document.title = systemName.value ? `${systemName.value} - DockerPanel` : 'DockerPanel'
   }
 
   const buildRemoteSettings = (options?: { theme?: PanelUiSettings['theme']; language?: string }): PanelSystemSettings => {
@@ -441,11 +438,6 @@ export const useSettingsStore = defineStore('settings', () => {
     passwordRequireNumbers.value = defaultSettings.passwordRequireNumbers
     passwordRequireSpecialChars.value = defaultSettings.passwordRequireSpecialChars
     enableTwoFactorAuth.value = defaultSettings.enableTwoFactorAuth
-  }
-
-  // 初始化时设置页面标题
-  if (systemName.value) {
-    document.title = systemName.value
   }
 
   return {

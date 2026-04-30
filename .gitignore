@@ -6,7 +6,10 @@ Backend/DockerPanel.API/account.json
 Backend/DockerPanel.API/appsettings.*.local.json
 
 # Runtime data
-Backend/DockerPanel.API/Data/
+Backend/DockerPanel.API/Data/*.db
+Backend/DockerPanel.API/Data/*.db-shm
+Backend/DockerPanel.API/Data/*.db-wal
+Backend/DockerPanel.API/Data/*.key
 Backend/DockerPanel.API/logs/
 Backend/DockerPanel.API/Logs/
 logs/

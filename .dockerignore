@@ -17,7 +17,10 @@ logs/
 
 Backend/DockerPanel.API/logs/
 Backend/DockerPanel.API/Logs/
-Backend/DockerPanel.API/Data/
+Backend/DockerPanel.API/Data/*.db
+Backend/DockerPanel.API/Data/*.db-shm
+Backend/DockerPanel.API/Data/*.db-wal
+Backend/DockerPanel.API/Data/*.key
 Backend/DockerPanel.API/account.json
 Backend/DockerPanel.API/*.db
 Backend/DockerPanel.API/wwwroot/
@@ -29,6 +32,8 @@ Frontend/dist/
 *.suo
 *.log
 *.db
+*.db-shm
+*.db-wal
 /*.jpg
 /*.jpeg
 /*.png

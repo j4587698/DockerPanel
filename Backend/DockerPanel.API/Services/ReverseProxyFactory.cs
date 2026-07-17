@@ -747,11 +747,25 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
 
             // 生成路由配置
             var routeId = $"route-{domain.Replace(".", "-").Replace(":", "-")}";
+            
+            // 确保 PathPattern 使用 catch-all 模式以匹配所有子路径
+            var pathPattern = pathPrefix;
+            if (pathPattern == "/") 
+            {
+                pathPattern = "/{**catch-all}";
+            }
+            else if (!pathPattern.EndsWith("{**catch-all}"))
+            {
+                pathPattern = pathPattern.EndsWith("/") 
+                    ? $"{pathPattern}{{**catch-all}}" 
+                    : $"{pathPattern}/{{**catch-all}}";
+            }
+
             var route = new ProxyRouteConfig
             {
                 RouteId = routeId,
                 Host = domain,
-                PathPattern = pathPrefix,
+                PathPattern = pathPattern,
                 ClusterId = clusterId,
                 Enabled = true,
                 Priority = firstMapping.Priority

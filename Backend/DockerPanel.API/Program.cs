@@ -424,25 +424,36 @@ else
 // ACME HTTP-01 挑战必须走 80，且代理转发不应强制 HTTP→HTTPS 跳转。
 app.Use(async (context, next) =>
 {
-    var headers = context.Response.Headers;
-    headers.TryAdd("X-Content-Type-Options", "nosniff");
-    headers.TryAdd("X-Frame-Options", "DENY");
-    headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
-    headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-
-    if (!app.Environment.IsDevelopment())
+    context.Response.OnStarting(() =>
     {
-        headers.TryAdd("Content-Security-Policy",
-            "default-src 'self'; " +
-            "script-src 'self'; " +
-            "style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data: blob:; " +
-            "font-src 'self' data:; " +
-            "connect-src 'self' ws: wss: http: https:; " +
-            "frame-ancestors 'none'; " +
-            "base-uri 'self'; " +
-            "form-action 'self'");
-    }
+        var endpoint = context.GetEndpoint();
+        // 如果是 YARP 代理的请求，不要添加这些严格的安全头，以免破坏被代理的容器应用（例如 Jitsi 的内联脚本）
+        bool isYarp = endpoint?.Metadata?.GetMetadata<Yarp.ReverseProxy.Model.RouteModel>() != null;
+
+        if (!isYarp)
+        {
+            var headers = context.Response.Headers;
+            headers.TryAdd("X-Content-Type-Options", "nosniff");
+            headers.TryAdd("X-Frame-Options", "DENY");
+            headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
+            headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+
+            if (!app.Environment.IsDevelopment())
+            {
+                headers.TryAdd("Content-Security-Policy",
+                    "default-src 'self'; " +
+                    "script-src 'self'; " +
+                    "style-src 'self' 'unsafe-inline'; " +
+                    "img-src 'self' data: blob:; " +
+                    "font-src 'self' data:; " +
+                    "connect-src 'self' ws: wss: http: https:; " +
+                    "frame-ancestors 'none'; " +
+                    "base-uri 'self'; " +
+                    "form-action 'self'");
+            }
+        }
+        return Task.CompletedTask;
+    });
 
     await next();
 });

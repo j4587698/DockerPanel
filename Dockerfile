@@ -37,11 +37,8 @@ RUN apk add --no-cache \
 COPY --from=backend-build /app/publish ./
 
 # 设置环境变量
-# .NET 10 默认注入 ASPNETCORE_HTTP_PORTS=8080，优先级高于 ConfigureKestrel 的 ListenAnyIP，
-# 会覆盖我们想绑定的 80/443。显式设回正确端口值即可。
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ASPNETCORE_HTTP_PORTS=80
-ENV ASPNETCORE_HTTPS_PORTS=443
+ENV ASPNETCORE_URLS=http://+:80
 ENV HTTP_PORT=80
 ENV HTTPS_PORT=443
 ENV ENABLE_HTTPS=true

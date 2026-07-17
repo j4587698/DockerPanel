@@ -392,13 +392,9 @@ else
     app.UseHsts();
 }
 
-// 使用HTTPS重定向（仅生产环境，开发环境禁用以便代理）
-if (!app.Environment.IsDevelopment() && app.Configuration.GetValue("ENABLE_HTTPS", true))
-{
-    app.UseHttpsRedirection();
-}
-
 // 基础安全响应头。CSP 仅在非开发环境启用，避免影响 Swagger UI 调试。
+// 注意：不使用 UseHttpsRedirection()——本应用是 Docker 管理面板 + YARP 反向代理，
+// ACME HTTP-01 挑战必须走 80，且代理转发不应强制 HTTP→HTTPS 跳转。
 app.Use(async (context, next) =>
 {
     var headers = context.Response.Headers;

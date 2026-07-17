@@ -12,16 +12,20 @@ services:
       - ENABLE_HTTPS=false
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__Microsoft.AspNetCore=Warning
+      # 首次使用可预置管理员账号，建议显式设置
+      # - DOCKERPANEL_ADMIN_USERNAME=admin
+      # - DOCKERPANEL_ADMIN_PASSWORD=ChangeMe!123
+      # 生产环境建议显式配置 JWT 密钥，否则每次重建会重新生成导致登录失效
+      # - DOCKERPANEL_JWT_SECRET=your-strong-secret-here
     volumes:
       # 挂载Docker socket以允许管理Docker容器
       - /var/run/docker.sock:/var/run/docker.sock
-      # 持久化数据存储
+      # 持久化数据存储（含自动生成的 JWT 密钥）
       - dockerpanel_data:/app/Data
       # 日志文件
       - dockerpanel_logs:/app/Logs
     networks:
       - dockerpanel-network
-    # 支持 host.docker.internal（Linux 需要）
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

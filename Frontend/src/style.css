@@ -3,8 +3,6 @@
    Minimalist, Professional, Enterprise SaaS
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
   /* --- Core Colors (Light Mode) --- */
   --color-primary: #0f172a;
@@ -146,7 +144,7 @@ html {
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg-app);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
@@ -163,7 +161,7 @@ body {
 
 /* === Typography === */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.3;
@@ -195,7 +193,7 @@ h6 { font-size: 14px; }
 }
 
 .page-title {
-  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 28px;
   font-weight: 700;
   margin: 0;
@@ -246,7 +244,7 @@ h6 { font-size: 14px; }
   height: var(--control-height);
   padding: 8px 16px;
   border-radius: var(--border-radius-sm);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: 500;
   font-size: 14px;
   transition: var(--transition-base);
@@ -312,7 +310,7 @@ html.dark .el-button--primary:hover {
   height: var(--control-height);
   padding: 8px 16px;
   border-radius: var(--border-radius-sm);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: 500;
   font-size: 14px;
   transition: var(--transition-base);
@@ -484,7 +482,7 @@ html.dark .el-button--primary:hover {
 .flex-row { display: flex; align-items: center; gap: 12px; }
 .flex-col { display: flex; flex-direction: column; gap: 8px; }
 .spacer { flex: 1; }
-.font-mono { font-family: 'JetBrains Mono', monospace; }
+.font-mono { font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace; }
 .text-sm { font-size: 13px; }
 .text-xs { font-size: 12px; }
 .text-muted { color: var(--text-muted); }
@@ -566,7 +564,7 @@ html.dark .el-button--primary:hover {
   justify-content: space-between;
   padding: 6px 10px;
   border-radius: 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace;
   font-size: 12px;
 }
 
@@ -1721,7 +1719,7 @@ html.dark .el-divider__text {
   background: var(--bg-subtle);
   border-radius: 4px;
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace;
 }
 
 .label-key { color: var(--color-secondary); }
@@ -1761,7 +1759,7 @@ html.dark .el-divider__text {
 .stat-icon-wrapper.network { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
 
 .stat-info { display: flex; flex-direction: column; }
-.stat-value { font-size: 24px; font-weight: 600; color: var(--text-main); font-family: 'JetBrains Mono', monospace; }
+.stat-value { font-size: 24px; font-weight: 600; color: var(--text-main); font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace; }
 .stat-label { font-size: 13px; color: var(--text-muted); }
 
 /* 网络卡片 */
@@ -1861,7 +1859,7 @@ html.dark .el-divider__text {
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 12px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace;
 }
 
 .port-tag.mapped {
@@ -1893,7 +1891,7 @@ html.dark .el-divider__text {
   background: var(--bg-subtle);
   border-radius: 6px;
   font-size: 13px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace;
 }
 
 .env-key { color: var(--color-secondary); font-weight: 500; }
@@ -2023,7 +2021,7 @@ html.dark .el-divider__text {
 .console-textarea .el-textarea__inner {
   background: transparent !important;
   color: #d4d4d4 !important;
-  font-family: 'JetBrains Mono', Consolas, monospace !important;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace !important;
   font-size: 13px !important;
   line-height: 1.5 !important;
   border: none !important;
@@ -2330,7 +2328,7 @@ html.dark .el-divider__text {
   font-size: 28px;
   font-weight: 700;
   color: var(--text-main);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace;
 }
 
 .value-unit {

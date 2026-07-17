@@ -2,7 +2,9 @@
 
 DockerPanel 是一个基于 ASP.NET Core 10 和 Vue 3 的 Docker 管理面板。后端通过 Docker Socket 管理本机 Docker，前端由 Vite 构建后随后端镜像一起发布。
 
-当前后端版本：`0.1.0`
+当前后端版本：`0.2.0`
+
+Docker 镜像发布在 Docker Hub：[`j4587698/dockerpanel`](https://hub.docker.com/r/j4587698/dockerpanel)，由 GitHub Actions 自动构建并推送，无需本地构建。
 
 ## 技术栈
 
@@ -10,49 +12,76 @@ DockerPanel 是一个基于 ASP.NET Core 10 和 Vue 3 的 Docker 管理面板。
 - 前端：Vue 3、TypeScript、Vite、Pinia、Vue Router、Element Plus、ECharts、xterm
 - 部署：Docker、Docker Compose
 
-## 快速启动
+## 部署
 
-### 生产环境
+DockerPanel 以**单一镜像**形式发布到 Docker Hub（前端构建产物随后端镜像一起发布），部署只需拉取镜像并运行。
+
+镜像地址：`j4587698/dockerpanel`
+
+可用 tag：
+
+- `latest`：最新发布版本
+- `0.1` / `0.1.0`：对应后端 `<Version>`（见 `Backend/DockerPanel.API/DockerPanel.API.csproj`）
+
+### 方式一：使用 docker run
 
 ```bash
-git clone https://github.com/j4587698/DockerPanel.git
-cd DockerPanel
-chmod +x scripts/deploy.sh
-./scripts/deploy.sh production
+docker run -d \
+  --name dockerpanel-app \
+  --restart unless-stopped \
+  -p 80:80 \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  -e ASPNETCORE_URLS=http://+:80 \
+  -e HTTP_PORT=80 \
+  -e ENABLE_HTTPS=false \
+  -e DOCKERPANEL_JWT_SECRET=你的强密钥 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v dockerpanel_data:/app/Data \
+  -v dockerpanel_logs:/app/Logs \
+  j4587698/dockerpanel:latest
 ```
 
-默认访问地址：`http://localhost`
+### 方式二：使用 docker compose（推荐）
 
-如果需要使用其它宿主机端口：
+仓库提供 `docker-compose.hub.yml`，已直接引用 Docker Hub 镜像，无需本地构建：
 
 ```bash
-./scripts/deploy.sh production 9090
+# 拉取最新镜像并启动
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
+
+# 查看状态
+docker compose -f docker-compose.hub.yml ps
+
+# 查看日志
+docker compose -f docker-compose.hub.yml logs -f
+
+# 停止
+docker compose -f docker-compose.hub.yml down
+```
+
+如需使用非 80 宿主机端口，通过环境变量覆盖：
+
+```bash
+DOCKERPANEL_HTTP_HOST_PORT=9090 docker compose -f docker-compose.hub.yml up -d
 ```
 
 注意：ACME HTTP-01 证书签发要求公网 80 端口能访问 DockerPanel；如果宿主机不直接使用 80，需要自行配置反向代理或端口转发。
 
-### 开发环境
+### 方式三：一键部署脚本（推荐，单文件自举）
+
+无需 clone 仓库，直接运行脚本即可。脚本会自动从 GitHub 下载 compose 文件并拉取最新镜像：
 
 ```bash
-./scripts/deploy.sh development
+curl -fsSL https://raw.githubusercontent.com/j4587698/DockerPanel/main/scripts/deploy.sh | bash -s -- production 80
 ```
 
-- 前端开发服务：`http://localhost:3000`
-- 后端开发服务：`http://localhost:5000`
-- Swagger 仅在后端 Development 环境启用：`http://localhost:5000/swagger`
+参数：`deploy.sh [production|development] [port]`。生产环境默认端口 80。
 
-也可以分开运行：
+脚本逻辑：
 
-```bash
-cd Backend/DockerPanel.API
-dotnet run
-```
-
-```bash
-cd Frontend
-npm install
-npm run dev
-```
+- 生产环境：下载 `docker-compose.hub.yml` 到临时目录 → 拉取 `j4587698/dockerpanel:latest` → 启动。
+- 开发环境：需在本地仓库内运行（需要源码构建前后端）。
 
 ## 首次使用
 
@@ -103,9 +132,10 @@ DockerPanel/
 ├── scripts/
 │   ├── build.sh
 │   └── deploy.sh
-├── docker-compose.yml
-├── docker-compose.dev.yml
-└── Dockerfile
+├── docker-compose.yml        # 生产部署（使用 Docker Hub 镜像 j4587698/dockerpanel）
+├── docker-compose.hub.yml    # 同上，显式引用 Docker Hub 镜像的部署文件
+├── docker-compose.dev.yml    # 开发环境（前后端分离）
+└── Dockerfile                # CI 构建用，将前端打包进后端镜像
 ```
 
 ## 配置
@@ -118,24 +148,36 @@ DockerPanel/
 | `ASPNETCORE_URLS` | `http://+:80` | 容器内监听地址 |
 | `HTTP_PORT` | `80` | 容器内 HTTP 端口 |
 | `ENABLE_HTTPS` | `false` | Docker 部署默认关闭 Kestrel HTTPS |
-| `DOCKERPANEL_HTTP_HOST_PORT` | `80` | 生产 Compose 映射到宿主机的 HTTP 端口 |
+| `DOCKERPANEL_HTTP_HOST_PORT` | `80` | `docker-compose.hub.yml` 映射到宿主机的 HTTP 端口 |
 | `DOCKERPANEL_ADMIN_USERNAME` | - | 首次启动时预置管理员用户名 |
 | `DOCKERPANEL_ADMIN_PASSWORD` | - | 首次启动时预置管理员密码 |
 | `DOCKERPANEL_JWT_SECRET` | 自动生成 | JWT 签名密钥，生产环境建议显式配置 |
 | `TinyDb__Path` | `Data/DockerPanel.db` | TinyDb 数据库路径 |
 
-生产 Compose 会挂载：
+生产部署（`docker-compose.hub.yml`）会挂载：
 
 - `/var/run/docker.sock:/var/run/docker.sock`：用于管理宿主机 Docker
 - `dockerpanel_data:/app/Data`：用于持久化 TinyDb 数据和自动生成的 JWT 密钥
+- `dockerpanel_logs:/app/Logs`：日志文件
 
-## 构建与验证
+## 本地开发（仅开发环境，生产镜像由 CI 构建）
 
-后端构建：
+如需本地修改并运行前后端：
 
 ```bash
-dotnet build Backend/DockerPanel.API/DockerPanel.API.csproj
+# 后端
+cd Backend/DockerPanel.API
+dotnet run
+
+# 前端（另开终端）
+cd Frontend
+npm install
+npm run dev
 ```
+
+- 前端开发服务：`http://localhost:3000`
+- 后端开发服务：`http://localhost:5000`
+- Swagger 仅在后端 Development 环境启用：`http://localhost:5000/swagger`
 
 前端类型检查与构建：
 
@@ -146,27 +188,28 @@ npm install
 npm run build
 ```
 
-Docker 镜像构建：
+生产镜像由 GitHub Actions 自动构建并推送到 Docker Hub，见下文。
 
-```bash
-./scripts/build.sh
-```
-
-## GitHub Actions 镜像发布
+## 镜像发布（GitHub Actions）
 
 工作流文件：`.github/workflows/docker-publish.yml`
 
-发布逻辑：
+工作流文件：`.github/workflows/docker-publish.yml`
 
-1. 读取 `Backend/DockerPanel.API/DockerPanel.API.csproj` 中的 `<Version>`。
-2. 如果远端已存在 `v<Version>` tag，则跳过 Docker 发布。
-3. 如果 tag 不存在，则构建根目录 `Dockerfile`，推送到 Docker Hub 和 GitHub Container Registry。
-4. 发布成功后创建 `v<Version>` Git tag。
+发布流程（全部在 CI 完成，无需本地构建镜像）：
 
-当前 `0.1.0` 版本会发布以下镜像 tag：
+1. 推送代码到默认分支触发工作流。
+2. 读取 `Backend/DockerPanel.API/DockerPanel.API.csproj` 中的 `<Version>`。
+3. 如果远端已存在 `v<Version>` tag，则跳过 Docker 发布（避免重复发布同一版本）。
+4. 否则构建根目录 `Dockerfile`（前端 + 后端一体），推送到 Docker Hub 和 GitHub Container Registry。
+5. 发布成功后创建 `v<Version>` Git tag。
 
-- `0.1.0`
-- `0.1`
+> 升级版本时，只需修改 csproj 中的 `<Version>` 并推送，CI 会自动发布新 tag 的镜像。
+
+当前 `0.2.0` 版本会发布以下镜像 tag：
+
+- `0.2.0`
+- `0.2`
 - `latest`（默认分支发布时）
 
 需要在 GitHub 仓库 `Settings` → `Secrets and variables` → `Actions` 中配置：
@@ -181,14 +224,18 @@ GitHub Container Registry 使用 Actions 自动提供的 `GITHUB_TOKEN`，同时
 ## 常用命令
 
 ```bash
-# 查看生产环境日志
-docker-compose -f docker-compose.yml logs -f
+# 拉取最新镜像并启动
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
 
-# 停止生产环境
-docker-compose -f docker-compose.yml down
+# 查看运行状态
+docker compose -f docker-compose.hub.yml ps
 
-# 查看生产环境状态
-docker-compose -f docker-compose.yml ps
+# 查看日志
+docker compose -f docker-compose.hub.yml logs -f
+
+# 停止
+docker compose -f docker-compose.hub.yml down
 
 # 健康检查
 curl http://localhost/health/live

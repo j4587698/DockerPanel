@@ -901,7 +901,7 @@ namespace DockerPanel.API.Services.Acme
         {
             await Task.CompletedTask;
 
-            var persistedCertificates = _dbContext.GetCollection<CertificateRecord>("certificates")
+            var persistedCertificates = _dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates)
                 .FindAll()
                 .Where(IsWildcardCertificate)
                 .Select(MapToWildcardCertificateInfo)
@@ -933,7 +933,7 @@ namespace DockerPanel.API.Services.Acme
                 return certificate;
             }
 
-            var record = _dbContext.GetCollection<CertificateRecord>("certificates").FindById(certificateId);
+            var record = _dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates).FindById(certificateId);
             if (record == null || !IsWildcardCertificate(record))
             {
                 return null;
@@ -1003,7 +1003,7 @@ namespace DockerPanel.API.Services.Acme
                 }
 
                 // 2. 从数据库和缓存中移除证书
-                var certificatesCollection = _dbContext.GetCollection<CertificateRecord>("certificates");
+                var certificatesCollection = _dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
                 var deletedFromDb = certificatesCollection.Delete(certificateId);
                 if (deletedFromDb > 0)
                 {
@@ -1113,7 +1113,7 @@ namespace DockerPanel.API.Services.Acme
                 _logger.LogInformation("开始强制删除通配符证书: {CertificateId}", certificateId);
 
                 // 强制删除，不检查状态
-                var certificatesCollection = _dbContext.GetCollection<CertificateRecord>("certificates");
+                var certificatesCollection = _dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
                 var persistedRecord = certificatesCollection.FindById(certificateId);
                 var persistedInfo = persistedRecord != null && IsWildcardCertificate(persistedRecord)
                     ? MapToWildcardCertificateInfo(persistedRecord)
@@ -1337,7 +1337,7 @@ namespace DockerPanel.API.Services.Acme
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                var certificatesCollection = _dbContext.GetCollection<CertificateRecord>("certificates");
+                var certificatesCollection = _dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
                 certificatesCollection.Insert(certificateRecord);
                 _certificateCache[certificateInfo.Id] = certificateInfo;
 

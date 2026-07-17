@@ -35,7 +35,6 @@ function readStoredUser(): AuthUser | null {
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    token: localStorage.getItem(TOKEN_KEY) || '',
     expiresAt: localStorage.getItem(EXPIRES_KEY) || '',
     user: readStoredUser() as AuthUser | null,
     status: null as AuthStatusResponse | null,
@@ -43,7 +42,7 @@ export const useAuthStore = defineStore('auth', {
   }),
 
   getters: {
-    isAuthenticated: (state) => Boolean(state.token) && !isTokenExpired(state.expiresAt),
+    isAuthenticated: (state) => state.user !== null && !isTokenExpired(state.expiresAt),
     displayName: (state) => state.user?.displayName || state.user?.username || 'Admin',
     effectiveRole: (state): AuthRole => normalizeRole(state.user?.role),
     isAdmin: (state) => normalizeRole(state.user?.role) === 'Admin',
@@ -70,7 +69,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async loadCurrentUser() {
-      if (!this.token || isTokenExpired(this.expiresAt)) {
+      if (isTokenExpired(this.expiresAt)) {
         this.clearAuth()
         return false
       }
@@ -88,12 +87,10 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async logout() {
-      if (this.token) {
-        try {
-          await authApi.logout()
-        } catch {
-          // token 可能已过期，忽略服务端退出失败
-        }
+      try {
+        await authApi.logout()
+      } catch {
+        // 忽略服务端退出失败
       }
 
       this.clearAuth()
@@ -101,7 +98,6 @@ export const useAuthStore = defineStore('auth', {
 
     applyLoginResponse(response: { accessToken: string; expiresAt: string; user: AuthUser }) {
       response.user.role = normalizeRole(response.user.role)
-      this.token = response.accessToken
       this.expiresAt = response.expiresAt
       this.user = response.user
       this.initialized = true
@@ -109,18 +105,22 @@ export const useAuthStore = defineStore('auth', {
         this.status = { ...this.status, hasUsers: true, requiresSetup: false }
       }
 
-      localStorage.setItem(TOKEN_KEY, response.accessToken)
+      if (this.status) {
+        this.status = { ...this.status, hasUsers: true, requiresSetup: false }
+      }
+
       localStorage.setItem(EXPIRES_KEY, response.expiresAt)
       localStorage.setItem(USER_KEY, JSON.stringify(response.user))
     },
 
     clearAuth() {
-      this.token = ''
       this.expiresAt = ''
       this.user = null
       this.initialized = false
 
-      localStorage.removeItem(TOKEN_KEY)
+      this.initialized = false
+
+      localStorage.removeItem(TOKEN_KEY) // 兼容旧版，清理掉它
       localStorage.removeItem(EXPIRES_KEY)
       localStorage.removeItem(USER_KEY)
     }

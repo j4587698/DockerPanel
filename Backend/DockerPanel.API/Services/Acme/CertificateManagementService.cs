@@ -45,8 +45,8 @@ namespace DockerPanel.API.Services.Acme
             _certificateAutoService = certificateAutoService;
             _logger = logger;
             _database = database;
-            _certificateCollection = database.GetCollection<CertificateRecord>("certificates");
-            _operationCollection = database.GetCollection<CertificateOperationRecord>("certificate_operations");
+            _certificateCollection = database.GetCollection<CertificateRecord>(DbCollections.Certificates);
+            _operationCollection = database.GetCollection<CertificateOperationRecord>(DbCollections.CertificateOperations);
             _usageStatistics = new ConcurrentDictionary<string, CertificateUsageStatistics>();
 
             // TinyDb 使用属性自动创建索引

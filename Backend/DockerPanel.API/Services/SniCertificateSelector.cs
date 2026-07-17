@@ -137,7 +137,7 @@ public class SniCertificateSelector
             using var scope = _scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
             
-            var collection = dbContext.GetCollection<CertificateRecord>("certificates");
+            var collection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
             
             // 查找精确匹配的证书
             var record = collection.FindOne(r => 
@@ -171,7 +171,7 @@ public class SniCertificateSelector
             using var scope = _scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
             
-            var collection = dbContext.GetCollection<CertificateRecord>("certificates");
+            var collection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
             
             // 获取所有有效的通配符证书
             var wildcardRecords = collection.Find(r => 
@@ -293,7 +293,7 @@ public class SniCertificateSelector
             using var scope = _scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
             
-            var collection = dbContext.GetCollection<CertificateRecord>("certificates");
+            var collection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
             var records = collection.Find(r => 
                 (r.Status == "valid" || r.Status == "Active") &&
                 r.ExpiresAt > DateTime.UtcNow &&

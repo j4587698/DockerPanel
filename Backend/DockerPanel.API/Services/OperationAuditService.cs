@@ -32,7 +32,7 @@ public class OperationAuditService : IOperationAuditService
             if (string.IsNullOrWhiteSpace(log.Id)) log.Id = Guid.NewGuid().ToString("N");
             if (log.Timestamp == default) log.Timestamp = DateTime.UtcNow;
 
-            var collection = _dbContext.GetCollection<OperationAuditLog>("operation_audit_logs");
+            var collection = _dbContext.GetCollection<OperationAuditLog>(DbCollections.OperationAudits);
             collection.Insert(log);
         }
         catch (Exception ex)
@@ -48,7 +48,7 @@ public class OperationAuditService : IOperationAuditService
         filter.Page = Math.Max(1, filter.Page);
         filter.PageSize = Math.Clamp(filter.PageSize, 1, 200);
 
-        var logs = _dbContext.GetCollection<OperationAuditLog>("operation_audit_logs")
+        var logs = _dbContext.GetCollection<OperationAuditLog>(DbCollections.OperationAudits)
             .FindAll()
             .AsEnumerable();
 
@@ -87,7 +87,7 @@ public class OperationAuditService : IOperationAuditService
 
     public Task<OperationAuditLog?> GetLogAsync(string id)
     {
-        var log = _dbContext.GetCollection<OperationAuditLog>("operation_audit_logs")
+        var log = _dbContext.GetCollection<OperationAuditLog>(DbCollections.OperationAudits)
             .Find(l => l.Id == id)
             .FirstOrDefault();
         return Task.FromResult(log);
@@ -95,7 +95,7 @@ public class OperationAuditService : IOperationAuditService
 
     public Task<int> DeleteOlderThanAsync(DateTime cutoffUtc)
     {
-        var deleted = _dbContext.GetCollection<OperationAuditLog>("operation_audit_logs")
+        var deleted = _dbContext.GetCollection<OperationAuditLog>(DbCollections.OperationAudits)
             .DeleteMany(l => l.Timestamp < cutoffUtc);
         return Task.FromResult(deleted);
     }

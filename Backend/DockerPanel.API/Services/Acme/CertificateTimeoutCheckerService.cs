@@ -76,7 +76,7 @@ namespace DockerPanel.API.Services
             {
                 var now = DateTime.UtcNow;
                 var timeoutThreshold = now.Subtract(_certificateTimeout); // 计算阈值时间
-                var ordersCollection = _db.GetCollection<AcmeCertificateOrder>("acme_orders");
+                var ordersCollection = _db.GetCollection<AcmeCertificateOrder>(DbCollections.AcmeOrders);
 
                 // 查找过期的pending证书订单
                 var expiredOrders = ordersCollection.Find(o =>

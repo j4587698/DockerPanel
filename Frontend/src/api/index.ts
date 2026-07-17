@@ -13,6 +13,7 @@ interface ApiRequestConfig extends AxiosRequestConfig {
 const api = axios.create({
   baseURL: "/api",
   timeout: 30000, // 增加超时时间到30秒
+  withCredentials: true, // 允许携带 HttpOnly Cookie
   headers: {
     "Content-Type": "application/json"
   }
@@ -30,15 +31,6 @@ api.interceptors.request.use(
     if (config.skipErrorHandler) {
       config.headers = config.headers || {}
       ;(config as any)._skipErrorHandler = true
-    }
-
-    // 添加认证 token
-    if (!config.skipAuth) {
-      const token = localStorage.getItem("token")
-      if (token) {
-        config.headers = config.headers || {}
-        config.headers["Authorization"] = `Bearer ${token}`
-      }
     }
     
     // 添加 Accept-Language 头，让后端知道客户端语言

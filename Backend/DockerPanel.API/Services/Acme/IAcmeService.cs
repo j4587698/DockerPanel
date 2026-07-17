@@ -146,6 +146,12 @@ namespace DockerPanel.API.Services.Acme
         Task<int> CheckCertificateExpiryAsync(string certificateId);
 
         /// <summary>
+        /// <summary>
+        /// 处理由队列投递的 ACME 后台任务
+        /// </summary>
+        Task ProcessJobAsync(AcmeJobRecord job);
+
+        /// <summary>
         /// 自动续期即将到期的证书
         /// </summary>
         /// <param name="daysBeforeExpiry">到期前多少天续期</param>

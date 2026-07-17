@@ -14,6 +14,8 @@ using System.Net.Security;
 using System.Security.Authentication;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -100,15 +102,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnMessageReceived = context =>
             {
-                var accessToken = context.Request.Query["access_token"];
-                var path = context.HttpContext.Request.Path;
-
-                if (!string.IsNullOrWhiteSpace(accessToken) &&
-                    (path.StartsWithSegments("/dockerpanelHub") ||
-                     path.StartsWithSegments("/sshTerminalHub") ||
-                     path.StartsWithSegments("/containerTerminalHub")))
+                // 首先尝试从 Cookie 中读取
+                var cookieToken = context.Request.Cookies["jwt_token"];
+                if (!string.IsNullOrWhiteSpace(cookieToken))
                 {
-                    context.Token = accessToken;
+                    context.Token = cookieToken;
+                }
+                else
+                {
+                    // 用于 WebSocket 的回退机制
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path;
+
+                    if (!string.IsNullOrWhiteSpace(accessToken) &&
+                        (path.StartsWithSegments("/dockerpanelHub") ||
+                         path.StartsWithSegments("/sshTerminalHub") ||
+                         path.StartsWithSegments("/containerTerminalHub")))
+                    {
+                        context.Token = accessToken;
+                    }
                 }
 
                 return Task.CompletedTask;
@@ -160,6 +172,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+// 引入速率限制防护 (防止公网被爆破)
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("LoginPolicy", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 20; // 整个节点每分钟 20 次登录尝试
+        opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
+    });
+});
+
 // 添加多语言本地化服务
 builder.Services.AddLocalizationServices();
 
@@ -208,6 +233,8 @@ builder.Services.AddScoped<INodeResourceService, NodeResourceServiceImpl>();
 builder.Services.AddScoped<INodeGroupService, NodeGroupServiceImpl>();
 
 // 添加ACME证书管理服务 - 使用包含续期功能的实现
+builder.Services.AddScoped<DockerPanel.API.Services.Acme.AcmeJobQueueService>();
+builder.Services.AddHostedService<DockerPanel.API.Services.Acme.AcmeJobWorker>();
 builder.Services.AddScoped<DockerPanel.API.Services.Acme.IAcmeService, DockerPanel.API.Services.Acme.CertesAcmeService>();
 // 移除重复注册
 // builder.Services.AddScoped<DockerPanel.API.Services.Acme.CertesAcmeService>();
@@ -457,6 +484,9 @@ app.UseCors();
 
 // 使用路由
 app.UseRouting();
+
+// 启用速率限制 (在 UseRouting 之后，UseAuthentication 之前)
+app.UseRateLimiter();
 
 // 全局错误处理（必须在控制器之前，以捕获控制器异常）
 app.Use(async (context, next) =>

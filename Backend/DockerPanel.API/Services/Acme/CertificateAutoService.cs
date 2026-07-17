@@ -1108,17 +1108,13 @@ namespace DockerPanel.API.Services.Acme
 
                 foreach (var certificate in expiringCertificates.Where(c => c.AutoRenewalEnabled))
                 {
-                    // 将续期任务加入后台队列
-                    _taskQueue.QueueBackgroundWorkItem(async (cancellationToken) =>
+                    // 将续期任务加入基于 TinyDb 的持久化后台队列
+                    using var scope = _scopeFactory.CreateScope();
+                    var jobQueue = scope.ServiceProvider.GetRequiredService<AcmeJobQueueService>();
+                    
+                    await jobQueue.EnqueueAsync("AutoRenewal", new
                     {
-                        try
-                        {
-                            await AutoRenewCertificateAsync(certificate.CertificateId, cancellationToken);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "后台自动续期任务失败: {CertificateId}", certificate.CertificateId);
-                        }
+                        CertificateId = certificate.CertificateId
                     });
                 }
             }

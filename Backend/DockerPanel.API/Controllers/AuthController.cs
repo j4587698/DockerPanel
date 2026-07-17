@@ -2,6 +2,8 @@ using DockerPanel.API.Models;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 
 namespace DockerPanel.API.Controllers;
 
@@ -47,6 +49,7 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("LoginPolicy")]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
         var result = await _authService.LoginAsync(
@@ -59,7 +62,29 @@ public class AuthController : ControllerBase
             return StatusCode(result.StatusCode, new { message = result.Message });
         }
 
+        // 将 Token 写入 HttpOnly Cookie
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true, // 生产环境最好是 true，本地可能也支持
+            SameSite = SameSiteMode.Lax,
+            Expires = result.Data.ExpiresAt
+        };
+        Response.Cookies.Append("jwt_token", result.Data.AccessToken, cookieOptions);
+
+        // 返回时为了安全可以不再在 Body 里返回 AccessToken，或者继续返回以兼容旧版本但前端不再存 localStorage。
+        // 为了渐进式升级，这里仍返回，由前端决定如何处理。
         return Ok(result.Data);
+    }
+
+    /// <summary>
+    /// 退出登录
+    /// </summary>
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete("jwt_token");
+        return Ok(new { message = "登出成功" });
     }
 
     /// <summary>
@@ -73,15 +98,6 @@ public class AuthController : ControllerBase
         return user == null ? Unauthorized(new { message = "未登录或账户不可用。" }) : Ok(user);
     }
 
-    /// <summary>
-    /// 退出登录。JWT 为无状态令牌，前端清除本地 token 即可。
-    /// </summary>
-    [HttpPost("logout")]
-    [Authorize]
-    public ActionResult Logout()
-    {
-        return Ok(new { success = true });
-    }
 
     /// <summary>
     /// 修改当前用户密码

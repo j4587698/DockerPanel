@@ -385,9 +385,9 @@ public class NodeResourceServiceImpl : INodeResourceService
                 }
             };
 
-            var rulesCollection = _dbContext.GetCollection<DockerPanel.API.Models.ResourceAlertRule>("resource_alert_rules");
+            var rulesCollection = _dbContext.GetCollection<DockerPanel.API.Models.ResourceAlertRule>(DbCollections.ResourceAlertRules);
             rulesCollection.Insert(rule);
-            _cache.Remove("resource_alert_rules");
+            _cache.Remove(DbCollections.ResourceAlertRules);
             _cache.Remove("resource_alerts");
 
             _logger.LogInformation("成功创建资源告警规则: {RuleId}", rule.Id);
@@ -406,7 +406,7 @@ public class NodeResourceServiceImpl : INodeResourceService
         {
             _logger.LogInformation("更新资源告警规则: {RuleId}", id);
 
-            var rulesCollection = _dbContext.GetCollection<DockerPanel.API.Models.ResourceAlertRule>("resource_alert_rules");
+            var rulesCollection = _dbContext.GetCollection<DockerPanel.API.Models.ResourceAlertRule>(DbCollections.ResourceAlertRules);
             var rule = rulesCollection.FindById(id);
             if (rule == null)
             {
@@ -429,7 +429,7 @@ public class NodeResourceServiceImpl : INodeResourceService
             rule.UpdatedAt = DateTime.UtcNow;
 
             rulesCollection.Update(rule);
-            _cache.Remove("resource_alert_rules");
+            _cache.Remove(DbCollections.ResourceAlertRules);
             _cache.Remove("resource_alerts");
 
             _logger.LogInformation("成功更新资源告警规则: {RuleId}", id);
@@ -448,9 +448,9 @@ public class NodeResourceServiceImpl : INodeResourceService
         {
             _logger.LogInformation("删除资源告警规则: {RuleId}", id);
 
-            var rulesCollection = _dbContext.GetCollection<DockerPanel.API.Models.ResourceAlertRule>("resource_alert_rules");
+            var rulesCollection = _dbContext.GetCollection<DockerPanel.API.Models.ResourceAlertRule>(DbCollections.ResourceAlertRules);
             var deleted = rulesCollection.Delete(id) > 0;
-            _cache.Remove("resource_alert_rules");
+            _cache.Remove(DbCollections.ResourceAlertRules);
             _cache.Remove("resource_alerts");
 
             _logger.LogInformation("删除资源告警规则完成: {RuleId}, Deleted={Deleted}", id, deleted);
@@ -469,13 +469,13 @@ public class NodeResourceServiceImpl : INodeResourceService
         {
             _logger.LogInformation("获取资源告警规则列表");
 
-            var cacheKey = "resource_alert_rules";
+            var cacheKey = DbCollections.ResourceAlertRules;
             if (_cache.TryGetValue(cacheKey, out List<DockerPanel.API.Models.ResourceAlertRule>? cachedRules))
             {
                 return cachedRules?.ToList() ?? Enumerable.Empty<DockerPanel.API.Models.ResourceAlertRule>();
             }
 
-            var rulesCollection = _dbContext.GetCollection<DockerPanel.API.Models.ResourceAlertRule>("resource_alert_rules");
+            var rulesCollection = _dbContext.GetCollection<DockerPanel.API.Models.ResourceAlertRule>(DbCollections.ResourceAlertRules);
             var rules = rulesCollection.FindAll()
                 .OrderByDescending(r => r.UpdatedAt)
                 .ToList();

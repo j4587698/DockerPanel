@@ -144,8 +144,8 @@ public class SniCertificateSelector
                 r.Domains.Contains(domain) && 
                 (r.Status == "valid" || r.Status == "Active") &&
                 r.ExpiresAt > DateTime.UtcNow &&
-                !string.IsNullOrEmpty(r.CertificateData) &&
-                !string.IsNullOrEmpty(r.PrivateKeyData));
+                r.CertificateData != null && r.CertificateData != "" &&
+                r.PrivateKeyData != null && r.PrivateKeyData != "");
 
             if (record != null)
             {
@@ -177,8 +177,8 @@ public class SniCertificateSelector
             var wildcardRecords = collection.Find(r => 
                 (r.Status == "valid" || r.Status == "Active") &&
                 r.ExpiresAt > DateTime.UtcNow &&
-                !string.IsNullOrEmpty(r.CertificateData) &&
-                !string.IsNullOrEmpty(r.PrivateKeyData) &&
+                r.CertificateData != null && r.CertificateData != "" &&
+                r.PrivateKeyData != null && r.PrivateKeyData != "" &&
                 r.Domains.Any(d => d.StartsWith("*.")));
 
             foreach (var record in wildcardRecords)
@@ -297,8 +297,8 @@ public class SniCertificateSelector
             var records = collection.Find(r => 
                 (r.Status == "valid" || r.Status == "Active") &&
                 r.ExpiresAt > DateTime.UtcNow &&
-                !string.IsNullOrEmpty(r.CertificateData) &&
-                !string.IsNullOrEmpty(r.PrivateKeyData));
+                r.CertificateData != null && r.CertificateData != "" &&
+                r.PrivateKeyData != null && r.PrivateKeyData != "");
 
             foreach (var record in records)
             {

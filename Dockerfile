@@ -37,10 +37,12 @@ RUN apk add --no-cache \
 COPY --from=backend-build /app/publish ./
 
 # 设置环境变量
+# 注意：Kestrel 监听端口由 Program.cs 的 ConfigureKestrel 控制（HTTP 80 + HTTPS 443 + SNI 证书）。
+# 不能设置 ASPNETCORE_URLS，否则它会覆盖 ConfigureKestrel 里的 Listen，导致 443 不监听。
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ASPNETCORE_URLS=http://+:80
 ENV HTTP_PORT=80
-ENV ENABLE_HTTPS=false
+ENV HTTPS_PORT=443
+ENV ENABLE_HTTPS=true
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

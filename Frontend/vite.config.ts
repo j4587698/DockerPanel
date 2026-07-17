@@ -4,38 +4,6 @@ import { resolve } from 'path'
 
 const normalizePath = (id: string) => id.replace(/\\/g, '/')
 
-const elementChunkGroups: Record<string, string[]> = {
-  'element-form': [
-    'form', 'input', 'input-number', 'select', 'select-v2', 'checkbox', 'radio', 'switch',
-    'slider', 'color-picker', 'color-picker-panel', 'date-picker', 'time-picker', 'time-select',
-    'cascader', 'cascader-panel', 'autocomplete', 'upload', 'rate', 'transfer', 'tree-select',
-    'input-tag', 'mention'
-  ],
-  'element-data': [
-    'table', 'table-v2', 'pagination', 'tree', 'tree-v2', 'tag', 'badge', 'progress',
-    'descriptions', 'statistic', 'timeline', 'steps'
-  ],
-  'element-overlay': [
-    'dialog', 'drawer', 'tooltip', 'popper', 'popover', 'popconfirm', 'message', 'message-box',
-    'notification', 'loading', 'overlay', 'focus-trap', 'teleport'
-  ],
-  'element-layout': [
-    'affix', 'alert', 'anchor', 'avatar', 'backtop', 'breadcrumb', 'button', 'calendar', 'card',
-    'carousel', 'check-tag', 'col', 'collapse', 'collapse-transition', 'collection', 'config-provider',
-    'container', 'countdown', 'divider', 'empty', 'icon', 'image', 'image-viewer', 'infinite-scroll',
-    'link', 'menu', 'page-header', 'result', 'roving-focus-group', 'row', 'scrollbar', 'segmented',
-    'skeleton', 'slot', 'space', 'splitter', 'tabs', 'text', 'tour', 'virtual-list', 'watermark'
-  ]
-}
-
-const getElementComponentChunk = (componentName: string) => {
-  for (const [chunkName, components] of Object.entries(elementChunkGroups)) {
-    if (components.includes(componentName)) return chunkName
-  }
-
-  return 'element-components'
-}
-
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue()],
@@ -54,7 +22,7 @@ export default defineConfig({
     // Target modern browsers for smaller bundles
     target: 'es2020',
     // Chunk size warning limit (500KB)
-    chunkSizeWarningLimit: 500,
+    chunkSizeWarningLimit: 800,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html')
@@ -76,26 +44,18 @@ export default defineConfig({
         // Manual chunk splitting for better caching
         manualChunks: (id) => {
           const normalizedId = normalizePath(id)
-          // Vue core and ecosystem
-          if (normalizedId.includes('node_modules/vue/') || 
-              normalizedId.includes('node_modules/vue-router/') || 
-              normalizedId.includes('node_modules/pinia/') || 
-              normalizedId.includes('node_modules/vue-i18n/')) {
+          // Vue 与 Element Plus 必须合并进同一个 chunk。
+          // 二者存在跨模块的循环初始化依赖：若拆成 vue-vendor / element-vendor
+          // 两个独立 chunk，浏览器按加载顺序求值时，被引用的 let/const 尚未
+          // 初始化，会触发 "Cannot access 'X' before initialization" (TDZ)。
+          // 合并后 Rollup 能在单一 chunk 内正确安排初始化顺序。
+          if (normalizedId.includes('node_modules/vue/') ||
+              normalizedId.includes('node_modules/vue-router/') ||
+              normalizedId.includes('node_modules/pinia/') ||
+              normalizedId.includes('node_modules/vue-i18n/') ||
+              normalizedId.includes('node_modules/element-plus/') ||
+              normalizedId.includes('node_modules/@element-plus/icons-vue/')) {
             return 'vue-vendor'
-          }
-
-          // Element Plus 按组件拆分，避免单个 UI chunk 过大
-          const elementComponentMatch = normalizedId.match(/node_modules\/element-plus\/es\/components\/([^/]+)/)
-          if (elementComponentMatch) {
-            return getElementComponentChunk(elementComponentMatch[1])
-          }
-          if (normalizedId.includes('node_modules/element-plus/')) {
-            return 'element-core'
-          }
-
-          // Element Plus icons (large package)
-          if (normalizedId.includes('node_modules/@element-plus/icons-vue/')) {
-            return 'element-icons'
           }
 
           // 大型功能库按用途拆分

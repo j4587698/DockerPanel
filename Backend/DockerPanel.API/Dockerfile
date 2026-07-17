@@ -29,9 +29,9 @@ COPY --from=publish /app/publish .
 
 # 设置环境变量
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ASPNETCORE_URLS=http://+:80
 ENV HTTP_PORT=80
-ENV ENABLE_HTTPS=false
+ENV HTTPS_PORT=443
+ENV ENABLE_HTTPS=true
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

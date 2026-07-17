@@ -3,13 +3,14 @@ services:
     image: j4587698/dockerpanel:latest
     container_name: dockerpanel-app
     ports:
-      # HTTP-01 ACME 校验必须从公网 80 端口访问；容器内部也直接监听 80。
+      # HTTP-01 ACME 校验必须从公网 80 端口访问；HTTPS 使用 443 提供 SNI 证书服务。
       - "${DOCKERPANEL_HTTP_HOST_PORT:-80}:80"
+      - "${DOCKERPANEL_HTTPS_HOST_PORT:-443}:443"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80
       - HTTP_PORT=80
-      - ENABLE_HTTPS=false
+      - HTTPS_PORT=443
+      - ENABLE_HTTPS=true
       - Logging__LogLevel__Default=Information
       - Logging__LogLevel__Microsoft.AspNetCore=Warning
     volumes:

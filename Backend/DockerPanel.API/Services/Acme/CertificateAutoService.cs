@@ -177,29 +177,39 @@ namespace DockerPanel.API.Services.Acme
                             $"挑战配置成功: {authorization.Domain} - {challenge.Type}");
                         result.ValidationSteps.Add($"挑战配置成功: {authorization.Domain} - {challenge.Type}");
 
-                        // 完成挑战
-                        var completeRequest = new CompleteChallengeRequest
+                        try
                         {
-                            ChallengeType = challenge.Type
-                        };
+                            // 完成挑战
+                            var completeRequest = new CompleteChallengeRequest
+                            {
+                                ChallengeType = challenge.Type
+                            };
 
-                        await _progressService.UpdateProgressStepAsync(progressId, CertificateApplicationStep.ValidatingDomains,
-                            $"正在完成 {authorization.Domain} 的 {challenge.Type} 挑战验证");
-
-                        var challengeCompleteResult = await acmeService.CompleteChallengeAsync(
-                            order.Id, authorization.Id, completeRequest);
-
-                        if (!challengeCompleteResult.Success)
-                        {
-                            var errorMsg = $"挑战完成失败: {authorization.Domain} - {challenge.Type}";
-                            result.Errors.Add(errorMsg);
-                            await _progressService.AddErrorAsync(progressId, errorMsg);
-                        }
-                        else
-                        {
                             await _progressService.UpdateProgressStepAsync(progressId, CertificateApplicationStep.ValidatingDomains,
-                                $"挑战完成成功: {authorization.Domain} - {challenge.Type}");
-                            result.ValidationSteps.Add($"挑战完成成功: {authorization.Domain} - {challenge.Type}");
+                                $"正在完成 {authorization.Domain} 的 {challenge.Type} 挑战验证");
+
+                            var challengeCompleteResult = await acmeService.CompleteChallengeAsync(
+                                order.Id, authorization.Id, completeRequest);
+
+                            if (!challengeCompleteResult.Success)
+                            {
+                                var errorMsg = $"挑战完成失败: {authorization.Domain} - {challenge.Type}";
+                                result.Errors.Add(errorMsg);
+                                await _progressService.AddErrorAsync(progressId, errorMsg);
+                            }
+                            else
+                            {
+                                await _progressService.UpdateProgressStepAsync(progressId, CertificateApplicationStep.ValidatingDomains,
+                                    $"挑战完成成功: {authorization.Domain} - {challenge.Type}");
+                                result.ValidationSteps.Add($"挑战完成成功: {authorization.Domain} - {challenge.Type}");
+                                // ACME 验证只需成功一个挑战即可，成功后跳出当前域名的所有挑战循环
+                                break;
+                            }
+                        }
+                        finally
+                        {
+                            // 无论验证成功还是失败，都必须清理挑战资源（特别是 TLS-ALPN-01 内存证书，防止影响正常流量）
+                            await challengeValidationService.CleanupChallengeAsync(challenge, authorization.Domain, challenge.Type);
                         }
                     }
                 }

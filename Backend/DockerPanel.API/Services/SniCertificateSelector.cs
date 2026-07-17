@@ -142,7 +142,7 @@ public class SniCertificateSelector
             // 查找精确匹配的证书
             var record = collection.FindOne(r => 
                 r.Domains.Contains(domain) && 
-                r.Status == "valid" &&
+                (r.Status == "valid" || r.Status == "Active") &&
                 r.ExpiresAt > DateTime.UtcNow &&
                 !string.IsNullOrEmpty(r.CertificateData) &&
                 !string.IsNullOrEmpty(r.PrivateKeyData));
@@ -175,7 +175,7 @@ public class SniCertificateSelector
             
             // 获取所有有效的通配符证书
             var wildcardRecords = collection.Find(r => 
-                r.Status == "valid" &&
+                (r.Status == "valid" || r.Status == "Active") &&
                 r.ExpiresAt > DateTime.UtcNow &&
                 !string.IsNullOrEmpty(r.CertificateData) &&
                 !string.IsNullOrEmpty(r.PrivateKeyData) &&
@@ -295,7 +295,7 @@ public class SniCertificateSelector
             
             var collection = dbContext.GetCollection<CertificateRecord>("certificates");
             var records = collection.Find(r => 
-                r.Status == "valid" &&
+                (r.Status == "valid" || r.Status == "Active") &&
                 r.ExpiresAt > DateTime.UtcNow &&
                 !string.IsNullOrEmpty(r.CertificateData) &&
                 !string.IsNullOrEmpty(r.PrivateKeyData));

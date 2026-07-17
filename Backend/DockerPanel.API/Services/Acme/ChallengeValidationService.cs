@@ -723,6 +723,17 @@ namespace DockerPanel.API.Services.Acme
                 // 确定挑战类型优先级
                 var challengeTypes = preferredChallengeTypes ?? new List<string> { "http-01", "dns-01", "tls-alpn-01" };
 
+                // 修复：只配置与当前 ACME 挑战对象类型一致的挑战类型
+                if (!string.IsNullOrEmpty(challenge.Type))
+                {
+                    if (!challengeTypes.Contains(challenge.Type, StringComparer.OrdinalIgnoreCase))
+                    {
+                        result.Message = $"跳过 {challenge.Type} 挑战，不在首选类型列表中";
+                        return result;
+                    }
+                    challengeTypes = new List<string> { challenge.Type };
+                }
+
                 foreach (var challengeType in challengeTypes)
                 {
                     _logger.LogInformation("尝试配置 {Type} 挑战: {Domain}", challengeType, domain);

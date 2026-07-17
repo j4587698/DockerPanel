@@ -1150,6 +1150,7 @@ namespace DockerPanel.API.Services.Acme
         /// </summary>
         private async Task<bool> ValidateTlsAlpnChallengeAsync(IAuthorizationContext authContext, string? progressId)
         {
+            string domain = "unknown";
             try
             {
                 // 获取挑战
@@ -1174,7 +1175,7 @@ namespace DockerPanel.API.Services.Acme
 
                 // 获取授权信息以获取域名
                 var auth = await authContext.Resource();
-                var domain = auth.Identifier?.Value ?? "unknown";
+                domain = auth.Identifier?.Value ?? "unknown";
                 var keyAuthorization = tlsAlpnChallenge.KeyAuthz;
 
                 // 确保挑战证书已在内存中就绪
@@ -1222,6 +1223,7 @@ namespace DockerPanel.API.Services.Acme
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "通知Let's Encrypt验证TLS-ALPN-01挑战失败");
+                    _tlsAlpnChallengeService.CleanupChallenge(domain);
                     return false;
                 }
 
@@ -1287,6 +1289,12 @@ namespace DockerPanel.API.Services.Acme
             catch (Exception ex)
             {
                 _logger.LogError(ex, "验证TLS-ALPN-01挑战时发生异常");
+
+                // 确保发生异常时也能清理挑战证书，防止 SNI 一直返回挑战证书
+                if (domain != "unknown")
+                {
+                    _tlsAlpnChallengeService.CleanupChallenge(domain);
+                }
 
                 if (!string.IsNullOrEmpty(progressId))
                 {

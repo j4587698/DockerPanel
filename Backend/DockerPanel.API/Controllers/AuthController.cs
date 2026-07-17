@@ -66,7 +66,8 @@ public class AuthController : ControllerBase
         var cookieOptions = new CookieOptions
         {
             HttpOnly = true,
-            Secure = true, // 生产环境最好是 true，本地可能也支持
+            // 动态判断：如果是 HTTPS 请求才标记 Secure，否则 HTTP 访问（如 IP 直接访问）会导致浏览器拒绝发送 Cookie 从而秒退
+            Secure = Request.IsHttps || Request.Headers["X-Forwarded-Proto"].ToString().Equals("https", StringComparison.OrdinalIgnoreCase), 
             SameSite = SameSiteMode.Lax,
             Expires = result.Data.ExpiresAt
         };

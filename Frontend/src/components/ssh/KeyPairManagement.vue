@@ -24,18 +24,9 @@
           </el-select>
         </el-col>
         <el-col :span="12" class="toolbar-right">
-          <el-button type="primary" @click="showGenerateDialog = true">
-            <el-icon><Plus /></el-icon>
-            生成密钥对
-          </el-button>
-          <el-button @click="showImportDialog = true">
-            <el-icon><Upload /></el-icon>
-            导入密钥
-          </el-button>
-          <el-button @click="refreshList">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
+          <el-button type="primary" @click="showGenerateDialog = true" :icon="Plus">生成密钥对</el-button>
+          <el-button @click="showImportDialog = true" :icon="Upload">导入密钥</el-button>
+          <el-button @click="refreshList" :icon="Refresh">刷新</el-button>
         </el-col>
       </el-row>
     </div>
@@ -83,14 +74,8 @@
       </el-table-column>
       <el-table-column label="操作" width="200" fixed="right" align="center">
         <template #default="{ row }">
-          <el-button size="small" text @click="viewPublicKey(row)">
-            <el-icon><View /></el-icon>
-            公钥
-          </el-button>
-          <el-button size="small" text @click="downloadPublicKey(row)">
-            <el-icon><Download /></el-icon>
-            下载
-          </el-button>
+          <el-button size="small" text @click="viewPublicKey(row)" :icon="View">公钥</el-button>
+          <el-button size="small" text @click="downloadPublicKey(row)" :icon="Download">下载</el-button>
           <el-popconfirm
             title="确定要删除此密钥吗？"
             confirm-button-text="删除"
@@ -98,10 +83,7 @@
             @confirm="deleteKeyPair(row)"
           >
             <template #reference>
-              <el-button size="small" text type="danger">
-                <el-icon><Delete /></el-icon>
-                删除
-              </el-button>
+              <el-button size="small" text type="danger" :icon="Delete">删除</el-button>
             </template>
           </el-popconfirm>
         </template>
@@ -184,10 +166,7 @@
         class="public-key-content"
       />
       <template #footer>
-        <el-button @click="copyPublicKey">
-          <el-icon><CopyDocument /></el-icon>
-          复制
-        </el-button>
+        <el-button @click="copyPublicKey" :icon="CopyDocument">复制</el-button>
         <el-button @click="showPublicKeyDialog = false">关闭</el-button>
       </template>
     </el-dialog>

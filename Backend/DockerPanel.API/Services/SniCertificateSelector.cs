@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography.X509Certificates;
+using System.IO;
 using DockerPanel.API.Data;
 using DockerPanel.API.Services.Acme;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,7 @@ public class SniCertificateSelector
     private readonly ConcurrentDictionary<string, X509Certificate2> _certificateCache = new();
     private readonly ConcurrentDictionary<string, DateTime> _cacheExpiry = new();
     private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(5);
+    private readonly X509Certificate2 _defaultCertificate;
 
     public SniCertificateSelector(
         ILogger<SniCertificateSelector> logger,
@@ -28,6 +30,7 @@ public class SniCertificateSelector
         _logger = logger;
         _scopeFactory = scopeFactory;
         _tlsAlpnChallengeService = tlsAlpnChallengeService;
+        _defaultCertificate = EnsureDefaultCertificate();
     }
 
     /// <summary>
@@ -38,7 +41,7 @@ public class SniCertificateSelector
     {
         if (string.IsNullOrEmpty(sni))
         {
-            return null;
+            return _defaultCertificate;
         }
 
         try
@@ -88,13 +91,62 @@ public class SniCertificateSelector
                 return wildcardCert;
             }
 
-            _logger.LogWarning("未找到证书: {Domain}", sni);
-            return null;
+            _logger.LogWarning("未找到证书: {Domain}，使用默认自签名证书兜底", sni);
+            return _defaultCertificate;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "选择证书失败: {Domain}", sni);
-            return null;
+            _logger.LogError(ex, "选择证书失败: {Domain}，使用默认自签名证书兜底", sni);
+            return _defaultCertificate;
+        }
+    }
+
+    /// <summary>
+    /// 确保存在默认自签名证书
+    /// </summary>
+    private X509Certificate2 EnsureDefaultCertificate()
+    {
+        var certPath = DockerPanel.API.Utils.AppPathResolver.GetDefaultCertPath();
+        
+        try 
+        {
+            if (File.Exists(certPath))
+            {
+                var bytes = File.ReadAllBytes(certPath);
+                return X509CertificateLoader.LoadPkcs12(bytes, "dockerpanel", X509KeyStorageFlags.Exportable);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "加载默认证书失败，将重新生成");
+        }
+
+        try
+        {
+            _logger.LogInformation("正在生成默认的自签名证书...");
+            using var rsa = System.Security.Cryptography.RSA.Create(2048);
+            var request = new CertificateRequest("CN=DockerPanel Default Certificate", rsa, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+            
+            request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+            request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, false));
+            request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new System.Security.Cryptography.OidCollection { new System.Security.Cryptography.Oid("1.3.6.1.5.5.7.3.1") }, false));
+
+            var cert = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(10));
+            var pfxBytes = cert.Export(X509ContentType.Pfx, "dockerpanel");
+            
+            var dir = Path.GetDirectoryName(certPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            
+            File.WriteAllBytes(certPath, pfxBytes);
+            return X509CertificateLoader.LoadPkcs12(pfxBytes, "dockerpanel", X509KeyStorageFlags.Exportable);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "生成默认证书失败！");
+            throw; // 这是一个致命错误，如果没有默认证书，可能影响系统
         }
     }
 

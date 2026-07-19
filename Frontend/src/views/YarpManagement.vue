@@ -175,6 +175,38 @@
             {{ t('proxy.yarpManagement.noAvailableAccount') }}
           </div>
         </el-form-item>
+
+        <!-- 高级设置 -->
+        <div class="advanced-settings-toggle" @click="showAdvanced = !showAdvanced">
+          <span>{{ showAdvanced ? t('common.hideAdvanced', '隐藏高级设置') : t('common.showAdvanced', '显示高级设置') }}</span>
+          <svg :class="{ 'rotate': showAdvanced }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+
+        <div v-show="showAdvanced" class="advanced-settings">
+          <el-form-item :label="t('proxy.yarpManagement.forceHttps', '强制 HTTPS 跳转')">
+            <el-switch v-model="form.forceHttps" />
+            <div class="form-help">{{ t('proxy.yarpManagement.forceHttpsHelp', '开启后，访问 HTTP 会自动跳转到 HTTPS (推荐绑证书后开启)') }}</div>
+          </el-form-item>
+          
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item :label="t('proxy.yarpManagement.activityTimeout', '空闲超时 (秒)')">
+                <el-input-number v-model="form.activityTimeoutSeconds" :min="0" :step="10" :placeholder="t('common.default', '默认') + ' 100'" style="width: 100%" :controls="false" />
+                <div class="form-help">{{ t('proxy.yarpManagement.timeoutHelp', '0 = 不限时') }}</div>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item :label="t('proxy.yarpManagement.httpVersion', '后端 HTTP 版本')">
+                <el-select v-model="form.httpVersion" :placeholder="t('common.default', '自动')" style="width: 100%" clearable>
+                  <el-option label="HTTP/1.1" value="1.1" />
+                  <el-option label="HTTP/2" value="2" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </div>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -211,6 +243,7 @@ const editingMappingId = ref<string | null>(null)
 const currentPage = ref(1)
 const pageSize = computed(() => settingsStore.defaultPageSize)
 const sslMode = ref<'none' | 'existing' | 'auto'>('none')
+const showAdvanced = ref(false)
 
 const form = ref({
   domain: '',
@@ -224,7 +257,10 @@ const form = ref({
   autoRequestCertificate: false,
   enabled: true,
   protocol: 'http',
-  priority: 100
+  priority: 100,
+  forceHttps: false,
+  activityTimeoutSeconds: undefined as number | undefined,
+  httpVersion: ''
 })
 
 const containers = computed(() => containerStore.containers)
@@ -344,9 +380,13 @@ const resetForm = () => {
     autoRequestCertificate: false,
     enabled: true,
     protocol: 'http', 
-    priority: 100 
+    priority: 100,
+    forceHttps: false,
+    activityTimeoutSeconds: undefined,
+    httpVersion: ''
   }
   sslMode.value = 'none'
+  showAdvanced.value = false
 }
 
 const openCreateDialog = () => {
@@ -368,9 +408,13 @@ const editMapping = (row: any) => {
     autoRequestCertificate: Boolean(row.autoRequestCertificate),
     enabled: row.enabled ?? true,
     protocol: row.protocol || 'http',
-    priority: row.priority ?? 100
+    priority: row.priority ?? 100,
+    forceHttps: row.forceHttps ?? false,
+    activityTimeoutSeconds: row.activityTimeoutSeconds,
+    httpVersion: row.httpVersion || ''
   }
   sslMode.value = row.autoRequestCertificate ? 'auto' : (row.enableSsl ? 'existing' : 'none')
+  showAdvanced.value = form.value.forceHttps || !!form.value.activityTimeoutSeconds || !!form.value.httpVersion
   showCreateDialog.value = true
 }
 
@@ -617,6 +661,46 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.advanced-settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-top: 8px;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.advanced-settings-toggle:hover {
+  color: var(--el-color-primary);
+}
+
+.advanced-settings-toggle svg {
+  transition: transform 0.2s;
+}
+
+.advanced-settings-toggle svg.rotate {
+  transform: rotate(180deg);
+}
+
+.advanced-settings {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-subtle);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.form-help {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 4px;
 }
 
 @media (max-width: 1024px) {

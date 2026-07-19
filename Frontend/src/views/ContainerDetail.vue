@@ -2,9 +2,7 @@
   <div class="container-detail-page">
     <div class="page-header-glass">
       <div class="header-left">
-        <el-button @click="goBack" text circle class="back-btn">
-          <el-icon><ArrowLeft /></el-icon>
-        </el-button>
+        <el-button @click="goBack" text circle class="back-btn" :icon="ArrowLeft" />
         <div class="header-title-block">
           <div class="title-row">
              <h1 class="page-title">{{ container?.name || t('common.loading') }}</h1>
@@ -35,21 +33,15 @@
 
       <div class="header-right">
          <el-tooltip :content="t('container.start')" v-if="container?.state === 'exited' || container?.state === 'created'">
-            <el-button type="success" @click="startContainer" :loading="actionLoading.start">
-              <el-icon class="mr-1"><VideoPlay /></el-icon> {{ t('container.start') }}
-            </el-button>
+            <el-button type="success" @click="startContainer" :loading="actionLoading.start" :icon="VideoPlay">{{ t('container.start') }}</el-button>
          </el-tooltip>
          
          <el-tooltip :content="t('container.stop')" v-if="container?.state === 'running'">
-            <el-button type="warning" @click="stopContainer" :loading="actionLoading.stop">
-              <el-icon class="mr-1"><VideoPause /></el-icon> {{ t('container.stop') }}
-            </el-button>
+            <el-button type="warning" @click="stopContainer" :loading="actionLoading.stop" :icon="VideoPause">{{ t('container.stop') }}</el-button>
          </el-tooltip>
 
          <el-tooltip :content="t('container.restart')" v-if="container?.state === 'running'">
-            <el-button type="primary" @click="restartContainer" :loading="actionLoading.restart">
-              <el-icon class="mr-1"><RefreshRight /></el-icon> {{ t('container.restart') }}
-            </el-button>
+            <el-button type="primary" @click="restartContainer" :loading="actionLoading.restart" :icon="RefreshRight">{{ t('container.restart') }}</el-button>
          </el-tooltip>
 
          <el-dropdown trigger="click">

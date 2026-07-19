@@ -150,6 +150,7 @@
         <el-form-item v-if="dialogMode === 'create'" :label="t('users.password')" prop="password">
           <el-input v-model="userForm.password" type="password" show-password autocomplete="new-password" />
         </el-form-item>
+        <PasswordPolicy v-if="dialogMode === 'create'" ref="userPasswordPolicyRef" :password="userForm.password" />
 
         <el-row :gutter="16">
           <el-col :span="12">
@@ -195,6 +196,7 @@
         <el-form-item :label="t('users.newPassword')" prop="newPassword">
           <el-input v-model="resetForm.newPassword" type="password" show-password autocomplete="new-password" />
         </el-form-item>
+        <PasswordPolicy ref="resetPasswordPolicyRef" :password="resetForm.newPassword" />
         <label class="toggle-line">
           <span>
             <strong>{{ t('users.mustChangePassword') }}</strong>
@@ -218,6 +220,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { authApi, type AuthRole, type UserAccount } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { CircleCheck, Delete, Edit, Key, Lock, Plus, Refresh, Search, User, UserFilled } from '@element-plus/icons-vue'
+import PasswordPolicy from '@/components/common/PasswordPolicy.vue'
 import { formatLocalizedDateTime } from '@/utils/date'
 
 type UserRole = AuthRole
@@ -240,6 +243,8 @@ const editingUser = ref<UserAccount | null>(null)
 const resetTarget = ref<UserAccount | null>(null)
 const userFormRef = ref<FormInstance>()
 const resetFormRef = ref<FormInstance>()
+const userPasswordPolicyRef = ref()
+const resetPasswordPolicyRef = ref()
 
 const userForm = reactive({
   username: '',
@@ -255,6 +260,23 @@ const resetForm = reactive({
   mustChangePassword: true
 })
 
+const validateUserPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (dialogMode.value !== 'create') return callback()
+  if (!value) return callback(new Error(t('users.passwordRequired')))
+  if (userPasswordPolicyRef.value && !userPasswordPolicyRef.value.isValid) {
+    return callback(new Error(t('common.passwordComplexityRequired', '密码必须满足全部复杂度要求')))
+  }
+  callback()
+}
+
+const validateResetPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+  if (!value) return callback(new Error(t('users.passwordRequired')))
+  if (resetPasswordPolicyRef.value && !resetPasswordPolicyRef.value.isValid) {
+    return callback(new Error(t('common.passwordComplexityRequired', '密码必须满足全部复杂度要求')))
+  }
+  callback()
+}
+
 const userRules = computed<FormRules>(() => ({
   username: [
     { required: true, message: t('users.usernameRequired'), trigger: 'blur' },
@@ -264,7 +286,7 @@ const userRules = computed<FormRules>(() => ({
   password: dialogMode.value === 'create'
     ? [
         { required: true, message: t('users.passwordRequired'), trigger: 'blur' },
-        { min: 8, max: 128, message: t('users.passwordLength'), trigger: 'blur' }
+        { validator: validateUserPassword, trigger: ['blur', 'change'] }
       ]
     : [],
   role: [{ required: true, message: t('users.roleRequired'), trigger: 'change' }]
@@ -273,7 +295,7 @@ const userRules = computed<FormRules>(() => ({
 const resetRules: FormRules = {
   newPassword: [
     { required: true, message: t('users.passwordRequired'), trigger: 'blur' },
-    { min: 8, max: 128, message: t('users.passwordLength'), trigger: 'blur' }
+    { validator: validateResetPassword, trigger: ['blur', 'change'] }
   ]
 }
 

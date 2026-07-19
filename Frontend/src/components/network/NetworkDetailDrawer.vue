@@ -18,14 +18,8 @@
           <div class="card-header">
             <h3>{{ t('network.basicInfo') }}</h3>
             <div class="header-actions">
-              <el-button size="small" @click="refreshNetwork">
-                <el-icon><Refresh /></el-icon>
-                {{ t('common.refresh') }}
-              </el-button>
-              <el-button size="small" @click="copyNetworkId">
-                <el-icon><DocumentCopy /></el-icon>
-                {{ t('network.copyId') }}
-              </el-button>
+              <el-button size="small" @click="refreshNetwork" :icon="Refresh">{{ t('common.refresh') }}</el-button>
+              <el-button size="small" @click="copyNetworkId" :icon="DocumentCopy">{{ t('network.copyId') }}</el-button>
             </div>
           </div>
         </template>
@@ -146,10 +140,7 @@
         <template #header>
           <div class="card-header">
             <h3>{{ t('network.connectedContainers') }} ({{ networkData.containers?.length || 0 }})</h3>
-            <el-button size="small" @click="connectContainer">
-              <el-icon><Plus /></el-icon>
-              {{ t('network.connectContainer') }}
-            </el-button>
+            <el-button size="small" @click="connectContainer" :icon="Plus">{{ t('network.connectContainer') }}</el-button>
           </div>
         </template>
 
@@ -252,10 +243,7 @@
     <template #footer>
       <div class="drawer-footer">
         <el-button @click="handleClose">{{ t('common.close') }}</el-button>
-        <el-button type="primary" @click="connectContainer">
-          <el-icon><Plus /></el-icon>
-          {{ t('network.connectContainer') }}
-        </el-button>
+        <el-button type="primary" @click="connectContainer" :icon="Plus">{{ t('network.connectContainer') }}</el-button>
         <el-button type="danger" @click="removeNetwork" :disabled="networkData?.containers?.length > 0">
           <el-icon><Delete /></el-icon>
           {{ t('network.removeNetwork') }}

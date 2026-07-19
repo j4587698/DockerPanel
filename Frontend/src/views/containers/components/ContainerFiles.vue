@@ -61,25 +61,13 @@
     <!-- 文件操作工具栏 -->
     <div class="file-toolbar">
       <div class="toolbar-left">
-        <el-button @click="loadFiles" :loading="loading">
-          <el-icon><Refresh /></el-icon>
-          {{ t('fileManager.refresh') }}
-        </el-button>
-        <el-button @click="showUploadDialog = true" :disabled="!canWrite">
-          <el-icon><Upload /></el-icon>
-          {{ t('container.filesModule.uploadFile') }}
-        </el-button>
-        <el-button @click="showCreateFolderDialog = true" :disabled="!canWrite">
-          <el-icon><FolderAdd /></el-icon>
-          {{ t('container.filesModule.newFolder') }}
-        </el-button>
+        <el-button @click="loadFiles" :loading="loading" :icon="Refresh">{{ t('fileManager.refresh') }}</el-button>
+        <el-button @click="showUploadDialog = true" :disabled="!canWrite" :icon="Upload">{{ t('container.filesModule.uploadFile') }}</el-button>
+        <el-button @click="showCreateFolderDialog = true" :disabled="!canWrite" :icon="FolderAdd">{{ t('container.filesModule.newFolder') }}</el-button>
         <el-button
           @click="downloadSelected"
           :disabled="selectedFiles.length === 0"
-        >
-          <el-icon><Download /></el-icon>
-          {{ t('container.filesModule.downloadSelected') }}
-        </el-button>
+         :icon="Download">{{ t('container.filesModule.downloadSelected') }}</el-button>
       </div>
 
       <div class="toolbar-right">
@@ -185,9 +173,7 @@
                 {{ t('fileManager.download') }}
               </el-button>
               <el-dropdown @command="(cmd) => handleFileAction(cmd, row)">
-                <el-button size="small">
-                  <el-icon><More /></el-icon>
-                </el-button>
+                <el-button size="small" :icon="More" />
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="permissions">{{ t('container.filesModule.modifyPermissions') }}</el-dropdown-item>

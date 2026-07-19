@@ -14,38 +14,26 @@
     <div v-else-if="certificate" class="certificate-detail">
       <!-- 操作按钮 -->
       <div class="action-bar">
-        <el-button size="small" @click="refreshCertificate">
-          <el-icon><Refresh /></el-icon>
-          {{ t('certificate.refresh') }}
-        </el-button>
+        <el-button size="small" @click="refreshCertificate" :icon="Refresh">{{ t('certificate.refresh') }}</el-button>
         <el-button
           v-if="certificate?.status === 'valid' || certificate?.status === 'expiring'"
           type="primary"
           size="small"
           @click="downloadCertificate"
-        >
-          <el-icon><Download /></el-icon>
-          {{ t('certificate.downloadCertificate') }}
-        </el-button>
+         :icon="Download">{{ t('certificate.downloadCertificate') }}</el-button>
         <el-button
           v-if="shouldShowRenewButton()"
           type="warning"
           size="small"
           @click="renewCertificate"
           :loading="renewing"
-        >
-          <el-icon><Refresh /></el-icon>
-          {{ t('certificate.renewCertificate') }}
-        </el-button>
+         :icon="Refresh">{{ t('certificate.renewCertificate') }}</el-button>
         <el-button
           v-if="shouldShowCancelButton()"
           type="danger"
           size="small"
           @click="cancelCertificateOrder"
-        >
-          <el-icon><CircleClose /></el-icon>
-          {{ t('certificate.cancelApplication') }}
-        </el-button>
+         :icon="CircleClose">{{ t('certificate.cancelApplication') }}</el-button>
       </div>
 
       <!-- 基本信息 -->

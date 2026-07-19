@@ -74,14 +74,8 @@
       <div class="config-footer-content">
         <span class="config-footer-hint">{{ t('container.configHint') }}</span>
         <div class="config-footer-actions">
-          <el-button @click="$emit('reset')">
-            <el-icon class="mr-1"><RefreshLeft /></el-icon>
-            {{ t('container.reset') }}
-          </el-button>
-          <el-button type="primary" @click="$emit('save')" :loading="saving">
-            <el-icon class="mr-1"><Check /></el-icon>
-            {{ t('container.saveConfig') }}
-          </el-button>
+          <el-button @click="$emit('reset')" :icon="RefreshLeft">{{ t('container.reset') }}</el-button>
+          <el-button type="primary" @click="$emit('save')" :loading="saving" :icon="Check">{{ t('container.saveConfig') }}</el-button>
         </div>
       </div>
     </div>

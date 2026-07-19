@@ -53,6 +53,8 @@ public class UserAccount
     public string? LastLoginIp { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiry { get; set; }
 }
 
 public class AuthUserDto
@@ -112,6 +114,8 @@ public class LoginResponse
     public string AccessToken { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public AuthUserDto User { get; set; } = new();
+    public string RefreshToken { get; set; } = string.Empty;
+    public DateTime RefreshTokenExpiry { get; set; }
 }
 
 public class ChangePasswordRequest

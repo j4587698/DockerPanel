@@ -38,7 +38,7 @@ export default {
   deleteConfirm: 'Delete user {username}? This action cannot be undone.',
   usernameRequired: 'Please input username',
   usernameLength: 'Username must be 3-64 characters',
-  usernameInvalid: 'Username can only contain letters, numbers, underscore, dot, @ and hyphen',
+  usernameInvalid: 'Username can only contain letters, numbers, underscore, dot, {\'@\'} and hyphen',
   passwordRequired: 'Please input password',
   passwordLength: 'Password must be 8-128 characters',
   roleRequired: 'Please select role',

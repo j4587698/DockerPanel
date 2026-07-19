@@ -133,6 +133,17 @@ export default {
   passwordChangeRequiredDesc: '管理员要求你在继续使用前先更新账户密码。',
   passwordChanged: '密码已修改',
   logout: '退出登录',
+  passwordRequirements: '密码要求',
+  passwordMinLength: '至少 {length} 位',
+  passwordRequireUppercase: '包含大写字母',
+  passwordRequireLowercase: '包含小写字母',
+  passwordRequireNumbers: '包含数字',
+  passwordRequireSpecialChars: '包含特殊字符',
+  passwordComplexityRequired: '密码必须满足全部复杂度要求',
+  strengthNone: '未设置',
+  strengthWeak: '较弱',
+  strengthMedium: '中等',
+  strengthStrong: '强',
   
   // 主题
   themeLight: '浅色主题',

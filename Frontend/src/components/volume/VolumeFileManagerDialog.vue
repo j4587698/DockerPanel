@@ -50,26 +50,11 @@
     <!-- 文件操作工具栏 -->
     <div class="file-toolbar">
       <div class="toolbar-left">
-        <el-button @click="loadFiles" :loading="loading">
-          <el-icon><Refresh /></el-icon>
-          {{ t('fileManager.refresh') }}
-        </el-button>
-        <el-button @click="showUploadDialog = true">
-          <el-icon><Upload /></el-icon>
-          {{ t('fileManager.upload') }}
-        </el-button>
-        <el-button @click="showCreateFolderDialog = true">
-          <el-icon><FolderAdd /></el-icon>
-          {{ t('fileManager.newFolder') }}
-        </el-button>
-        <el-button @click="downloadSelected" :disabled="selectedFiles.length === 0">
-          <el-icon><Download /></el-icon>
-          {{ t('fileManager.downloadSelected') }}
-        </el-button>
-        <el-button type="primary" @click="downloadAllAsArchive" :loading="archiveLoading">
-          <el-icon><Download /></el-icon>
-          {{ t('fileManager.downloadAll') }}
-        </el-button>
+        <el-button @click="loadFiles" :loading="loading" :icon="Refresh">{{ t('fileManager.refresh') }}</el-button>
+        <el-button @click="showUploadDialog = true" :icon="Upload">{{ t('fileManager.upload') }}</el-button>
+        <el-button @click="showCreateFolderDialog = true" :icon="FolderAdd">{{ t('fileManager.newFolder') }}</el-button>
+        <el-button @click="downloadSelected" :disabled="selectedFiles.length === 0" :icon="Download">{{ t('fileManager.downloadSelected') }}</el-button>
+        <el-button type="primary" @click="downloadAllAsArchive" :loading="archiveLoading" :icon="Download">{{ t('fileManager.downloadAll') }}</el-button>
       </div>
 
       <div class="toolbar-right">
@@ -144,9 +129,7 @@
                 {{ t('fileManager.download') }}
               </el-button>
               <el-dropdown @command="(cmd: string) => handleFileAction(cmd, row)">
-                <el-button size="small">
-                  <el-icon><More /></el-icon>
-                </el-button>
+                <el-button size="small" :icon="More" />
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="rename">{{ t('fileManager.rename') }}</el-dropdown-item>

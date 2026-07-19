@@ -45,6 +45,11 @@ public class ProxyRouteConfig
     public bool Enabled { get; set; } = true;
 
     /// <summary>
+    /// 是否强制 HTTPS 重定向
+    /// </summary>
+    public bool ForceHttps { get; set; } = false;
+
+    /// <summary>
     /// 优先级（数值越大优先级越高）
     /// </summary>
     public int Priority { get; set; } = 0;
@@ -111,6 +116,12 @@ public class ProxyClusterConfig
     /// 超时配置
     /// </summary>
     public ProxyTimeoutConfig? Timeout { get; set; }
+
+    /// <summary>
+    /// 强制使用的 HTTP 版本 (如 "1.1", "2")
+    /// </summary>
+    [MaxLength(16)]
+    public string? HttpVersion { get; set; }
 
     /// <summary>
     /// 创建时间
@@ -357,6 +368,32 @@ public class DomainMapping
     /// 是否启用
     /// </summary>
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// 空闲超时时间（秒）
+    /// </summary>
+    public int? ActivityTimeoutSeconds { get; set; }
+
+    /// <summary>
+    /// 请求超时时间（秒）
+    /// </summary>
+    public int? RequestTimeoutSeconds { get; set; }
+
+    /// <summary>
+    /// 是否强制重定向到 HTTPS
+    /// </summary>
+    public bool ForceHttps { get; set; } = false;
+
+    /// <summary>
+    /// 强制使用的目标 HTTP 版本 ("1.1", "2")
+    /// </summary>
+    [MaxLength(16)]
+    public string? HttpVersion { get; set; }
+
+    /// <summary>
+    /// 优化 WebSocket
+    /// </summary>
+    public bool EnableWebSocketOptimization { get; set; } = false;
 
     /// <summary>
     /// 优先级

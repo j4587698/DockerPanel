@@ -14,6 +14,8 @@ public interface IAuthService
     Task<AuthStatusResponse> GetStatusAsync();
     Task<AuthServiceResult<LoginResponse>> SetupAdminAsync(SetupAdminRequest request, string? ipAddress);
     Task<AuthServiceResult<LoginResponse>> LoginAsync(LoginRequest request, string? ipAddress, string? userAgent);
+    Task<AuthServiceResult<LoginResponse>> RefreshTokenAsync(string oldToken, string? ipAddress, string? userAgent);
+    Task InvalidateRefreshTokenAsync(ClaimsPrincipal principal);
     Task<AuthUserDto?> GetCurrentUserAsync(ClaimsPrincipal principal);
     Task<AuthServiceResult<AuthUserDto>> ChangePasswordAsync(ClaimsPrincipal principal, ChangePasswordRequest request);
     Task<IReadOnlyList<UserAccountDto>> ListUsersAsync();
@@ -60,10 +62,19 @@ public sealed class JwtSecretProvider
             return secret;
         }
 
-        var configuredFile = configuration["Auth:JwtSecretFile"] ?? Path.Combine("Data", "jwt-secret.key");
-        var secretFile = Path.IsPathRooted(configuredFile)
-            ? configuredFile
-            : Path.Combine(environment.ContentRootPath, configuredFile);
+        var configuredFile = configuration["Auth:JwtSecretFile"];
+        string secretFile;
+        
+        if (string.IsNullOrWhiteSpace(configuredFile) || configuredFile == "Data/jwt-secret.key")
+        {
+            secretFile = DockerPanel.API.Utils.AppPathResolver.GetJwtSecretPath();
+        }
+        else
+        {
+            secretFile = Path.IsPathRooted(configuredFile)
+                ? configuredFile
+                : Path.Combine(environment.ContentRootPath, configuredFile);
+        }
 
         var secretDirectory = Path.GetDirectoryName(secretFile);
         if (!string.IsNullOrWhiteSpace(secretDirectory))
@@ -228,6 +239,53 @@ public class AuthService : IAuthService
 
         _logger.LogInformation("用户 {Username} 登录成功，IP: {IpAddress}", user.Username, ipAddress);
         return AuthServiceResult<LoginResponse>.Ok(CreateLoginResponse(user));
+    }
+
+    public Task<AuthServiceResult<LoginResponse>> RefreshTokenAsync(string oldToken, string? ipAddress, string? userAgent)
+    {
+        if (string.IsNullOrWhiteSpace(oldToken))
+        {
+            return Task.FromResult(AuthServiceResult<LoginResponse>.Fail("无效的 Refresh Token。", StatusCodes.Status401Unauthorized));
+        }
+
+        var users = GetUsers();
+        var user = users.FindAll().AsEnumerable().FirstOrDefault(u => u.RefreshToken == oldToken);
+
+        if (user == null || user.RefreshTokenExpiry < DateTime.UtcNow)
+        {
+            return Task.FromResult(AuthServiceResult<LoginResponse>.Fail("Refresh Token 已失效或过期，请重新登录。", StatusCodes.Status401Unauthorized));
+        }
+
+        if (!user.IsActive || (user.LockedUntil.HasValue && user.LockedUntil.Value > DateTime.UtcNow))
+        {
+            return Task.FromResult(AuthServiceResult<LoginResponse>.Fail("账户已被禁用或锁定。", StatusCodes.Status401Unauthorized));
+        }
+
+        user.LastLoginAt = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(ipAddress))
+        {
+            user.LastLoginIp = ipAddress;
+        }
+        
+        _logger.LogInformation("用户 {Username} 通过 Refresh Token 刷新了登录状态，IP: {IpAddress}", user.Username, ipAddress);
+        return Task.FromResult(AuthServiceResult<LoginResponse>.Ok(CreateLoginResponse(user)));
+    }
+
+    public Task InvalidateRefreshTokenAsync(ClaimsPrincipal principal)
+    {
+        var userId = GetUserId(principal);
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            var users = GetUsers();
+            var user = users.FindById(userId);
+            if (user != null)
+            {
+                user.RefreshToken = null;
+                user.RefreshTokenExpiry = null;
+                users.Update(user);
+            }
+        }
+        return Task.CompletedTask;
     }
 
     public Task<AuthUserDto?> GetCurrentUserAsync(ClaimsPrincipal principal)
@@ -548,6 +606,13 @@ public class AuthService : IAuthService
     {
         var expirationMinutes = GetTokenExpirationMinutes();
         var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
+
+        var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var refreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiry = refreshTokenExpiry;
+        GetUsers().Update(user);
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id),
@@ -572,7 +637,9 @@ public class AuthService : IAuthService
         {
             AccessToken = new JwtSecurityTokenHandler().WriteToken(token),
             ExpiresAt = expiresAt,
-            User = ToDto(user)
+            User = ToDto(user),
+            RefreshToken = refreshToken,
+            RefreshTokenExpiry = refreshTokenExpiry
         };
     }
 

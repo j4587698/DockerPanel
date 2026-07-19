@@ -12,13 +12,13 @@
       </div>
       <div class="toolbar-right">
         <el-tooltip :content="t('common.refresh')">
-          <el-button @click="$emit('refresh')" size="small" plain><el-icon><Refresh /></el-icon></el-button>
+          <el-button @click="$emit('refresh')" size="small" plain :icon="Refresh" />
         </el-tooltip>
         <el-tooltip :content="t('container.clearLogs')">
-          <el-button @click="$emit('clear')" size="small" plain><el-icon><Delete /></el-icon></el-button>
+          <el-button @click="$emit('clear')" size="small" plain :icon="Delete" />
         </el-tooltip>
         <el-tooltip :content="t('container.downloadLogs')">
-          <el-button @click="$emit('download')" size="small" plain><el-icon><Download /></el-icon></el-button>
+          <el-button @click="$emit('download')" size="small" plain :icon="Download" />
         </el-tooltip>
       </div>
     </div>

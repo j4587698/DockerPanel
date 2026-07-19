@@ -34,9 +34,7 @@
                 size="small"
                 text
                 @click="copyToClipboard(imageData.id)"
-              >
-                <el-icon><DocumentCopy /></el-icon>
-              </el-button>
+               :icon="DocumentCopy" />
             </div>
           </div>
 
@@ -172,10 +170,7 @@
         <template #header>
           <div class="card-header">
             <h3>{{ t('image.layersInfo') }}</h3>
-            <el-button size="small" @click="refreshLayers">
-              <el-icon><Refresh /></el-icon>
-              {{ t('common.refresh') }}
-            </el-button>
+            <el-button size="small" @click="refreshLayers" :icon="Refresh">{{ t('common.refresh') }}</el-button>
           </div>
         </template>
 
@@ -237,10 +232,7 @@
     <template #footer>
       <div class="drawer-footer">
         <el-button @click="handleClose">{{ t('common.close') }}</el-button>
-        <el-button type="primary" @click="runContainer">
-          <el-icon><VideoPlay /></el-icon>
-          {{ t('image.runContainer') }}
-        </el-button>
+        <el-button type="primary" @click="runContainer" :icon="VideoPlay">{{ t('image.runContainer') }}</el-button>
       </div>
     </template>
 

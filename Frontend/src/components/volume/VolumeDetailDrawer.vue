@@ -227,18 +227,12 @@
             type="primary"
             @click="showBackupDialog = true"
             :disabled="volume.status !== 'in-use'"
-          >
-            <el-icon><FolderOpened /></el-icon>
-            {{ t('volume.backupVolume') }}
-          </el-button>
+           :icon="FolderOpened">{{ t('volume.backupVolume') }}</el-button>
           <el-button
             type="warning"
             @click="loadUsageInfo"
             :loading="usageLoading"
-          >
-            <el-icon><Refresh /></el-icon>
-            {{ t('volume.detail.refreshUsage') }}
-          </el-button>
+           :icon="Refresh">{{ t('volume.detail.refreshUsage') }}</el-button>
         </el-button-group>
         <el-button @click="refreshVolume">{{ t('volume.detail.refreshDetail') }}</el-button>
         <el-button

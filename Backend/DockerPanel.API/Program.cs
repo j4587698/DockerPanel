@@ -556,6 +556,35 @@ app.Use(async (context, next) =>
 app.UseAuthentication();
 app.UseAuthorization();
 
+// 强制 HTTPS 重定向中间件 (针对 YARP 代理路由)
+app.Use(async (context, next) =>
+{
+    // 如果是 HTTP 请求，检查是否命中了需要强制 HTTPS 的路由
+    if (!context.Request.IsHttps)
+    {
+        var endpoint = context.GetEndpoint();
+        var routeModel = endpoint?.Metadata?.GetMetadata<Yarp.ReverseProxy.Model.RouteModel>();
+        
+        if (routeModel != null)
+        {
+            if (routeModel.Config.Metadata?.TryGetValue("ForceHttps", out var forceHttps) == true && 
+                forceHttps == "true")
+            {
+                var httpsPort = context.RequestServices.GetRequiredService<IConfiguration>().GetValue("HTTPS_PORT", 443);
+                var host = context.Request.Host;
+                if (httpsPort != 443)
+                {
+                    host = new HostString(host.Host, httpsPort);
+                }
+                var newUrl = $"https://{host}{context.Request.PathBase}{context.Request.Path}{context.Request.QueryString}";
+                context.Response.Redirect(newUrl, permanent: true); // 301 重定向
+                return;
+            }
+        }
+    }
+    await next();
+});
+
 // 启用YARP反向代理 - 使用数据库配置的路由
 app.MapReverseProxy();
 

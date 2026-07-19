@@ -96,10 +96,7 @@
               </el-button>
             </el-form-item>
           </div>
-          <el-button type="primary" @click="addOption" style="margin-top: 12px">
-            <el-icon><Plus /></el-icon>
-            {{ t('volume.addDriverOption') }}
-          </el-button>
+          <el-button type="primary" @click="addOption" style="margin-top: 12px" :icon="Plus">{{ t('volume.addDriverOption') }}</el-button>
         </div>
 
         <!-- 常用驱动选项预设 -->
@@ -155,10 +152,7 @@
               </el-button>
             </el-form-item>
           </div>
-          <el-button type="primary" @click="addLabel" style="margin-top: 12px">
-            <el-icon><Plus /></el-icon>
-            {{ t('volume.addLabel') }}
-          </el-button>
+          <el-button type="primary" @click="addLabel" style="margin-top: 12px" :icon="Plus">{{ t('volume.addLabel') }}</el-button>
         </div>
       </el-card>
 

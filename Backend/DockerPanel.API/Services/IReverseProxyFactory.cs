@@ -76,6 +76,11 @@ public interface IReverseProxyFactory
     Task<List<DomainMapping>> GetDomainMappingsByContainerIdAsync(string containerId);
 
     /// <summary>
+    /// 根据容器名称获取域名映射
+    /// </summary>
+    Task<List<DomainMapping>> GetDomainMappingsByContainerNameAsync(string containerName);
+
+    /// <summary>
     /// 从数据库构建YARP配置
     /// </summary>
     Task<YarpProxyConfig> BuildConfigFromDatabaseAsync();

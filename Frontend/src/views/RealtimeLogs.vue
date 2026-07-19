@@ -7,18 +7,9 @@
         <p class="description">查看系统推送的实时日志数据</p>
       </div>
       <div class="header-right">
-        <el-button @click="clearLogs" :disabled="logs.length === 0">
-          <el-icon><Delete /></el-icon>
-          清空日志
-        </el-button>
-        <el-button @click="exportLogs" :disabled="logs.length === 0">
-          <el-icon><Download /></el-icon>
-          导出日志
-        </el-button>
-        <el-button @click="toggleAutoScroll" :type="autoScroll ? 'primary' : 'default'">
-          <el-icon><Bottom /></el-icon>
-          {{ autoScroll ? '停止滚动' : '自动滚动' }}
-        </el-button>
+        <el-button @click="clearLogs" :disabled="logs.length === 0" :icon="Delete">清空日志</el-button>
+        <el-button @click="exportLogs" :disabled="logs.length === 0" :icon="Download">导出日志</el-button>
+        <el-button @click="toggleAutoScroll" :type="autoScroll ? 'primary' : 'default'" :icon="Bottom">{{ autoScroll ? '停止滚动' : '自动滚动' }}</el-button>
       </div>
     </div>
 

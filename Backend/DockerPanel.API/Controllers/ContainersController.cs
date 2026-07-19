@@ -426,6 +426,11 @@ public class ContainersController : ControllerBase
                 };
             }
 
+            // 备份原容器的所有域名映射
+            var dbContext = HttpContext.RequestServices.GetRequiredService<DockerPanel.API.Data.TinyDbContext>();
+            var mappingsCollection = dbContext.GetCollection<DomainMapping>("domain_mappings");
+            var oldMappings = mappingsCollection.Find(m => m.ContainerId == id).ToList();
+
             // 如果需要拉取最新镜像
             if (request?.PullLatest == true)
             {
@@ -433,13 +438,29 @@ public class ContainersController : ControllerBase
                 // 拉取镜像的逻辑可以在这里添加
             }
 
-            // 删除旧容器
+            // 删除旧容器（这会级联删除数据库中的域名映射）
             await _containerService.RemoveContainerAsync(id, force: true);
             _logger.LogInformation("已删除旧容器 {Id}", id);
 
             // 创建新容器
             var newContainer = await _containerService.CreateContainerAsync(createRequest);
             _logger.LogInformation("已创建新容器 {NewId}", newContainer.Id);
+
+            // 恢复域名映射
+            if (oldMappings.Count > 0)
+            {
+                var reverseProxyFactory = HttpContext.RequestServices.GetRequiredService<IReverseProxyFactory>();
+                foreach (var mapping in oldMappings)
+                {
+                    // 更新为新容器的ID和名称，但保留原有映射配置
+                    mapping.ContainerId = newContainer.Id;
+                    mapping.ContainerName = newContainer.Name ?? "unknown";
+                    
+                    // 重新添加到数据库和YARP配置中
+                    await reverseProxyFactory.AddDomainMappingAsync(mapping);
+                }
+                _logger.LogInformation("已恢复新容器 {NewId} 的 {Count} 个域名映射", newContainer.Id, oldMappings.Count);
+            }
 
             // 如果原容器是运行状态或请求自动启动，则启动新容器
             if (container.State == "running" || request?.AutoStart == true)

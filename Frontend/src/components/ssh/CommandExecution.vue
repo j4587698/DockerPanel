@@ -5,10 +5,7 @@
       <template #header>
         <div class="card-header">
           <span>命令执行</span>
-          <el-button size="small" text @click="toggleHistory">
-            <el-icon><Clock /></el-icon>
-            历史命令
-          </el-button>
+          <el-button size="small" text @click="toggleHistory" :icon="Clock">历史命令</el-button>
         </div>
       </template>
 
@@ -64,14 +61,8 @@
             @click="executeCommand"
             :loading="executing"
             :disabled="!canExecute"
-          >
-            <el-icon><VideoPlay /></el-icon>
-            执行命令
-          </el-button>
-          <el-button @click="clearOutput">
-            <el-icon><Delete /></el-icon>
-            清空输出
-          </el-button>
+           :icon="VideoPlay">执行命令</el-button>
+          <el-button @click="clearOutput" :icon="Delete">清空输出</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -82,14 +73,8 @@
         <div class="card-header">
           <span>执行结果</span>
           <el-button-group size="small">
-            <el-button @click="copyOutput" :disabled="!currentExecution">
-              <el-icon><CopyDocument /></el-icon>
-              复制
-            </el-button>
-            <el-button @click="downloadOutput" :disabled="!currentExecution">
-              <el-icon><Download /></el-icon>
-              下载
-            </el-button>
+            <el-button @click="copyOutput" :disabled="!currentExecution" :icon="CopyDocument">复制</el-button>
+            <el-button @click="downloadOutput" :disabled="!currentExecution" :icon="Download">下载</el-button>
           </el-button-group>
         </div>
       </template>

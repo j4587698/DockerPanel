@@ -7,10 +7,7 @@
         <p class="description">{{ t('container.healthCheck.description') }}</p>
       </div>
       <div class="header-right">
-        <el-button @click="refreshData" :loading="loading">
-          <el-icon><Refresh /></el-icon>
-          {{ t('common.refresh') }}
-        </el-button>
+        <el-button @click="refreshData" :loading="loading" :icon="Refresh">{{ t('common.refresh') }}</el-button>
       </div>
     </div>
 

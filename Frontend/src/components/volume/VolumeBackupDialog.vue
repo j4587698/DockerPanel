@@ -95,10 +95,7 @@
         <div class="backup-labels">
           <div class="section-header">
             <span>{{ t('volume.backup.backupLabels') }}</span>
-            <el-button type="text" @click="addTag">
-              <el-icon><Plus /></el-icon>
-              {{ t('volume.backup.addLabel') }}
-            </el-button>
+            <el-button type="text" @click="addTag" :icon="Plus">{{ t('volume.backup.addLabel') }}</el-button>
           </div>
           <div
             v-for="(tag, index) in formArrays.tags"

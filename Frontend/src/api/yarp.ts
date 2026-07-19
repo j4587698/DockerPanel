@@ -25,6 +25,11 @@ export interface DomainMapping {
   priority: number
   createdAt: string
   enabled: boolean
+  activityTimeoutSeconds?: number
+  requestTimeoutSeconds?: number
+  forceHttps: boolean
+  httpVersion?: string
+  enableWebSocketOptimization: boolean
 }
 
 export interface CreateDomainMappingRequest {
@@ -39,6 +44,11 @@ export interface CreateDomainMappingRequest {
   autoRequestCertificate?: boolean
   protocol: string
   priority: number
+  activityTimeoutSeconds?: number
+  requestTimeoutSeconds?: number
+  forceHttps?: boolean
+  httpVersion?: string
+  enableWebSocketOptimization?: boolean
 }
 
 export interface UpdateCertificateRequest {

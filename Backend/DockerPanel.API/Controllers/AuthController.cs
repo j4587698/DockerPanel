@@ -41,6 +41,7 @@ public class AuthController : ControllerBase
             return StatusCode(result.StatusCode, new { message = result.Message });
         }
 
+        SetAuthCookies(result.Data);
         return Ok(result.Data);
     }
 
@@ -62,19 +63,30 @@ public class AuthController : ControllerBase
             return StatusCode(result.StatusCode, new { message = result.Message });
         }
 
-        // 将 Token 写入 HttpOnly Cookie
-        var cookieOptions = new CookieOptions
-        {
-            HttpOnly = true,
-            // 动态判断：如果是 HTTPS 请求才标记 Secure，否则 HTTP 访问（如 IP 直接访问）会导致浏览器拒绝发送 Cookie 从而秒退
-            Secure = Request.IsHttps || Request.Headers["X-Forwarded-Proto"].ToString().Equals("https", StringComparison.OrdinalIgnoreCase), 
-            SameSite = SameSiteMode.Lax,
-            Expires = result.Data.ExpiresAt
-        };
-        Response.Cookies.Append("jwt_token", result.Data.AccessToken, cookieOptions);
+        SetAuthCookies(result.Data);
+        return Ok(result.Data);
+    }
 
-        // 返回时为了安全可以不再在 Body 里返回 AccessToken，或者继续返回以兼容旧版本但前端不再存 localStorage。
-        // 为了渐进式升级，这里仍返回，由前端决定如何处理。
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    public async Task<ActionResult<LoginResponse>> Refresh()
+    {
+        if (!Request.Cookies.TryGetValue("refresh_token", out var refreshToken))
+        {
+            return Unauthorized(new { message = "未找到刷新凭证。" });
+        }
+
+        var result = await _authService.RefreshTokenAsync(
+            refreshToken,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            Request.Headers.UserAgent.ToString());
+
+        if (!result.Success || result.Data == null)
+        {
+            return StatusCode(result.StatusCode, new { message = result.Message });
+        }
+
+        SetAuthCookies(result.Data);
         return Ok(result.Data);
     }
 
@@ -82,9 +94,15 @@ public class AuthController : ControllerBase
     /// 退出登录
     /// </summary>
     [HttpPost("logout")]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout()
     {
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            await _authService.InvalidateRefreshTokenAsync(User);
+        }
+        
         Response.Cookies.Delete("jwt_token");
+        Response.Cookies.Delete("refresh_token", new CookieOptions { Path = "/api/auth/refresh" });
         return Ok(new { message = "登出成功" });
     }
 
@@ -188,5 +206,29 @@ public class AuthController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    private void SetAuthCookies(LoginResponse response)
+    {
+        var secure = Request.IsHttps || Request.Headers["X-Forwarded-Proto"].ToString().Equals("https", StringComparison.OrdinalIgnoreCase);
+        
+        var jwtOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = secure,
+            SameSite = SameSiteMode.Lax,
+            Expires = response.ExpiresAt
+        };
+        Response.Cookies.Append("jwt_token", response.AccessToken, jwtOptions);
+
+        var refreshOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = secure,
+            SameSite = SameSiteMode.Lax,
+            Expires = response.RefreshTokenExpiry,
+            Path = "/api/auth/refresh"
+        };
+        Response.Cookies.Append("refresh_token", response.RefreshToken, refreshOptions);
     }
 }

@@ -65,7 +65,7 @@ public class DomainMappingService
     /// <summary>
     /// 确保容器连接到默认网络
     /// </summary>
-    private async Task EnsureContainerInDefaultNetworkAsync(string containerId)
+    private async Task EnsureContainerInDefaultNetworkAsync(string containerId, string? containerName = null)
     {
         const string DEFAULT_NETWORK_NAME = "dockerpanel-network";
 
@@ -85,13 +85,23 @@ public class DomainMappingService
 
             if (!isInDefaultNetwork)
             {
+                // 如果提供了容器名称，将其设置为网络别名以增强DNS解析稳定性
+                NetworkConfig? networkConfig = null;
+                if (!string.IsNullOrEmpty(containerName))
+                {
+                    networkConfig = new NetworkConfig
+                    {
+                        Aliases = new List<string> { containerName }
+                    };
+                }
+
                 var connected = await _networkService.ConnectContainerToNetworkAsync(
-                    defaultNetwork.Id, containerId);
+                    defaultNetwork.Id, containerId, networkConfig);
 
                 if (connected)
                 {
-                    _logger.LogInformation("容器已连接到默认网络: {ContainerId} -> {NetworkName}",
-                        containerId, DEFAULT_NETWORK_NAME);
+                    _logger.LogInformation("容器已连接到默认网络: {ContainerId} -> {NetworkName} (Alias: {Alias})",
+                        containerId, DEFAULT_NETWORK_NAME, containerName ?? "none");
                 }
                 else
                 {
@@ -162,8 +172,8 @@ public class DomainMappingService
                 destinationAddress = $"{container.Name}:{domainMapping.ContainerPort}";
                 _logger.LogInformation("使用 bridge 网络模式，目标地址: {Address}", destinationAddress);
                 
-                // 确保容器连接到默认网络
-                await EnsureContainerInDefaultNetworkAsync(containerId);
+                // 确保容器连接到默认网络，并将容器名作为网络别名
+                await EnsureContainerInDefaultNetworkAsync(containerId, container.Name);
             }
 
             // 创建域名映射对象
@@ -271,7 +281,18 @@ public class DomainMappingService
     {
         try
         {
-            var mappings = await _reverseProxyFactory.GetDomainMappingsByContainerIdAsync(containerId);
+            var container = await _containerService.GetContainerAsync(containerId);
+            var mappings = new List<DomainMapping>();
+            
+            if (container != null && !string.IsNullOrEmpty(container.Name))
+            {
+                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerNameAsync(container.Name);
+            }
+            
+            if (mappings.Count == 0)
+            {
+                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerIdAsync(containerId);
+            }
 
             foreach (var mapping in mappings)
             {
@@ -303,7 +324,29 @@ public class DomainMappingService
 
         try
         {
-            var mappings = await _reverseProxyFactory.GetDomainMappingsByContainerIdAsync(containerId);
+            var container = await _containerService.GetContainerAsync(containerId);
+            var mappings = new List<DomainMapping>();
+            
+            if (container != null && !string.IsNullOrEmpty(container.Name))
+            {
+                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerNameAsync(container.Name);
+                
+                // 自动修复外部重建导致的 ContainerId 变更
+                foreach (var mapping in mappings)
+                {
+                    if (mapping.ContainerId != containerId)
+                    {
+                        mapping.ContainerId = containerId;
+                        await _reverseProxyFactory.UpdateDomainMappingAsync(mapping);
+                        _logger.LogInformation("已自动修复映射 {Id} 的 ContainerId 为 {NewId}", mapping.Id, containerId);
+                    }
+                }
+            }
+            
+            if (mappings.Count == 0)
+            {
+                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerIdAsync(containerId);
+            }
 
             foreach (var mapping in mappings)
             {

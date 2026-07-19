@@ -15,23 +15,11 @@
           class="search-input"
         />
         <el-button-group size="small">
-          <el-button :type="viewMode === 'tree' ? 'primary' : 'default'" @click="viewMode = 'tree'">
-            <el-icon><List /></el-icon>
-            {{ t('container.treeView') || '树形' }}
-          </el-button>
-          <el-button :type="viewMode === 'raw' ? 'primary' : 'default'" @click="viewMode = 'raw'">
-            <el-icon><Document /></el-icon>
-            {{ t('container.rawView') || '原始' }}
-          </el-button>
+          <el-button :type="viewMode === 'tree' ? 'primary' : 'default'" @click="viewMode = 'tree'" :icon="List">{{ t('container.treeView') || '树形' }}</el-button>
+          <el-button :type="viewMode === 'raw' ? 'primary' : 'default'" @click="viewMode = 'raw'" :icon="Document">{{ t('container.rawView') || '原始' }}</el-button>
         </el-button-group>
-        <el-button size="small" @click="copyJson">
-          <el-icon><CopyDocument /></el-icon>
-          {{ t('common.copy') || '复制' }}
-        </el-button>
-        <el-button size="small" @click="downloadJson">
-          <el-icon><Download /></el-icon>
-          {{ t('common.download') || '下载' }}
-        </el-button>
+        <el-button size="small" @click="copyJson" :icon="CopyDocument">{{ t('common.copy') || '复制' }}</el-button>
+        <el-button size="small" @click="downloadJson" :icon="Download">{{ t('common.download') || '下载' }}</el-button>
       </div>
     </div>
     

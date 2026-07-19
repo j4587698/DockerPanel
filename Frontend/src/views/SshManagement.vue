@@ -15,14 +15,8 @@
           <p>{{ t('ssh.subtitle') }}</p>
         </div>
         <div class="action-section">
-          <el-button type="primary" @click="showCreateConnectionDialog = true">
-            <el-icon><Plus /></el-icon>
-            {{ t('ssh.newConnection') }}
-          </el-button>
-          <el-button @click="showKeyPairDialog = true">
-            <el-icon><Key /></el-icon>
-            {{ t('ssh.generateKeyPair') }}
-          </el-button>
+          <el-button type="primary" @click="showCreateConnectionDialog = true" :icon="Plus">{{ t('ssh.newConnection') }}</el-button>
+          <el-button @click="showKeyPairDialog = true" :icon="Key">{{ t('ssh.generateKeyPair') }}</el-button>
           <el-dropdown @command="handleBatchCommand">
             <el-button>
               {{ t('ssh.batchOperation') }}
@@ -117,10 +111,7 @@
                   </el-select>
                 </el-col>
                 <el-col :span="4">
-                  <el-button @click="refreshConnections">
-                    <el-icon><Refresh /></el-icon>
-                    {{ t('ssh.refresh') }}
-                  </el-button>
+                  <el-button @click="refreshConnections" :icon="Refresh">{{ t('ssh.refresh') }}</el-button>
                 </el-col>
                 <el-col :span="6" class="text-right">
                   <el-button type="success" size="small" @click="testAllConnections">

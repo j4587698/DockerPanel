@@ -12,14 +12,8 @@
         <div class="section-header">
           <h3>{{ t('containerTemplate.savedTemplates') }}</h3>
           <div class="header-buttons">
-            <el-button @click="showImportDialog = true">
-              <el-icon><Upload /></el-icon>
-              {{ t('containerTemplate.import') }}
-            </el-button>
-            <el-button type="primary" @click="showCreateDialog = true">
-              <el-icon><Plus /></el-icon>
-              {{ t('containerTemplate.createTemplate') }}
-            </el-button>
+            <el-button @click="showImportDialog = true" :icon="Upload">{{ t('containerTemplate.import') }}</el-button>
+            <el-button type="primary" @click="showCreateDialog = true" :icon="Plus">{{ t('containerTemplate.createTemplate') }}</el-button>
           </div>
         </div>
 
@@ -47,9 +41,7 @@
                   {{ t('containerTemplate.use') }}
                 </el-button>
                 <el-dropdown @command="handleTemplateAction" trigger="click">
-                  <el-button size="small">
-                    <el-icon><MoreFilled /></el-icon>
-                  </el-button>
+                  <el-button size="small" :icon="MoreFilled" />
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item :command="`edit-${template.id}`">{{ t('common.edit') }}</el-dropdown-item>
@@ -124,10 +116,7 @@
       <div v-if="selectedTemplate" class="template-preview-section">
         <div class="section-header">
           <h3>{{ t('containerTemplate.preview') }} - {{ selectedTemplate.name }}</h3>
-          <el-button @click="useTemplate(selectedTemplate)" type="primary">
-            <el-icon><Check /></el-icon>
-            {{ t('containerTemplate.useThis') }}
-          </el-button>
+          <el-button @click="useTemplate(selectedTemplate)" type="primary" :icon="Check">{{ t('containerTemplate.useThis') }}</el-button>
         </div>
 
         <div class="preview-content">
@@ -363,10 +352,7 @@
                   </el-col>
                 </el-row>
               </div>
-              <el-button type="primary" size="small" @click="addPort">
-                <el-icon><Plus /></el-icon>
-                {{ t('containerTemplate.addPortMapping') }}
-              </el-button>
+              <el-button type="primary" size="small" @click="addPort" :icon="Plus">{{ t('containerTemplate.addPortMapping') }}</el-button>
             </div>
           </el-tab-pane>
 
@@ -400,10 +386,7 @@
                   </el-col>
                 </el-row>
               </div>
-              <el-button type="primary" size="small" @click="addVolume">
-                <el-icon><Plus /></el-icon>
-                {{ t('containerTemplate.addVolumeMapping') }}
-              </el-button>
+              <el-button type="primary" size="small" @click="addVolume" :icon="Plus">{{ t('containerTemplate.addVolumeMapping') }}</el-button>
             </div>
           </el-tab-pane>
 
@@ -434,10 +417,7 @@
                   </el-col>
                 </el-row>
               </div>
-              <el-button type="primary" size="small" @click="addEnv">
-                <el-icon><Plus /></el-icon>
-                {{ t('containerTemplate.addEnvVar') }}
-              </el-button>
+              <el-button type="primary" size="small" @click="addEnv" :icon="Plus">{{ t('containerTemplate.addEnvVar') }}</el-button>
             </div>
           </el-tab-pane>
 
@@ -468,10 +448,7 @@
                   </el-col>
                 </el-row>
               </div>
-              <el-button type="primary" size="small" @click="addLabel">
-                <el-icon><Plus /></el-icon>
-                {{ t('containerTemplate.addLabel') }}
-              </el-button>
+              <el-button type="primary" size="small" @click="addLabel" :icon="Plus">{{ t('containerTemplate.addLabel') }}</el-button>
             </div>
           </el-tab-pane>
         </el-tabs>

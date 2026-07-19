@@ -83,14 +83,8 @@
 
         <!-- 底部操作 -->
         <div class="dropdown-footer">
-          <el-button type="primary" link size="small" @click="goToNodeManagement">
-            <el-icon><Plus /></el-icon>
-            {{ t('node.addNode') }}
-          </el-button>
-          <el-button type="primary" link size="small" @click="refreshNodes">
-            <el-icon><Refresh /></el-icon>
-            {{ t('common.refresh') }}
-          </el-button>
+          <el-button type="primary" link size="small" @click="goToNodeManagement" :icon="Plus">{{ t('node.addNode') }}</el-button>
+          <el-button type="primary" link size="small" @click="refreshNodes" :icon="Refresh">{{ t('common.refresh') }}</el-button>
         </div>
       </el-dropdown-menu>
     </template>

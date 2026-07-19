@@ -35,28 +35,19 @@
               type="primary" 
               :loading="checking"
               @click="handleCheckUpdate"
-            >
-              <el-icon><Search /></el-icon>
-              {{ t('container.checkUpdate') }}
-            </el-button>
+             :icon="Search">{{ t('container.checkUpdate') }}</el-button>
             <el-button 
               v-if="config?.hasUpdateAvailable"
               type="warning"
               :loading="updating"
               @click="handleUpdate(false)"
-            >
-              <el-icon><Download /></el-icon>
-              {{ t('container.pullAndRestart') }}
-            </el-button>
+             :icon="Download">{{ t('container.pullAndRestart') }}</el-button>
             <el-button 
               v-if="config?.hasUpdateAvailable"
               type="success"
               :loading="updating"
               @click="handleUpdate(true)"
-            >
-              <el-icon><Download /></el-icon>
-              {{ t('container.pullOnly') }}
-            </el-button>
+             :icon="Download">{{ t('container.pullOnly') }}</el-button>
           </div>
           
           <!-- 回滚功能 -->
@@ -85,10 +76,7 @@
                 :loading="rollingBack"
                 :disabled="!selectedTag"
                 @click="handleRollback"
-              >
-                <el-icon><Back /></el-icon>
-                {{ t('container.confirmRollback') }}
-              </el-button>
+               :icon="Back">{{ t('container.confirmRollback') }}</el-button>
               <el-button @click="loadImageTags" :loading="loadingTags">
                 {{ t('common.refresh') }}
               </el-button>

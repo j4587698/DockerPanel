@@ -66,10 +66,7 @@
       <div class="form-section">
         <h4>
           {{ t('network.ipamConfig') }}
-          <el-button size="small" text @click="addSubnetConfig">
-            <el-icon><Plus /></el-icon>
-            {{ t('network.addSubnet') }}
-          </el-button>
+          <el-button size="small" text @click="addSubnetConfig" :icon="Plus">{{ t('network.addSubnet') }}</el-button>
         </h4>
         <div class="subnet-configs">
           <div
@@ -87,10 +84,7 @@
                     text
                     @click="removeSubnetConfig(index)"
                     :disabled="formData.ipam.config.length <= 1"
-                  >
-                    <el-icon><Delete /></el-icon>
-                    {{ t('common.delete') }}
-                  </el-button>
+                   :icon="Delete">{{ t('common.delete') }}</el-button>
                 </div>
               </template>
               <div class="subnet-fields">
@@ -115,10 +109,7 @@
                 <div class="aux-addresses">
                   <div class="aux-addresses-header">
                     <span>{{ t('network.auxiliaryAddresses') }}</span>
-                    <el-button size="small" text @click="addAuxAddress(index)">
-                      <el-icon><Plus /></el-icon>
-                      {{ t('network.add') }}
-                    </el-button>
+                    <el-button size="small" text @click="addAuxAddress(index)" :icon="Plus">{{ t('network.add') }}</el-button>
                   </div>
                   <div
                     v-for="(aux, auxIndex) in subnet.auxiliaryAddresses"
@@ -135,9 +126,7 @@
                       type="danger"
                       text
                       @click="removeAuxAddress(index, auxIndex)"
-                    >
-                      <el-icon><Delete /></el-icon>
-                    </el-button>
+                     :icon="Delete" />
                   </div>
                 </div>
               </div>
@@ -172,14 +161,9 @@
                 type="danger"
                 text
                 @click="removeLabel(index)"
-              >
-                <el-icon><Delete /></el-icon>
-              </el-button>
+               :icon="Delete" />
             </div>
-            <el-button size="small" text @click="addLabel">
-              <el-icon><Plus /></el-icon>
-              {{ t('network.addLabel') }}
-            </el-button>
+            <el-button size="small" text @click="addLabel" :icon="Plus">{{ t('network.addLabel') }}</el-button>
           </div>
         </el-form-item>
 
@@ -206,14 +190,9 @@
                 type="danger"
                 text
                 @click="removeOption(index)"
-              >
-                <el-icon><Delete /></el-icon>
-              </el-button>
+               :icon="Delete" />
             </div>
-            <el-button size="small" text @click="addOption">
-              <el-icon><Plus /></el-icon>
-              {{ t('network.addOption') }}
-            </el-button>
+            <el-button size="small" text @click="addOption" :icon="Plus">{{ t('network.addOption') }}</el-button>
           </div>
         </el-form-item>
       </div>
@@ -259,10 +238,7 @@
           size="small"
           @click="copyCommand"
           style="margin-top: 8px"
-        >
-          <el-icon><DocumentCopy /></el-icon>
-          {{ t('network.copyCommand') }}
-        </el-button>
+         :icon="DocumentCopy">{{ t('network.copyCommand') }}</el-button>
       </div>
     </template>
   </el-dialog>

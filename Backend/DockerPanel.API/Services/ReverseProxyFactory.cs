@@ -4,6 +4,7 @@ using DockerPanel.API.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Forwarder;
 
 namespace DockerPanel.API.Services;
 
@@ -540,6 +541,19 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
     }
 
     /// <summary>
+    /// 根据容器名称获取域名映射
+    /// </summary>
+    public Task<List<DomainMapping>> GetDomainMappingsByContainerNameAsync(string containerName)
+    {
+        var mappings = _domainMappings.Values
+            .Where(m => m.ContainerName == containerName && m.Enabled)
+            .OrderByDescending(m => m.Priority)
+            .ToList();
+
+        return Task.FromResult(mappings);
+    }
+
+    /// <summary>
     /// 从数据库构建YARP配置
     /// </summary>
     public async Task<YarpProxyConfig> BuildConfigFromDatabaseAsync()
@@ -741,7 +755,13 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
                     ActiveTimeoutSeconds = 10,
                     ConsecutiveFailureThreshold = 3
                 },
-                Destinations = destinations
+                Destinations = destinations,
+                Timeout = new ProxyTimeoutConfig
+                {
+                    ActiveConnectionTimeoutSeconds = firstMapping.ActivityTimeoutSeconds ?? 100,
+                    RequestTimeoutSeconds = firstMapping.RequestTimeoutSeconds ?? 100
+                },
+                HttpVersion = firstMapping.HttpVersion
             };
             _clusters[clusterId] = ConvertToClusterConfig(cluster);
 
@@ -768,7 +788,8 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
                 PathPattern = pathPattern,
                 ClusterId = clusterId,
                 Enabled = true,
-                Priority = firstMapping.Priority
+                Priority = firstMapping.Priority,
+                ForceHttps = firstMapping.ForceHttps
             };
             _routes[routeId] = ConvertToRouteConfig(route);
 
@@ -819,6 +840,12 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
     /// </summary>
     private RouteConfig ConvertToRouteConfig(ProxyRouteConfig config)
     {
+        var metadata = new Dictionary<string, string>();
+        if (config.ForceHttps)
+        {
+            metadata["ForceHttps"] = "true";
+        }
+
         return new RouteConfig
         {
             RouteId = config.RouteId,
@@ -827,7 +854,8 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
             {
                 Hosts = new[] { config.Host }.Where(h => !string.IsNullOrEmpty(h)).ToArray(),
                 Path = config.PathPattern
-            }
+            },
+            Metadata = metadata.Count > 0 ? metadata : null
         };
     }
 
@@ -876,12 +904,33 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
             };
         }
 
+        ForwarderRequestConfig? httpRequest = null;
+        if (config.Timeout != null || !string.IsNullOrEmpty(config.HttpVersion))
+        {
+            Version? version = null;
+            if (!string.IsNullOrEmpty(config.HttpVersion) && Version.TryParse(config.HttpVersion, out var parsedVersion))
+            {
+                version = parsedVersion;
+            }
+
+            httpRequest = new ForwarderRequestConfig
+            {
+                ActivityTimeout = config.Timeout != null 
+                    ? (config.Timeout.ActiveConnectionTimeoutSeconds <= 0 
+                        ? System.Threading.Timeout.InfiniteTimeSpan 
+                        : TimeSpan.FromSeconds(config.Timeout.ActiveConnectionTimeoutSeconds)) 
+                    : null,
+                Version = version
+            };
+        }
+
         return new ClusterConfig
         {
             ClusterId = config.ClusterId,
             Destinations = destinations,
             HealthCheck = healthCheck,
-            SessionAffinity = sessionAffinity
+            SessionAffinity = sessionAffinity,
+            HttpRequest = httpRequest
         };
     }
 

@@ -19,6 +19,20 @@ const api = axios.create({
   }
 })
 
+let isRefreshing = false
+let failedQueue: Array<{ resolve: (value?: unknown) => void; reject: (reason?: any) => void }> = []
+
+const processQueue = (error: any = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve()
+    }
+  })
+  failedQueue = []
+}
+
 // 请求拦截器
 api.interceptors.request.use(
   (config: ApiRequestConfig) => {
@@ -83,8 +97,54 @@ api.interceptors.response.use(
       if (status === 400) {
         message = data?.message || "请求参数错误"
       } else if (status === 401) {
+        const originalRequest = error.config
+        
+        if (originalRequest.url === '/auth/refresh') {
+          message = "登录已过期，请重新登录"
+          localStorage.removeItem("tokenExpiresAt")
+          localStorage.removeItem("user")
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
+          return Promise.reject(error)
+        }
+
+        if (!originalRequest._retry) {
+          if (isRefreshing) {
+            return new Promise((resolve, reject) => {
+              failedQueue.push({ resolve, reject })
+            }).then(() => {
+              return api(originalRequest)
+            }).catch(err => {
+              return Promise.reject(err)
+            })
+          }
+          
+          originalRequest._retry = true
+          isRefreshing = true
+          
+          return new Promise((resolve, reject) => {
+            axios.post('/api/auth/refresh', {}, { withCredentials: true })
+              .then(() => {
+                processQueue(null)
+                resolve(api(originalRequest))
+              })
+              .catch((refreshError) => {
+                processQueue(refreshError)
+                localStorage.removeItem("tokenExpiresAt")
+                localStorage.removeItem("user")
+                if (window.location.pathname !== '/login') {
+                  window.location.href = '/login'
+                }
+                reject(refreshError)
+              })
+              .finally(() => {
+                isRefreshing = false
+              })
+          })
+        }
+        
         message = "未授权，请重新登录"
-        localStorage.removeItem("token")
         localStorage.removeItem("tokenExpiresAt")
         localStorage.removeItem("user")
         if (window.location.pathname !== '/login') {

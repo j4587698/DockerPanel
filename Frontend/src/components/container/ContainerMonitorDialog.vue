@@ -19,10 +19,7 @@
           <el-icon><VideoPlay v-if="!isMonitoring" /><VideoPause v-else /></el-icon>
           {{ isMonitoring ? t('container.monitorDialog.stopMonitor') : t('container.monitorDialog.startMonitor') }}
         </el-button>
-        <el-button @click="refreshStats" :loading="loading">
-          <el-icon><Refresh /></el-icon>
-          {{ t('container.monitorDialog.refresh') }}
-        </el-button>
+        <el-button @click="refreshStats" :loading="loading" :icon="Refresh">{{ t('container.monitorDialog.refresh') }}</el-button>
       </div>
       <div class="control-right">
         <el-text type="info" v-if="lastUpdateTime">

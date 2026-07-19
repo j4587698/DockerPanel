@@ -17,10 +17,7 @@
             @keyup.enter="executeCommand"
           >
             <template #append>
-              <el-button @click="showCommandHistory = !showCommandHistory">
-                <el-icon><Clock /></el-icon>
-                {{ t('container.execDialog.history') }}
-              </el-button>
+              <el-button @click="showCommandHistory = !showCommandHistory" :icon="Clock">{{ t('container.execDialog.history') }}</el-button>
             </template>
           </el-input>
         </el-form-item>
@@ -70,10 +67,7 @@
                 {{ t('common.delete') }}
               </el-button>
             </div>
-            <el-button type="primary" size="small" @click="addEnv">
-              <el-icon><Plus /></el-icon>
-              {{ t('container.execDialog.addEnvVar') }}
-            </el-button>
+            <el-button type="primary" size="small" @click="addEnv" :icon="Plus">{{ t('container.execDialog.addEnvVar') }}</el-button>
           </div>
         </el-form-item>
 
@@ -102,9 +96,7 @@
             type="text"
             size="small"
             @click.stop="removeFromHistory(index)"
-          >
-            <el-icon><Delete /></el-icon>
-          </el-button>
+           :icon="Delete" />
         </div>
         <div v-if="commandHistory.length === 0" class="history-empty">
           <el-text type="info">{{ t('container.execDialog.noCommandHistory') }}</el-text>
@@ -138,10 +130,7 @@
       <div v-if="executionResult.stdout" class="output-section">
         <div class="output-header">
           <span>{{ t('container.execDialog.stdout') }}</span>
-          <el-button type="text" size="small" @click="copyOutput(executionResult.stdout)">
-            <el-icon><CopyDocument /></el-icon>
-            {{ t('container.execDialog.copy') }}
-          </el-button>
+          <el-button type="text" size="small" @click="copyOutput(executionResult.stdout)" :icon="CopyDocument">{{ t('container.execDialog.copy') }}</el-button>
         </div>
         <pre class="output-content stdout">{{ executionResult.stdout }}</pre>
       </div>
@@ -150,10 +139,7 @@
       <div v-if="executionResult.stderr" class="output-section">
         <div class="output-header">
           <span>{{ t('container.execDialog.stderr') }}</span>
-          <el-button type="text" size="small" @click="copyOutput(executionResult.stderr)">
-            <el-icon><CopyDocument /></el-icon>
-            {{ t('container.execDialog.copy') }}
-          </el-button>
+          <el-button type="text" size="small" @click="copyOutput(executionResult.stderr)" :icon="CopyDocument">{{ t('container.execDialog.copy') }}</el-button>
         </div>
         <pre class="output-content stderr">{{ executionResult.stderr }}</pre>
       </div>
@@ -162,10 +148,7 @@
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="handleClose">{{ t('container.execDialog.close') }}</el-button>
-        <el-button type="primary" @click="executeCommand" :loading="executing">
-          <el-icon><VideoPlay /></el-icon>
-          {{ t('container.execDialog.execute') }}
-        </el-button>
+        <el-button type="primary" @click="executeCommand" :loading="executing" :icon="VideoPlay">{{ t('container.execDialog.execute') }}</el-button>
       </div>
     </template>
   </el-dialog>

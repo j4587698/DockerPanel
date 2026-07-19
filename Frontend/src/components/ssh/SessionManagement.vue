@@ -23,10 +23,7 @@
           </el-select>
         </el-col>
         <el-col :span="14" class="toolbar-right">
-          <el-button @click="refreshSessions">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
+          <el-button @click="refreshSessions" :icon="Refresh">刷新</el-button>
           <el-button type="danger" @click="terminateAll" :disabled="activeSessions.length === 0">
             终止所有会话
           </el-button>

@@ -61,10 +61,7 @@
       <div class="key-section">
         <div class="key-header">
           <span>公钥 (Public Key)</span>
-          <el-button size="small" text @click="copyKey('public')">
-            <el-icon><CopyDocument /></el-icon>
-            复制
-          </el-button>
+          <el-button size="small" text @click="copyKey('public')" :icon="CopyDocument">复制</el-button>
         </div>
         <el-input
           type="textarea"
@@ -79,14 +76,8 @@
         <div class="key-header">
           <span>私钥 (Private Key)</span>
           <div class="key-actions">
-            <el-button size="small" text @click="copyKey('private')">
-              <el-icon><CopyDocument /></el-icon>
-              复制
-            </el-button>
-            <el-button size="small" text @click="downloadKey('private')">
-              <el-icon><Download /></el-icon>
-              下载
-            </el-button>
+            <el-button size="small" text @click="copyKey('private')" :icon="CopyDocument">复制</el-button>
+            <el-button size="small" text @click="downloadKey('private')" :icon="Download">下载</el-button>
           </div>
         </div>
         <el-input

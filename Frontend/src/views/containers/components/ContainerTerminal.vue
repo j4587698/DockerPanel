@@ -20,18 +20,14 @@
           size="small" 
           @click="$emit('connect')"
           :loading="connecting"
-        >
-          <el-icon><Connection /></el-icon> {{ t('container.terminalDialog.connect') }}
-        </el-button>
+         :icon="Connection">{{ t('container.terminalDialog.connect') }}</el-button>
         <el-button 
           v-else 
           type="danger" 
           size="small" 
           plain 
           @click="$emit('disconnect')"
-        >
-          <el-icon><Close /></el-icon> {{ t('container.terminalDialog.disconnect') }}
-        </el-button>
+         :icon="Close">{{ t('container.terminalDialog.disconnect') }}</el-button>
       </div>
     </div>
     <div class="console-window terminal-window" ref="terminalContainer">

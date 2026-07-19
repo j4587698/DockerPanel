@@ -56,18 +56,7 @@
             </el-input>
           </el-form-item>
 
-          <div v-if="isSetupMode" class="password-policy">
-            <div class="password-policy__header">
-              <span>密码要求</span>
-              <span :class="['password-strength', passwordStrength.className]">{{ passwordStrength.text }}</span>
-            </div>
-            <div class="policy-grid">
-              <span v-for="item in passwordPolicyItems" :key="item.label" :class="['policy-item', { passed: item.passed }]">
-                <el-icon><component :is="item.passed ? Check : Close" /></el-icon>
-                {{ item.label }}
-              </span>
-            </div>
-          </div>
+          <PasswordPolicy v-if="isSetupMode" ref="passwordPolicyRef" :password="form.password" />
 
           <el-form-item v-if="isSetupMode" prop="confirmPassword">
             <el-input
@@ -106,6 +95,7 @@ import { Avatar, Check, Close, Lock, User } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSettingsStore } from '@/stores/settings'
 import AppLogo from '@/components/common/AppLogo.vue'
+import PasswordPolicy from '@/components/common/PasswordPolicy.vue'
 import { APP_NAME } from '@/utils/branding'
 
 const route = useRoute()
@@ -114,6 +104,7 @@ const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 
 const formRef = ref<FormInstance>()
+const passwordPolicyRef = ref()
 const loading = ref(false)
 const status = computed(() => authStore.status)
 const isSetupMode = computed(() => route.name === 'Setup' || Boolean(status.value?.requiresSetup))
@@ -126,22 +117,6 @@ const form = reactive({
   confirmPassword: ''
 })
 
-const passwordPolicyItems = computed(() => [
-  { label: '至少 8 位', passed: form.password.length >= 8 },
-  { label: '包含大写字母', passed: /[A-Z]/.test(form.password) },
-  { label: '包含小写字母', passed: /[a-z]/.test(form.password) },
-  { label: '包含数字', passed: /\d/.test(form.password) },
-  { label: '包含特殊字符', passed: /[^A-Za-z0-9]/.test(form.password) }
-])
-
-const passwordStrength = computed(() => {
-  const passedCount = passwordPolicyItems.value.filter(item => item.passed).length
-  if (!form.password) return { text: '未设置', className: 'weak' }
-  if (passedCount <= 2) return { text: '较弱', className: 'weak' }
-  if (passedCount <= 4) return { text: '中等', className: 'medium' }
-  return { text: '强', className: 'strong' }
-})
-
 const validateConfirmPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (!isSetupMode.value) return callback()
   if (!value) return callback(new Error('请再次输入密码'))
@@ -152,7 +127,7 @@ const validateConfirmPassword = (_rule: unknown, value: string, callback: (error
 const validateSetupPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (!isSetupMode.value) return callback()
   if (!value) return callback(new Error('请输入密码'))
-  if (!passwordPolicyItems.value.every(item => item.passed)) {
+  if (passwordPolicyRef.value && !passwordPolicyRef.value.isValid) {
     return callback(new Error('密码必须满足全部复杂度要求'))
   }
   callback()

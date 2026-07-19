@@ -133,6 +133,17 @@ export default {
   passwordChangeRequiredDesc: 'An administrator requires you to update your password before continuing.',
   passwordChanged: 'Password changed',
   logout: 'Logout',
+  passwordRequirements: 'Password Requirements',
+  passwordMinLength: 'At least {length} characters',
+  passwordRequireUppercase: 'Include uppercase letter',
+  passwordRequireLowercase: 'Include lowercase letter',
+  passwordRequireNumbers: 'Include number',
+  passwordRequireSpecialChars: 'Include special character',
+  passwordComplexityRequired: 'Password must meet all complexity requirements',
+  strengthNone: 'Not set',
+  strengthWeak: 'Weak',
+  strengthMedium: 'Medium',
+  strengthStrong: 'Strong',
   
   // Theme
   themeLight: 'Light Theme',

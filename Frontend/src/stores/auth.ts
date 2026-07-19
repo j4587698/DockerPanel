@@ -4,16 +4,6 @@ import { authApi, type AuthRole, type AuthStatusResponse, type AuthUser, type Lo
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user'
 const EXPIRES_KEY = 'tokenExpiresAt'
-const TOKEN_EXPIRY_BUFFER_MS = 30_000
-
-function isTokenExpired(expiresAt: string): boolean {
-  if (!expiresAt) return false
-
-  const expires = Date.parse(expiresAt)
-  if (Number.isNaN(expires)) return false
-
-  return expires <= Date.now() + TOKEN_EXPIRY_BUFFER_MS
-}
 
 function normalizeRole(role?: string | null): AuthRole {
   if (role === 'Admin') return 'Admin'
@@ -42,7 +32,7 @@ export const useAuthStore = defineStore('auth', {
   }),
 
   getters: {
-    isAuthenticated: (state) => state.user !== null && !isTokenExpired(state.expiresAt),
+    isAuthenticated: (state) => state.user !== null,
     displayName: (state) => state.user?.displayName || state.user?.username || 'Admin',
     effectiveRole: (state): AuthRole => normalizeRole(state.user?.role),
     isAdmin: (state) => normalizeRole(state.user?.role) === 'Admin',
@@ -69,8 +59,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async loadCurrentUser() {
-      if (isTokenExpired(this.expiresAt)) {
-        this.clearAuth()
+      if (!this.user) {
         return false
       }
 
@@ -116,8 +105,6 @@ export const useAuthStore = defineStore('auth', {
     clearAuth() {
       this.expiresAt = ''
       this.user = null
-      this.initialized = false
-
       this.initialized = false
 
       localStorage.removeItem(TOKEN_KEY) // 兼容旧版，清理掉它

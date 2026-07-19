@@ -168,7 +168,7 @@ const routeToModuleMap: Record<string, string> = {
 }
 
 // 路由导航守卫 - 按需加载翻译
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, _from) => {
   const routeName = to.name as string
   const moduleName = routeToModuleMap[routeName]
   
@@ -185,17 +185,14 @@ router.beforeEach(async (to, _from, next) => {
       const status = authStore.status ?? await authStore.loadStatus()
       if (status.requiresSetup) {
         if (to.name !== 'Setup') {
-          next({ path: '/setup', query: { redirect: to.name === 'Login' ? redirectTarget : to.fullPath } })
-          return
+          return { path: '/setup', query: { redirect: to.name === 'Login' ? redirectTarget : to.fullPath } }
         }
 
-        next()
         return
       }
 
       if (to.name === 'Setup') {
-        next({ path: '/login', query: to.query })
-        return
+        return { path: '/login', query: to.query }
       }
     } catch {
       // 认证状态接口异常时继续走常规登录流程，登录页会显示错误提示。
@@ -206,36 +203,29 @@ router.beforeEach(async (to, _from, next) => {
     if ((to.name === 'Login' || to.name === 'Setup') && authStore.token) {
       const valid = await authStore.loadCurrentUser()
       if (valid) {
-        next(redirectTarget)
-        return
+        return redirectTarget
       }
     }
 
-    next()
     return
   }
 
   if (!authStore.isAuthenticated) {
     authStore.clearAuth()
-    next({ path: '/login', query: { redirect: to.fullPath } })
-    return
+    return { path: '/login', query: { redirect: to.fullPath } }
   }
 
   if (!authStore.initialized || !authStore.user) {
     const valid = await authStore.loadCurrentUser()
     if (!valid) {
-      next({ path: '/login', query: { redirect: to.fullPath } })
-      return
+      return { path: '/login', query: { redirect: to.fullPath } }
     }
   }
 
   const allowedRoles = to.meta.roles as string[] | undefined
   if (allowedRoles?.length && !allowedRoles.includes(authStore.effectiveRole)) {
-    next('/dashboard')
-    return
+    return '/dashboard'
   }
-  
-  next()
 })
 
 export default router

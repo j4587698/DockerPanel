@@ -66,9 +66,7 @@
                         </div>
                       </template>
                     </el-select>
-                    <el-button class="pull-trigger-btn" @click="showPullDialog = true">
-                      <el-icon><Download /></el-icon>
-                    </el-button>
+                    <el-button class="pull-trigger-btn" @click="showPullDialog = true" :icon="Download" />
                   </div>
                 </el-form-item>
               </el-col>
@@ -753,9 +751,7 @@
               :disabled="searching"
             >
               <template #append>
-                <el-button @click="searchDockerHub" :loading="searching">
-                  <el-icon><Search /></el-icon>
-                </el-button>
+                <el-button @click="searchDockerHub" :loading="searching" :icon="Search" />
               </template>
             </el-input>
           </div>

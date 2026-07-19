@@ -24,14 +24,8 @@
             type="primary"
             @click="showUploadDialog = true"
             :disabled="!selectedConnectionId"
-          >
-            <el-icon><Upload /></el-icon>
-            上传文件
-          </el-button>
-          <el-button @click="refreshFiles" :disabled="!selectedConnectionId">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
+           :icon="Upload">上传文件</el-button>
+          <el-button @click="refreshFiles" :disabled="!selectedConnectionId" :icon="Refresh">刷新</el-button>
         </el-col>
       </el-row>
     </div>
@@ -58,9 +52,7 @@
             @keyup.enter="loadDirectory"
           >
             <template #append>
-              <el-button @click="loadDirectory">
-                <el-icon><Right /></el-icon>
-              </el-button>
+              <el-button @click="loadDirectory" :icon="Right" />
             </template>
           </el-input>
         </div>
@@ -107,19 +99,13 @@
               size="small"
               text
               @click="downloadFile(row)"
-            >
-              <el-icon><Download /></el-icon>
-              下载
-            </el-button>
+             :icon="Download">下载</el-button>
             <el-popconfirm
               title="确定要删除吗？"
               @confirm="deleteFile(row)"
             >
               <template #reference>
-                <el-button size="small" text type="danger">
-                  <el-icon><Delete /></el-icon>
-                  删除
-                </el-button>
+                <el-button size="small" text type="danger" :icon="Delete">删除</el-button>
               </template>
             </el-popconfirm>
           </template>

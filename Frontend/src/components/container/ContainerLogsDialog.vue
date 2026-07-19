@@ -19,18 +19,9 @@
         <el-checkbox v-model="logOptions.follow" @change="handleFollowChange">
           {{ t('container.logsDialog.realtimeFollow') }}
         </el-checkbox>
-        <el-button @click="refreshLogs" :loading="loading">
-          <el-icon><Refresh /></el-icon>
-          {{ t('container.logsDialog.refresh') }}
-        </el-button>
-        <el-button @click="clearLogs">
-          <el-icon><Delete /></el-icon>
-          {{ t('container.logsDialog.clear') }}
-        </el-button>
-        <el-button @click="downloadLogs">
-          <el-icon><Download /></el-icon>
-          {{ t('container.logsDialog.download') }}
-        </el-button>
+        <el-button @click="refreshLogs" :loading="loading" :icon="Refresh">{{ t('container.logsDialog.refresh') }}</el-button>
+        <el-button @click="clearLogs" :icon="Delete">{{ t('container.logsDialog.clear') }}</el-button>
+        <el-button @click="downloadLogs" :icon="Download">{{ t('container.logsDialog.download') }}</el-button>
       </div>
       <div class="control-right">
         <el-input

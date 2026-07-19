@@ -50,41 +50,20 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static string ResolveTinyDbPath(IConfiguration configuration)
     {
-        var configuredPath = configuration["TinyDb:Path"] ?? configuration["LiteDB:Path"] ?? "Data/DockerPanel.db";
+        var configuredPath = configuration["TinyDb:Path"] ?? configuration["LiteDB:Path"];
+
+        // 如果未配置或者使用了默认配置，则走统一的路径解析逻辑
+        if (string.IsNullOrWhiteSpace(configuredPath) || configuredPath == "Data/DockerPanel.db")
+        {
+            return DockerPanel.API.Utils.AppPathResolver.GetDbPath();
+        }
 
         if (Path.IsPathRooted(configuredPath))
         {
             return configuredPath;
         }
 
-        // 查找项目根目录（包含 appsettings.json 或 .csproj 的目录）
-        var baseDirectory = AppContext.BaseDirectory;
-        var projectRoot = baseDirectory;
-        var normalizedBaseDirectory = baseDirectory
-            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-        var binSegment = $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}";
-        var binIndex = normalizedBaseDirectory.IndexOf(binSegment, StringComparison.OrdinalIgnoreCase);
-
-        if (binIndex > 0)
-        {
-            projectRoot = baseDirectory.Substring(0, binIndex);
-        }
-        else
-        {
-            // 尝试向上查找包含 .csproj 文件的目录；容器发布目录中找不到时保留 AppContext.BaseDirectory。
-            var currentDir = new DirectoryInfo(baseDirectory);
-            while (currentDir != null && !currentDir.GetFiles("*.csproj").Any())
-            {
-                currentDir = currentDir.Parent;
-            }
-
-            if (currentDir != null)
-            {
-                projectRoot = currentDir.FullName;
-            }
-        }
-
-        return Path.Combine(projectRoot, configuredPath);
+        return Path.Combine(AppContext.BaseDirectory, configuredPath);
     }
 
     /// <summary>

@@ -38,22 +38,10 @@
     <!-- 文件操作工具栏 -->
     <div class="file-toolbar">
       <div class="toolbar-left">
-        <el-button @click="loadFiles" :loading="loading">
-          <el-icon><Refresh /></el-icon>
-          {{ t('container.filesModule.refresh') }}
-        </el-button>
-        <el-button @click="showUploadDialog = true">
-          <el-icon><Upload /></el-icon>
-          {{ t('container.filesModule.uploadFile') }}
-        </el-button>
-        <el-button @click="showCreateFolderDialog = true">
-          <el-icon><FolderAdd /></el-icon>
-          {{ t('container.filesModule.newFolder') }}
-        </el-button>
-        <el-button @click="downloadSelected" :disabled="selectedFiles.length === 0">
-          <el-icon><Download /></el-icon>
-          {{ t('container.filesModule.downloadSelected') }}
-        </el-button>
+        <el-button @click="loadFiles" :loading="loading" :icon="Refresh">{{ t('container.filesModule.refresh') }}</el-button>
+        <el-button @click="showUploadDialog = true" :icon="Upload">{{ t('container.filesModule.uploadFile') }}</el-button>
+        <el-button @click="showCreateFolderDialog = true" :icon="FolderAdd">{{ t('container.filesModule.newFolder') }}</el-button>
+        <el-button @click="downloadSelected" :disabled="selectedFiles.length === 0" :icon="Download">{{ t('container.filesModule.downloadSelected') }}</el-button>
       </div>
 
       <div class="toolbar-right">

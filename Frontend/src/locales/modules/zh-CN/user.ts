@@ -38,7 +38,7 @@ export default {
   deleteConfirm: '确定要删除用户 {username} 吗？此操作不可撤销。',
   usernameRequired: '请输入用户名',
   usernameLength: '用户名长度为 3-64 位',
-  usernameInvalid: '用户名只能包含字母、数字、下划线、点、@ 和短横线',
+  usernameInvalid: '用户名只能包含字母、数字、下划线、点、{\'@\'} 和短横线',
   passwordRequired: '请输入密码',
   passwordLength: '密码长度为 8-128 位',
   roleRequired: '请选择角色',

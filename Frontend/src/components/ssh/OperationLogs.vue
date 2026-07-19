@@ -46,14 +46,8 @@
           />
         </el-col>
         <el-col :span="4" class="toolbar-right">
-          <el-button @click="refreshLogs">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
-          <el-button @click="exportLogs">
-            <el-icon><Download /></el-icon>
-            导出
-          </el-button>
+          <el-button @click="refreshLogs" :icon="Refresh">刷新</el-button>
+          <el-button @click="exportLogs" :icon="Download">导出</el-button>
         </el-col>
       </el-row>
     </div>

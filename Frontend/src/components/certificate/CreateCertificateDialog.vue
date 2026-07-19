@@ -36,10 +36,7 @@
               <el-icon><Delete /></el-icon>
             </el-button>
           </div>
-          <el-button type="primary" plain @click="addDomain">
-            <el-icon><Plus /></el-icon>
-            {{ t('certificate.createDialog.addDomain') }}
-          </el-button>
+          <el-button type="primary" plain @click="addDomain" :icon="Plus">{{ t('certificate.createDialog.addDomain') }}</el-button>
         </div>
         <div class="form-help">
           {{ t('certificate.createDialog.domainHint') }}

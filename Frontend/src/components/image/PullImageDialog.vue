@@ -87,7 +87,7 @@ import { useImagesStore } from '@/stores/images'
 import { useTasksStore } from '@/stores/tasks'
 import { registryApi } from '@/api/registry'
 import type { ImageRegistry } from '@/types/registry'
-import axios from 'axios'
+import { imageApi } from '@/api/image'
 
 const { t } = useI18n()
 const props = defineProps<{ modelValue: boolean }>()
@@ -142,8 +142,8 @@ const fetchSuggestions = async (queryString: string, cb: (results: any[]) => voi
   
   isSearching.value = true
   try {
-    const res = await axios.get('/api/images/search', { params: { term: queryString } })
-    const items = res.data.map((i: any) => ({
+    const res = await imageApi.searchImages(queryString)
+    const items = (res as any[]).map((i: any) => ({
       value: i.name,
       ...i
     }))
@@ -180,13 +180,13 @@ const handleSubmit = async () => {
   })
   
   try {
-    const response = await axios.post('/api/images/pull', {
+    const response = await imageApi.pullImage({
       imageName: name,
       tag: tag,
       registry: selectedMirrorId.value
     })
-    
-    const data = response.data
+
+    const data = response as any
     if (data.pullId && data.pullId !== localTaskId) {
       tasksStore.removeTask(localTaskId)
       tasksStore.addTask({

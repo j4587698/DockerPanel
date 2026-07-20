@@ -363,7 +363,7 @@ const loadFiles = async () => {
     const response = await containerApi.getContainerFiles(containerId.value, {
       path: currentPath.value
     })
-    files.value = response.data.files || []
+    files.value = response.files || []
   } catch (error: any) {
     console.error('获取文件列表失败:', error)
     ElMessage.error(error.response?.data?.message || t('container.filesModule.getFilesFailed'))
@@ -413,7 +413,7 @@ const downloadFile = async (file: FileInfo) => {
     })
 
     // 创建下载链接
-    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const url = window.URL.createObjectURL(new Blob([response]))
     const link = document.createElement('a')
     link.href = url
     link.download = file.name

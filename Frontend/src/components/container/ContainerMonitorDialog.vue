@@ -475,7 +475,7 @@ const refreshStats = async () => {
   loading.value = true
   try {
     const response = await containerApi.getContainerStats(containerId.value)
-    const newStats = response.data
+    const newStats = response
 
     // 更新当前统计
     Object.assign(currentStats, newStats)

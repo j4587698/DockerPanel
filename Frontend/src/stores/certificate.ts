@@ -221,15 +221,15 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.testProviderConnection(provider)
-      state.value.providerTestResult = response.data
+      state.value.providerTestResult = response
 
-      if (response.data.success) {
+      if (response.success) {
         ElMessage.success(`提供商 ${provider} 连接测试成功`)
       } else {
-        ElMessage.error(`提供商 ${provider} 连接测试失败: ${response.data.message}`)
+        ElMessage.error(`提供商 ${provider} 连接测试失败: ${response.message}`)
       }
 
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '测试提供商连接失败'
       ElMessage.error(state.value.error)
@@ -243,7 +243,7 @@ export const useCertificateStore = defineStore('certificate', () => {
   const fetchDnsProviders = async () => {
     try {
       const response = await acmeApi.getDnsProviders()
-      state.value.dnsProviders = response.data
+      state.value.dnsProviders = response
     } catch (error: any) {
       state.value.error = error.message || '获取DNS提供商列表失败'
       ElMessage.error(state.value.error)
@@ -260,7 +260,7 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.getAccounts(params)
-      state.value.accounts = response.data
+      state.value.accounts = response
     } catch (error: any) {
       state.value.error = error.message || '获取ACME账户列表失败'
       ElMessage.error(state.value.error)
@@ -277,9 +277,9 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.createAccount(data)
-      state.value.accounts.push(response.data)
+      state.value.accounts.push(response)
       ElMessage.success('ACME账户创建成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '创建ACME账户失败'
       ElMessage.error(state.value.error)
@@ -317,7 +317,7 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.getAccount(accountId)
-      state.value.selectedAccount = response.data
+      state.value.selectedAccount = response
     } catch (error: any) {
       state.value.error = error.message || '获取账户详情失败'
       ElMessage.error(state.value.error)
@@ -331,7 +331,7 @@ export const useCertificateStore = defineStore('certificate', () => {
   const fetchAccountKeyInfo = async (accountId: string) => {
     try {
       const response = await acmeApi.getAccountKeyInfo(accountId)
-      state.value.accountKeyInfo = response.data
+      state.value.accountKeyInfo = response
     } catch (error: any) {
       state.value.error = error.message || '获取账户密钥信息失败'
       ElMessage.error(state.value.error)
@@ -380,9 +380,9 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.orderCertificate(data)
-      state.value.orders.push(response.data)
+      state.value.orders.push(response)
       ElMessage.success('证书申请成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '申请证书失败'
       ElMessage.error(state.value.error)
@@ -409,7 +409,7 @@ export const useCertificateStore = defineStore('certificate', () => {
       }
 
       ElMessage.success('挑战完成成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '完成挑战失败'
       ElMessage.error(state.value.error)
@@ -461,7 +461,7 @@ export const useCertificateStore = defineStore('certificate', () => {
   const fetchPendingChallenges = async (orderId: string) => {
     try {
       const response = await acmeApi.getPendingChallenges(orderId)
-      state.value.pendingChallenges = response.data
+      state.value.pendingChallenges = response
     } catch (error: any) {
       state.value.error = error.message || '获取待处理挑战失败'
       ElMessage.error(state.value.error)
@@ -476,9 +476,9 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.renewCertificate(certificateId, data)
-      state.value.orders.push(response.data)
+      state.value.orders.push(response)
       ElMessage.success('证书续期成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '续期证书失败'
       ElMessage.error(state.value.error)
@@ -588,8 +588,8 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.autoRenewCertificates()
-      ElMessage.success(`成功处理 ${response.data.length} 个续期操作`)
-      return response.data
+      ElMessage.success(`成功处理 ${response.length} 个续期操作`)
+      return response
     } catch (error: any) {
       state.value.error = error.message || '自动续期证书失败'
       ElMessage.error(state.value.error)
@@ -630,7 +630,7 @@ export const useCertificateStore = defineStore('certificate', () => {
     try {
       const response = await acmeApi.orderWildcardCertificate(data)
       ElMessage.success('通配符证书申请成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '申请通配符证书失败'
       ElMessage.error(state.value.error)
@@ -672,7 +672,7 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.getWildcardCertificate(certificateId)
-      state.value.selectedWildcardCertificate = response.data
+      state.value.selectedWildcardCertificate = response
     } catch (error: any) {
       state.value.error = error.message || '获取通配符证书详情失败'
       ElMessage.error(state.value.error)
@@ -690,7 +690,7 @@ export const useCertificateStore = defineStore('certificate', () => {
     try {
       const response = await acmeApi.autoCompleteWildcardChallenge(data)
       ElMessage.success('通配符证书挑战自动完成成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '自动完成通配符证书挑战失败'
       ElMessage.error(state.value.error)
@@ -710,7 +710,7 @@ export const useCertificateStore = defineStore('certificate', () => {
     try {
       const response = await acmeApi.generateCsr(data)
       ElMessage.success('CSR生成成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '生成CSR失败'
       ElMessage.error(state.value.error)
@@ -728,7 +728,7 @@ export const useCertificateStore = defineStore('certificate', () => {
     try {
       const response = await acmeApi.validateCertificate(data)
       ElMessage.success('证书验证成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '验证证书失败'
       ElMessage.error(state.value.error)
@@ -745,9 +745,9 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.generateKeyPair(keyType)
-      state.value.keyPairs.push(response.data)
+      state.value.keyPairs.push(response)
       ElMessage.success('密钥对生成成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '生成密钥对失败'
       ElMessage.error(state.value.error)
@@ -764,9 +764,9 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.importKey(data)
-      state.value.keyPairs.push(response.data)
+      state.value.keyPairs.push(response)
       ElMessage.success('密钥导入成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '导入密钥失败'
       ElMessage.error(state.value.error)
@@ -785,7 +785,7 @@ export const useCertificateStore = defineStore('certificate', () => {
 
     try {
       const response = await acmeApi.getOperationLogs(params)
-      state.value.operationLogs = response.data
+      state.value.operationLogs = response
     } catch (error: any) {
       state.value.error = error.message || '获取操作日志失败'
       ElMessage.error(state.value.error)

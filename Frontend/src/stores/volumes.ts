@@ -165,11 +165,9 @@ export const useVolumesStore = defineStore('volumes', () => {
 
     try {
       const response = await volumeApi.getVolumes(params)
-      // 处理API响应结构
+      // 响应拦截器已解包，response 即为数据
       let volumes = []
-      if (Array.isArray(response.data)) {
-        volumes = response.data
-      } else if (Array.isArray(response)) {
+      if (Array.isArray(response)) {
         volumes = response
       } else {
         console.warn('Volumes Store - 意外的响应结构:', response)
@@ -203,7 +201,7 @@ export const useVolumesStore = defineStore('volumes', () => {
 
     try {
       const response = await volumeApi.getVolume(volumeId, nodeId)
-      state.value.selectedVolume = response.data
+      state.value.selectedVolume = response
     } catch (error: any) {
       state.value.error = error.message || '获取卷详情失败'
       ElMessage.error(state.value.error)
@@ -264,13 +262,13 @@ export const useVolumesStore = defineStore('volumes', () => {
       const response = await volumeApi.updateVolume(volumeId, data, nodeId)
       const index = state.value.volumes.findIndex(volume => volume.id === volumeId)
       if (index !== -1) {
-        state.value.volumes[index] = response.data
+        state.value.volumes[index] = response
       }
       if (state.value.selectedVolume?.id === volumeId) {
-        state.value.selectedVolume = { ...state.value.selectedVolume, ...response.data }
+        state.value.selectedVolume = { ...state.value.selectedVolume, ...response }
       }
       ElMessage.success('卷更新成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '更新卷失败'
       ElMessage.error(state.value.error)
@@ -284,7 +282,7 @@ export const useVolumesStore = defineStore('volumes', () => {
   const fetchVolumeUsage = async (volumeId: string, nodeId?: string): Promise<VolumeUsageInfo> => {
     try {
       const response = await volumeApi.getVolumeUsage(volumeId, nodeId)
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取卷使用情况失败'
       ElMessage.error(state.value.error)
@@ -296,7 +294,7 @@ export const useVolumesStore = defineStore('volumes', () => {
   const fetchStatistics = async (nodeId?: string) => {
     try {
       const response = await volumeApi.getVolumeStatistics(nodeId)
-      state.value.statistics = response.data
+      state.value.statistics = response
     } catch (error: any) {
       state.value.error = error.message || '获取卷统计信息失败'
       ElMessage.error(state.value.error)
@@ -336,7 +334,7 @@ export const useVolumesStore = defineStore('volumes', () => {
     try {
       const response = await volumeApi.backupVolume(volumeId, data)
       ElMessage.success('卷备份成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '备份卷失败'
       ElMessage.error(state.value.error)
@@ -354,7 +352,7 @@ export const useVolumesStore = defineStore('volumes', () => {
     try {
       const response = await volumeApi.restoreVolume(data)
       ElMessage.success('卷恢复成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '恢复卷失败'
       ElMessage.error(state.value.error)

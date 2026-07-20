@@ -570,7 +570,7 @@ const handleImport = async () => {
   importLoading.value = true
   try {
     const result = await imageApi.importImage(importFile.value)
-    ElMessage.success(t('image.importSuccess') + ': ' + (result.data as any).images?.join(', '))
+    ElMessage.success(t('image.importSuccess') + ': ' + (result as any).images?.join(', '))
     showImport.value = false
     importFile.value = null
     refreshData()

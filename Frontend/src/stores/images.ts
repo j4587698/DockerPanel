@@ -163,11 +163,9 @@ export const useImagesStore = defineStore('images', () => {
 
     try {
       const response = await imageApi.getImages(params)
-      // 处理API响应结构
+      // 响应拦截器已解包，response 即为数据
       let images = []
-      if (Array.isArray(response.data)) {
-        images = response.data
-      } else if (Array.isArray(response)) {
+      if (Array.isArray(response)) {
         images = response
       } else {
         console.warn('Images Store - 意外的响应结构:', response)
@@ -201,12 +199,7 @@ export const useImagesStore = defineStore('images', () => {
 
     try {
       const response = await imageApi.getImage(imageId, { nodeId })
-      // 处理API响应结构
-      if (response.data) {
-        state.value.selectedImage = response.data
-      } else {
-        state.value.selectedImage = response
-      }
+      state.value.selectedImage = response
     } catch (error: any) {
       state.value.error = error.message || '获取镜像详情失败'
       ElMessage.error(state.value.error)
@@ -312,7 +305,7 @@ export const useImagesStore = defineStore('images', () => {
 
     try {
       const response = await imageApi.searchImages({ term, limit })
-      state.value.searchResults = response.data
+      state.value.searchResults = response
     } catch (error: any) {
       state.value.error = error.message || '搜索镜像失败'
       ElMessage.error(state.value.error)
@@ -326,11 +319,8 @@ export const useImagesStore = defineStore('images', () => {
   const getImageHistory = async (imageId: string, nodeId?: string): Promise<ImageHistoryEntry[]> => {
     try {
       const response = await imageApi.getImageHistory(imageId, { nodeId })
-      // 处理API响应结构不一致的问题
       let history = []
-      if (response.data && Array.isArray(response.data)) {
-        history = response.data
-      } else if (Array.isArray(response)) {
+      if (Array.isArray(response)) {
         history = response
       }
       return history
@@ -352,7 +342,7 @@ export const useImagesStore = defineStore('images', () => {
 
       // 刷新镜像列表
       await refreshImages()
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '构建镜像失败'
       ElMessage.error(state.value.error)
@@ -366,7 +356,7 @@ export const useImagesStore = defineStore('images', () => {
   const getImageLayers = async (imageId: string, nodeId?: string): Promise<ImageLayersInfo> => {
     try {
       const response = await imageApi.getImageLayers(imageId, { nodeId })
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取镜像分层信息失败'
       ElMessage.error(state.value.error)
@@ -381,12 +371,12 @@ export const useImagesStore = defineStore('images', () => {
 
     try {
       const response = await imageApi.batchRemoveImages(data)
-      ElMessage.success(`成功删除 ${response.data.successCount} 个镜像`)
+      ElMessage.success(`成功删除 ${response.successCount} 个镜像`)
 
       // 刷新镜像列表
       await refreshImages()
 
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '批量删除镜像失败'
       ElMessage.error(state.value.error)
@@ -400,7 +390,7 @@ export const useImagesStore = defineStore('images', () => {
   const fetchStatistics = async (params?: { nodeId?: string }) => {
     try {
       const response = await imageApi.getImageStatistics(params)
-      state.value.statistics = response.data
+      state.value.statistics = response
     } catch (error: any) {
       state.value.error = error.message || '获取镜像统计信息失败'
       ElMessage.error(state.value.error)

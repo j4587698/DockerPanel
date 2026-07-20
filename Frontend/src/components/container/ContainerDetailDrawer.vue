@@ -291,7 +291,7 @@ const loadContainerDetail = async () => {
   loading.value = true
   try {
     const response = await containerApi.getContainer(containerId.value)
-    container.value = response.data
+    container.value = response
   } catch (error: any) {
     console.error('获取容器详情失败:', error)
     ElMessage.error(error.response?.data?.message || t('containerDetailDrawer.loadDetailFailed'))
@@ -306,7 +306,7 @@ const loadStats = async () => {
   statsLoading.value = true
   try {
     const response = await containerApi.getContainerStats(containerId.value)
-    stats.value = response.data
+    stats.value = response
   } catch (error: any) {
     console.error('获取容器统计信息失败:', error)
     ElMessage.error(t('containerDetailDrawer.loadStatsFailed'))

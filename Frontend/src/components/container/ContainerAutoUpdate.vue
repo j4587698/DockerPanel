@@ -261,7 +261,7 @@ const statusColor = computed(() => {
 const loadConfig = async () => {
   try {
     const res = await autoUpdateApi.getConfig(props.containerId)
-    config.value = res.data || res as any
+    config.value = res as any
     
     // 同步到表单
     if (config.value) {
@@ -287,7 +287,7 @@ const handleCheckUpdate = async () => {
     }
     
     const res = await autoUpdateApi.checkUpdate(props.containerId)
-    const result = res.data || res as any
+    const result = res as any
     
     if (result.errorMessage) {
       ElMessage.error(result.errorMessage)
@@ -310,7 +310,7 @@ const handleUpdate = async (pullOnly: boolean) => {
   updating.value = true
   try {
     const res = await autoUpdateApi.updateContainer(props.containerId, pullOnly)
-    const result = res.data || res as any
+    const result = res as any
     
     if (result.success) {
       ElMessage.success(pullOnly ? t('container.imagePullSuccess') : t('container.containerUpdated'))
@@ -356,7 +356,7 @@ const loadImageTags = async () => {
   loadingTags.value = true
   try {
     const res = await autoUpdateApi.getImageTags(props.containerImage)
-    availableTags.value = res.data || res as any || []
+    availableTags.value = res as any || []
     
     // 从当前镜像中提取当前标签并移除
     const currentTag = props.containerImage.split(':')[1] || 'latest'
@@ -386,7 +386,7 @@ const handleRollback = async () => {
     
     rollingBack.value = true
     const res = await autoUpdateApi.rollbackContainer(props.containerId, selectedTag.value)
-    const result = res.data || res as any
+    const result = res as any
     
     if (result.success) {
       ElMessage.success(t('container.autoUpdateStatus.rollbackSuccess', { tag: selectedTag.value }))

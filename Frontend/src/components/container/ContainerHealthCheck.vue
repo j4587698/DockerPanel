@@ -326,7 +326,7 @@ const editRules = {
 const loadContainers = async () => {
   try {
     const response = await containerApi.getContainers({ all: true })
-    containers.value = response.data
+    containers.value = response
   } catch (error) {
     console.error('加载容器列表失败:', error)
     ElMessage.error(t('container.healthCheck.loadContainersFailed'))
@@ -338,7 +338,7 @@ const loadHealthStatus = async () => {
 
   try {
     const response = await containerApi.getContainerHealthStatus(selectedContainer.value.id)
-    healthStatus.value = response.data
+    healthStatus.value = response
   } catch (error) {
     console.error('加载健康状态失败:', error)
     healthStatus.value = null
@@ -350,7 +350,7 @@ const loadHealthStats = async () => {
 
   try {
     const response = await containerApi.getContainerHealthStats(selectedContainer.value.id)
-    healthStats.value = response.data
+    healthStats.value = response
   } catch (error) {
     console.error('加载健康统计失败:', error)
     healthStats.value = null
@@ -372,7 +372,7 @@ const loadHealthLogs = async () => {
     }
 
     const response = await containerApi.getContainerHealthLogs(selectedContainer.value.id, params)
-    healthLogs.value = response.data
+    healthLogs.value = response
   } catch (error) {
     console.error('加载健康日志失败:', error)
     ElMessage.error(t('container.healthCheck.loadLogsFailed'))

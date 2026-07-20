@@ -272,7 +272,7 @@ export const certificateApi = {
         // 回退到简化的证书API
         return api.get<Certificate[]>("/certificates", { params })
           .then(response => {
-            const certificates = response.data
+            const certificates = response
             return {
               items: certificates,
               total: certificates.length,
@@ -306,6 +306,7 @@ export const certificateApi = {
         if (error.response?.status === 404) {
           return error.response.data
         }
+        // 注意：error.response.data 是真实 AxiosError 的响应体，不是拦截器解包后的数据，此处保持不动
         // 其他错误继续抛出
         throw error
       }),

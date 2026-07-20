@@ -51,6 +51,9 @@ api.interceptors.request.use(
     config.headers = config.headers || {}
     config.headers["Accept-Language"] = getAcceptLanguageHeader()
     
+    // 添加防 CSRF 的自定义 Header
+    config.headers["X-DockerPanel-Api"] = "1"
+    
     return config
   },
   (error) => {
@@ -62,21 +65,8 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
-    // 项目内多数 API 调用直接使用拦截器解包后的数据；少量旧代码仍按 AxiosResponse 读取 `.data`。
-    // 给普通对象/数组补一个不可枚举的自引用 `.data`，兼容旧调用且不影响序列化和正常字段遍历。
-    const data = response.data
-    if (data && typeof data === "object" && !("data" in data)) {
-      try {
-        Object.defineProperty(data, "data", {
-          value: data,
-          configurable: true,
-          enumerable: false
-        })
-      } catch {
-        // Blob、只读对象等无法扩展时保持原样返回。
-      }
-    }
-    return data
+    // 拦截器统一解包，返回响应体本身（已无旧代码依赖 AxiosResponse 的 .data）。
+    return response.data
   },
   (error) => {
     // 检查是否跳过错误处理

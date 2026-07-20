@@ -307,7 +307,7 @@ const executeCommand = async () => {
     }
 
     const response = await containerApi.executeCommand(containerId.value, request)
-    executionResult.value = response.data
+    executionResult.value = response
 
     saveCommandHistory()
     ElMessage.success(t('container.execDialog.executeSuccess'))

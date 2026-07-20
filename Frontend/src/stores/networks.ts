@@ -163,11 +163,9 @@ export const useNetworksStore = defineStore('networks', () => {
 
     try {
       const response = await networkApi.getNetworks(params)
-      // 处理API响应结构
+      // 响应拦截器已解包，response 即为数据
       let networks = []
-      if (Array.isArray(response.data)) {
-        networks = response.data
-      } else if (Array.isArray(response)) {
+      if (Array.isArray(response)) {
         networks = response
       } else {
         console.warn('Networks Store - 意外的响应结构:', response)
@@ -211,7 +209,7 @@ export const useNetworksStore = defineStore('networks', () => {
 
     try {
       const response = await networkApi.getNetwork(networkId, { nodeId })
-      state.value.selectedNetwork = response.data
+      state.value.selectedNetwork = response
     } catch (error: any) {
       state.value.error = error.message || '获取网络详情失败'
       ElMessage.error(state.value.error)
@@ -228,9 +226,9 @@ export const useNetworksStore = defineStore('networks', () => {
 
     try {
       const response = await networkApi.createNetwork(data)
-      state.value.networks.push(response.data)
+      state.value.networks.push(response)
       ElMessage.success('网络创建成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '创建网络失败'
       ElMessage.error(state.value.error)
@@ -270,13 +268,13 @@ export const useNetworksStore = defineStore('networks', () => {
       const response = await networkApi.updateNetwork(networkId, data, { nodeId })
       const index = state.value.networks.findIndex(network => network.id === networkId)
       if (index !== -1) {
-        state.value.networks[index] = response.data
+        state.value.networks[index] = response
       }
       if (state.value.selectedNetwork?.id === networkId) {
-        state.value.selectedNetwork = { ...state.value.selectedNetwork, ...response.data }
+        state.value.selectedNetwork = { ...state.value.selectedNetwork, ...response }
       }
       ElMessage.success('网络更新成功')
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '更新网络失败'
       ElMessage.error(state.value.error)
@@ -367,7 +365,7 @@ export const useNetworksStore = defineStore('networks', () => {
   const fetchNetworkContainers = async (networkId: string, nodeId?: string): Promise<NetworkContainerInfo[]> => {
     try {
       const response = await networkApi.getNetworkContainers(networkId, { nodeId })
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取网络容器列表失败'
       ElMessage.error(state.value.error)
@@ -379,7 +377,7 @@ export const useNetworksStore = defineStore('networks', () => {
   const fetchStatistics = async (params?: { nodeId?: string }) => {
     try {
       const response = await networkApi.getNetworkStatistics(params)
-      state.value.statistics = (response as any).data || response as any
+      state.value.statistics = response
     } catch (error: any) {
       state.value.error = error.message || '获取网络统计信息失败'
       ElMessage.error(state.value.error)
@@ -394,12 +392,12 @@ export const useNetworksStore = defineStore('networks', () => {
 
     try {
       const response = await networkApi.pruneNetworks(request)
-      ElMessage.success(`成功清理 ${response.data.networksDeleted} 个未使用的网络`)
+      ElMessage.success(`成功清理 ${response.networksDeleted} 个未使用的网络`)
 
       // 刷新网络列表
       await refreshNetworks()
 
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '清理网络失败'
       ElMessage.error(state.value.error)

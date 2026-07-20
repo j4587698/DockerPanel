@@ -263,8 +263,8 @@ const startPolling = () => {
         since: new Date(Date.now() - 5000).toISOString() // 最近5秒的日志
       })
 
-      if (response.data.logs && response.data.logs.length > 0) {
-        logs.value.push(...response.data.logs)
+      if (response.logs && response.logs.length > 0) {
+        logs.value.push(...response.logs)
         await nextTick()
         scrollToBottom()
       }
@@ -308,9 +308,9 @@ const loadMoreLogs = async () => {
       until: oldestTimestamp
     })
 
-    if (response.data.logs && response.data.logs.length > 0) {
-      logs.value.unshift(...response.data.logs)
-      hasMore.value = response.data.hasMore || false
+    if (response.logs && response.logs.length > 0) {
+      logs.value.unshift(...response.logs)
+      hasMore.value = response.hasMore || false
     }
   } catch (error) {
     console.error('加载更多日志失败:', error)

@@ -1780,7 +1780,7 @@ const pullFromRegistry = async () => {
 const loadRegistries = async () => {
   try {
     const res = await registryApi.getRegistries()
-    registries.value = res.data || []
+    registries.value = res || []
   } catch (e) {
     console.error('加载注册表列表失败', e)
   }
@@ -1884,7 +1884,7 @@ const prefetchImageConfig = async (imageName: string) => {
     if (!imageInfo) return
     
     const response = await imageApi.getImage(imageInfo.id)
-    const detail = response.data || response
+    const detail = response
     
     if (!detail) return
     
@@ -1964,7 +1964,7 @@ const autoDetectPorts = async () => {
       }
       
       const response = await imageApi.getImage(imageInfo.id)
-      detail = response.data || response
+      detail = response
       cachedImageDetail.value = detail
     }
     
@@ -2033,7 +2033,7 @@ const autoDetectVolumes = async () => {
       }
       
       const response = await imageApi.getImage(imageInfo.id)
-      detail = response.data || response
+      detail = response
       cachedImageDetail.value = detail
     }
     

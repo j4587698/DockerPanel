@@ -95,11 +95,8 @@ export const useContainersStore = defineStore('containers', () => {
 
       // 处理响应数据 - 显式声明类型
       let containers: ContainerInfo[] = []
-      const res = response as unknown as ContainerInfo[]
-      if (Array.isArray(res)) {
-        containers = res
-      } else if (Array.isArray((response as any).data)) {
-        containers = (response as any).data
+      if (Array.isArray(response)) {
+        containers = response
       }
 
       state.value.containers = containers
@@ -291,7 +288,7 @@ export const useContainersStore = defineStore('containers', () => {
       // 刷新容器列表
       await refreshContainers()
 
-      return response.data
+      return response
     } catch (error: any) {
       console.error('批量操作失败:', error)
       ElMessage.error(`批量操作失败: ${error.message}`)

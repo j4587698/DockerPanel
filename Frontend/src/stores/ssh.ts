@@ -376,8 +376,8 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.testConnection(data)
-      state.value.connectionTestResult = response.data
-      return response.data
+      state.value.connectionTestResult = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '连接测试失败'
       throw error
@@ -392,8 +392,8 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.batchTestConnection(data)
-      state.value.batchTestResult = response.data
-      return response.data
+      state.value.batchTestResult = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '批量连接测试失败'
       throw error
@@ -406,8 +406,8 @@ export const useSshStore = defineStore('ssh', () => {
   const getConnectionMetrics = async (host: string, port: number) => {
     try {
       const response = await sshApi.getConnectionMetrics(host, port)
-      state.value.connectionMetrics = response.data
-      return response.data
+      state.value.connectionMetrics = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取连接指标失败'
       throw error
@@ -422,9 +422,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.generateKeyPair(data)
-      state.value.keyPairs.push(response.data)
-      state.value.selectedKeyPair = response.data
-      return response.data
+      state.value.keyPairs.push(response)
+      state.value.selectedKeyPair = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '生成密钥对失败'
       throw error
@@ -439,8 +439,8 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.validatePrivateKey(data)
-      state.value.keyPairValidation = response.data
-      return response.data
+      state.value.keyPairValidation = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '验证私钥失败'
       throw error
@@ -492,9 +492,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.executeCommand(data)
-      state.value.commandResults.push(response.data)
-      state.value.selectedCommandResult = response.data
-      return response.data
+      state.value.commandResults.push(response)
+      state.value.selectedCommandResult = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '执行命令失败'
       throw error
@@ -509,9 +509,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.getCommandHistory(params)
-      state.value.commandHistory = response.data.items
-      state.value.pagination.total = response.data.total
-      return response.data
+      state.value.commandHistory = response.items
+      state.value.pagination.total = response.total
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取命令历史失败'
       throw error
@@ -528,9 +528,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.uploadFile(data)
-      state.value.fileTransfers.push(response.data)
-      state.value.selectedFileTransfer = response.data
-      return response.data
+      state.value.fileTransfers.push(response)
+      state.value.selectedFileTransfer = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '上传文件失败'
       throw error
@@ -545,9 +545,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.downloadFile(data)
-      state.value.fileTransfers.push(response.data)
-      state.value.selectedFileTransfer = response.data
-      return response.data
+      state.value.fileTransfers.push(response)
+      state.value.selectedFileTransfer = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '下载文件失败'
       throw error
@@ -562,9 +562,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.getFileTransfers(params)
-      state.value.fileTransfers = response.data.items
-      state.value.pagination.total = response.data.total
-      return response.data
+      state.value.fileTransfers = response.items
+      state.value.pagination.total = response.total
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取文件传输列表失败'
       throw error
@@ -598,9 +598,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.createTerminalSession(data)
-      state.value.terminalSessions.push(response.data)
-      state.value.selectedTerminalSession = response.data
-      return response.data
+      state.value.terminalSessions.push(response)
+      state.value.selectedTerminalSession = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '创建终端会话失败'
       throw error
@@ -617,9 +617,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.getHostKeys(params)
-      state.value.hostKeys = response.data.items
-      state.value.pagination.total = response.data.total
-      return response.data
+      state.value.hostKeys = response.items
+      state.value.pagination.total = response.total
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取主机密钥列表失败'
       throw error
@@ -634,9 +634,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.addHostKey(data)
-      state.value.hostKeys.push(response.data)
-      state.value.selectedHostKey = response.data
-      return response.data
+      state.value.hostKeys.push(response)
+      state.value.selectedHostKey = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '添加主机密钥失败'
       throw error
@@ -671,9 +671,9 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.createConnectionConfig(data)
-      state.value.connectionConfigs.push(response.data)
-      state.value.selectedConnectionConfig = response.data
-      return response.data
+      state.value.connectionConfigs.push(response)
+      state.value.selectedConnectionConfig = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '创建连接配置失败'
       throw error
@@ -688,8 +688,8 @@ export const useSshStore = defineStore('ssh', () => {
   const fetchUserPreferences = async () => {
     try {
       const response = await sshApi.getUserPreferences()
-      state.value.userPreferences = response.data
-      return response.data
+      state.value.userPreferences = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取用户偏好设置失败'
       throw error
@@ -702,8 +702,8 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.updateUserPreferences(data)
-      state.value.userPreferences = response.data
-      return response.data
+      state.value.userPreferences = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '更新用户偏好设置失败'
       throw error
@@ -716,8 +716,8 @@ export const useSshStore = defineStore('ssh', () => {
   const fetchSecuritySettings = async () => {
     try {
       const response = await sshApi.getSecuritySettings()
-      state.value.securitySettings = response.data
-      return response.data
+      state.value.securitySettings = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取安全设置失败'
       throw error
@@ -730,8 +730,8 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.updateSecuritySettings(data)
-      state.value.securitySettings = response.data
-      return response.data
+      state.value.securitySettings = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '更新安全设置失败'
       throw error
@@ -744,8 +744,8 @@ export const useSshStore = defineStore('ssh', () => {
   const fetchGlobalConfig = async () => {
     try {
       const response = await sshApi.getGlobalConfig()
-      state.value.globalConfig = response.data
-      return response.data
+      state.value.globalConfig = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取全局配置失败'
       throw error
@@ -770,8 +770,8 @@ export const useSshStore = defineStore('ssh', () => {
   const fetchHealthStatus = async () => {
     try {
       const response = await sshApi.getHealthStatus()
-      state.value.healthStatus = response.data
-      return response.data
+      state.value.healthStatus = response
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取健康状态失败'
       throw error
@@ -805,8 +805,8 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.importKeyPair(data)
-      state.value.keyPairs.push(response.data)
-      return response.data
+      state.value.keyPairs.push(response)
+      return response
     } catch (error: any) {
       state.value.error = error.message || '导入密钥对失败'
       throw error
@@ -854,7 +854,7 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.reconnectSession(sessionId)
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '重连会话失败'
       throw error
@@ -869,7 +869,7 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.listDirectory(data)
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '列出目录失败'
       throw error
@@ -896,7 +896,7 @@ export const useSshStore = defineStore('ssh', () => {
   const fetchSettings = async () => {
     try {
       const response = await sshApi.getSettings()
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '获取SSH设置失败'
       throw error
@@ -909,7 +909,7 @@ export const useSshStore = defineStore('ssh', () => {
     state.value.error = null
     try {
       const response = await sshApi.updateSettings(settings)
-      return response.data
+      return response
     } catch (error: any) {
       state.value.error = error.message || '更新SSH设置失败'
       throw error

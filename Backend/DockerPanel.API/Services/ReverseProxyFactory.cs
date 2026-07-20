@@ -846,6 +846,17 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
             metadata["ForceHttps"] = "true";
         }
 
+        // 默认保留客户端原始 Host 头，转发给后端的是公网域名（如 school.jvxiang.com）
+        // 而非目标集群地址的 host（如容器名 school），避免后端生成重定向/绝对 URL 时泄漏内部地址。
+        // X-Forwarded-* 头由 YARP 默认附加，已支持 UseForwardedHeaders 的后端。
+        var transforms = new List<IReadOnlyDictionary<string, string>>
+        {
+            new Dictionary<string, string>
+            {
+                ["RequestHeaderOriginalHost"] = "true"
+            }
+        };
+
         return new RouteConfig
         {
             RouteId = config.RouteId,
@@ -855,6 +866,7 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
                 Hosts = new[] { config.Host }.Where(h => !string.IsNullOrEmpty(h)).ToArray(),
                 Path = config.PathPattern
             },
+            Transforms = transforms,
             Metadata = metadata.Count > 0 ? metadata : null
         };
     }

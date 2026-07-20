@@ -346,7 +346,8 @@ const handleSubmit = async () => {
       containerName: container?.name || '',
       destinationAddress: destinationAddr,
       enableSsl: sslMode.value !== 'none',
-      autoRequestCertificate: sslMode.value === 'auto'
+      autoRequestCertificate: sslMode.value === 'auto',
+      updateAdvancedSettings: true
     }
 
     const response = isEditing.value
@@ -414,7 +415,7 @@ const editMapping = (row: any) => {
     httpVersion: row.httpVersion || ''
   }
   sslMode.value = row.autoRequestCertificate ? 'auto' : (row.enableSsl ? 'existing' : 'none')
-  showAdvanced.value = form.value.forceHttps || !!form.value.activityTimeoutSeconds || !!form.value.httpVersion
+  showAdvanced.value = form.value.forceHttps || (form.value.activityTimeoutSeconds !== undefined && form.value.activityTimeoutSeconds !== null) || !!form.value.httpVersion
   showCreateDialog.value = true
 }
 

@@ -362,6 +362,16 @@ public class ProxyController : ControllerBase
             if (request.Enabled.HasValue)
                 existingMapping.Enabled = request.Enabled.Value;
             
+            // 如果显式要求更新高级设置，则直接赋值（允许设为null来清除）
+            if (request.UpdateAdvancedSettings == true)
+            {
+                existingMapping.ActivityTimeoutSeconds = request.ActivityTimeoutSeconds;
+                existingMapping.RequestTimeoutSeconds = request.RequestTimeoutSeconds;
+                existingMapping.ForceHttps = request.ForceHttps ?? false;
+                existingMapping.HttpVersion = request.HttpVersion;
+                existingMapping.EnableWebSocketOptimization = request.EnableWebSocketOptimization ?? false;
+            }
+            
             existingMapping.UpdatedAt = DateTime.UtcNow;
             
             var success = await _proxyFactory.UpdateDomainMappingAsync(existingMapping);
@@ -484,4 +494,15 @@ public class UpdateDomainMappingRequest
     /// 是否启用
     /// </summary>
     public bool? Enabled { get; set; }
+
+    public int? ActivityTimeoutSeconds { get; set; }
+    public int? RequestTimeoutSeconds { get; set; }
+    public bool? ForceHttps { get; set; }
+    public string? HttpVersion { get; set; }
+    public bool? EnableWebSocketOptimization { get; set; }
+
+    /// <summary>
+    /// 标记是否从表单更新，用于处理高级设置的清除操作
+    /// </summary>
+    public bool? UpdateAdvancedSettings { get; set; }
 }

@@ -49,6 +49,7 @@ export interface CreateDomainMappingRequest {
   forceHttps?: boolean
   httpVersion?: string
   enableWebSocketOptimization?: boolean
+  updateAdvancedSettings?: boolean
 }
 
 export interface UpdateCertificateRequest {

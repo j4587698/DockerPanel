@@ -68,6 +68,16 @@ export default {
   // Result Messages
   operationSuccess: 'Operation successful',
   operationFailed: 'Operation failed',
+
+  // Backend error codes (common.errors.*)
+  errors: {
+    INVALID_CREDENTIALS: 'Invalid username or password',
+    ACCOUNT_DISABLED: 'Account is disabled or locked',
+    REFRESH_EXPIRED: 'Session expired, please log in again',
+    REFRESH_INVALID: 'Invalid session, please log in again',
+    CSRF_INVALID: 'Request blocked by security policy',
+    TOKEN_EXPIRED: 'Session expired, please log in again',
+  },
   deleteConfirm: 'Confirm Delete',
   deleteSuccess: 'Deleted successfully',
   deleteFailed: 'Delete failed',

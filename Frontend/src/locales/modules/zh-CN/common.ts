@@ -68,6 +68,16 @@ export default {
   // 操作结果消息
   operationSuccess: '操作成功',
   operationFailed: '操作失败',
+
+  // 后端错误代码（common.errors.*）
+  errors: {
+    INVALID_CREDENTIALS: '用户名或密码错误',
+    ACCOUNT_DISABLED: '账户已禁用或锁定',
+    REFRESH_EXPIRED: '登录已过期，请重新登录',
+    REFRESH_INVALID: '登录凭证无效，请重新登录',
+    CSRF_INVALID: '请求被安全策略拒绝',
+    TOKEN_EXPIRED: '登录已过期，请重新登录',
+  },
   deleteConfirm: '确认删除',
   deleteSuccess: '删除成功',
   deleteFailed: '删除失败',

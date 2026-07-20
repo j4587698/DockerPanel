@@ -4,6 +4,7 @@
  */
 
 import * as signalR from '@microsoft/signalr'
+import api, { safeRefreshToken } from '@/api'
 
 export interface SignalRMessage {
   type: string
@@ -81,12 +82,29 @@ class SignalRService {
   }
 
   /**
+   * 连接前确保登录态有效：access token(Cookie)过期时先用 refresh token 续期，
+   * 否则 [Authorize] 的 Hub 在重连时会因 jwt_token 失效而拒绝连接。
+   * 仅在 refresh token 也失效时才放弃，避免无谓的失败重试。
+   */
+  private async ensureRefreshed(): Promise<void> {
+    try {
+      await safeRefreshToken()
+    } catch {
+      // refresh 失败（如 refresh token 过期）时忽略，连接会因未授权而失败，
+      // 由全局拦截器决定是否跳登录。safeRefreshToken 已保证单飞，无需额外去重。
+    }
+  }
+
+  /**
    * 连接SignalR Hub
    */
   async connect(url?: string): Promise<void> {
     try {
       this.isManualClose = false
       this.url = url || this.getDefaultUrl()
+
+      // 重连前先确认登录态有效（续期 jwt_token Cookie）
+      await this.ensureRefreshed()
 
       // 清理之前的连接
       if (this.connection) {
@@ -97,11 +115,10 @@ class SignalRService {
         }
       }
 
-      // 创建SignalR连接
+      // 创建SignalR连接：依赖同域 HttpOnly Cookie(jwt_token) 鉴权，
+      // 与 REST API 一致；不再从 localStorage 读取（已迁移到 Cookie）。
       this.connection = new signalR.HubConnectionBuilder()
-        .withUrl(this.url, {
-          accessTokenFactory: () => localStorage.getItem('token') || ''
-        })
+        .withUrl(this.url)
         .withAutomaticReconnect({
           nextRetryDelayInMilliseconds: retryContext => {
             // 指数退避: 0s, 2s, 4s, 8s, 16s, 30s, 30s...

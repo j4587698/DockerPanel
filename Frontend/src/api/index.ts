@@ -19,18 +19,51 @@ const api = axios.create({
   }
 })
 
-let isRefreshing = false
-let failedQueue: Array<{ resolve: (value?: unknown) => void; reject: (reason?: any) => void }> = []
+const forceLogout = () => {
+  localStorage.removeItem("tokenExpiresAt")
+  localStorage.removeItem("user")
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login'
+  }
+}
 
-const processQueue = (error: any = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error)
-    } else {
-      prom.resolve()
+// 单飞（single-flight）保证同时刻只有一个刷新在执行，所有并发调用共享其结果
+let refreshInFlight: Promise<any> | null = null
+
+// 跨标签页安全的 Token 刷新机制（统一入口，所有调用方复用）
+export async function safeRefreshToken(): Promise<any> {
+  if (refreshInFlight) {
+    return refreshInFlight
+  }
+
+  const doRefresh = async () => {
+    const expiresAtStr = localStorage.getItem("tokenExpiresAt")
+    if (expiresAtStr && new Date(expiresAtStr).getTime() > Date.now() + 60000) {
+      return Promise.resolve() // 未过期，直接使用
     }
-  })
-  failedQueue = []
+    const res: any = await api.post('/auth/refresh', {}, { withCredentials: true })
+    if (res && res.expiresAt) {
+      localStorage.setItem("tokenExpiresAt", res.expiresAt)
+      if (res.user) {
+        localStorage.setItem("user", JSON.stringify(res.user))
+      }
+    }
+    return res
+  }
+
+  // 1. 优先使用浏览器标准互斥锁（支持跨标签页同步，避免多标签页互相使 refresh token 失效）
+  if (navigator.locks) {
+    refreshInFlight = navigator.locks.request('dockerpanel_auth_refresh', doRefresh)
+  } else {
+    // 2. 降级方案：当前标签页单飞
+    refreshInFlight = doRefresh()
+  }
+
+  try {
+    return await refreshInFlight
+  } finally {
+    refreshInFlight = null
+  }
 }
 
 // 请求拦截器
@@ -88,60 +121,47 @@ api.interceptors.response.use(
         message = data?.message || "请求参数错误"
       } else if (status === 401) {
         const originalRequest = error.config
-        
+        const code = data?.code
+
+        // refresh 接口自身失败：必然需要重新登录
         if (originalRequest.url === '/auth/refresh') {
-          message = "登录已过期，请重新登录"
-          localStorage.removeItem("tokenExpiresAt")
-          localStorage.removeItem("user")
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login'
-          }
+          forceLogout()
           return Promise.reject(error)
         }
 
+        // 明确需要重新登录的认证错误（refresh 失效/账户禁用），直接登出
+        if (code === 'REFRESH_EXPIRED' || code === 'REFRESH_INVALID' || code === 'ACCOUNT_DISABLED') {
+          forceLogout()
+          return Promise.reject(error)
+        }
+
+        // 业务类凭证错误（如登录密码错误）：不登出，仅把消息交给调用方提示
+        if (code === 'INVALID_CREDENTIALS') {
+          message = getLocalizedErrorMessage({ code }) || data?.message || "用户名或密码错误"
+          return Promise.reject(error)
+        }
+
+        // 其余 401（access token 过期/缺失）：尝试用 refresh token 续期。
+        // safeRefreshToken 内部已保证单飞 + 跨标签页互斥，多个并发 401 共享同一刷新过程。
         if (!originalRequest._retry) {
-          if (isRefreshing) {
-            return new Promise((resolve, reject) => {
-              failedQueue.push({ resolve, reject })
-            }).then(() => {
-              return api(originalRequest)
-            }).catch(err => {
-              return Promise.reject(err)
-            })
-          }
-          
           originalRequest._retry = true
-          isRefreshing = true
-          
-          return new Promise((resolve, reject) => {
-            axios.post('/api/auth/refresh', {}, { withCredentials: true })
-              .then(() => {
-                processQueue(null)
-                resolve(api(originalRequest))
-              })
-              .catch((refreshError) => {
-                processQueue(refreshError)
-                localStorage.removeItem("tokenExpiresAt")
-                localStorage.removeItem("user")
-                if (window.location.pathname !== '/login') {
-                  window.location.href = '/login'
-                }
-                reject(refreshError)
-              })
-              .finally(() => {
-                isRefreshing = false
-              })
-          })
+
+          return safeRefreshToken()
+            .then(() => api(originalRequest))
+            .catch((refreshError) => {
+              forceLogout()
+              return Promise.reject(refreshError)
+            })
         }
-        
-        message = "未授权，请重新登录"
-        localStorage.removeItem("tokenExpiresAt")
-        localStorage.removeItem("user")
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
-        }
+
+        forceLogout()
       } else if (status === 403) {
-        message = "拒绝访问"
+        // CSRF 头缺失等防御性拦截：不登出，交由调用方提示或重试
+        if (data?.code === 'CSRF_INVALID') {
+          message = getLocalizedErrorMessage({ code: data.code }) || data?.message || "请求被安全策略拒绝（缺少必要请求头）"
+        } else {
+          message = data?.message || "拒绝访问"
+        }
       } else if (status === 404) {
         message = data?.message || "请求资源不存在"
       } else if (status >= 500) {

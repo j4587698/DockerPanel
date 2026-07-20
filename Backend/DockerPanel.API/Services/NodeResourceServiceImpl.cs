@@ -778,8 +778,9 @@ public class NodeResourceServiceImpl : INodeResourceService
                 Trend = CalculateTrend($"memory_trend_{node.Id}", memoryPercentage)
             };
 
-            // 获取磁盘使用情况
-            var drive = new System.IO.DriveInfo("C");
+            // 获取磁盘使用情况：动态获取当前运行环境的根目录，避免在Linux(Docker)环境中找不到C盘报错
+            var rootPath = System.IO.Path.GetPathRoot(System.AppContext.BaseDirectory) ?? "/";
+            var drive = new System.IO.DriveInfo(rootPath);
             var totalDisk = drive.TotalSize / 1024.0 / 1024 / 1024; // GB
             var freeDisk = drive.AvailableFreeSpace / 1024.0 / 1024 / 1024; // GB
             var usedDisk = totalDisk - freeDisk;

@@ -85,7 +85,7 @@
             :logs="logs"
             :tail="logOptions.tail"
             :follow="logOptions.follow"
-            @update:tail="logOptions.tail = $event"
+            @update:tail="handleTailChange"
             @update:follow="logOptions.follow = $event"
             @refresh="refreshLogs"
             @clear="clearLogs"
@@ -441,25 +441,94 @@ const disconnectFromNetwork = async (networkName: string) => {
 }
 
 // --- Logs ---
+let lastLogTimestamp = ''
+
 const loadLogs = async () => {
   if (!container.value) return
+  
   try {
     const data = await containersStore.getContainerLogs(container.value.id, {
       tail: logOptions.value.tail,
-      follow: logOptions.value.follow
+      follow: false
     })
     if (data && Array.isArray(data.logs)) {
+      if (data.logs.length > 0) {
+        lastLogTimestamp = data.logs[data.logs.length - 1].timestamp
+      } else {
+        lastLogTimestamp = ''
+      }
       logs.value = data.logs.map((l: any) => {
         const time = l.timestamp ? formatLocalizedTime(l.timestamp, '') : ''
         return time ? `[${time}] ${l.message}` : l.message
       }).join('\n') || 'No logs found.'
     } else {
       logs.value = 'No logs found.'
+      lastLogTimestamp = ''
     }
-  } catch (e) { logs.value = 'Error loading logs.' }
+  } catch (e) { 
+    logs.value = 'Error loading logs.' 
+    lastLogTimestamp = ''
+  }
+  
+  startLogStream()
 }
 
-const refreshLogs = () => loadLogs()
+const startLogStream = async () => {
+  if (!container.value || !signalrService.isConnected()) return
+  if (logsUnsubscribe) return
+  
+  try {
+    // 传0只订阅增量新日志
+    await signalrService.subscribeToLogs(container.value.id, 0)
+    
+    logsUnsubscribe = signalrService.subscribe('logs', (msg: any) => {
+      const data = msg.data
+      if (data && data.containerId === container.value?.id) {
+        // 去重
+        if (lastLogTimestamp && data.timestamp && new Date(data.timestamp) <= new Date(lastLogTimestamp)) {
+           return
+        }
+        
+        const time = data.timestamp ? formatLocalizedTime(data.timestamp, '') : ''
+        const logLine = time ? `[${time}] ${data.message}` : data.message
+        
+        if (logs.value === 'No logs found.' || logs.value === 'Error loading logs.') {
+            logs.value = logLine
+        } else {
+            logs.value += '\n' + logLine
+        }
+        
+        if (data.timestamp) {
+           lastLogTimestamp = data.timestamp
+        }
+      }
+    })
+  } catch (err) {
+    console.error('订阅日志流失败', err)
+  }
+}
+
+const stopLogStream = async () => {
+  if (logsUnsubscribe) {
+    logsUnsubscribe()
+    logsUnsubscribe = null
+  }
+  if (container.value) {
+    try {
+      await signalrService.unsubscribeFromLogs(container.value.id)
+    } catch (err) {}
+  }
+}
+
+const handleTailChange = (val: number) => {
+  logOptions.value.tail = val
+  refreshLogs()
+}
+
+const refreshLogs = () => {
+  stopLogStream()
+  loadLogs()
+}
 const clearLogs = () => logs.value = ''
 const downloadLogs = () => {
   const blob = new Blob([logs.value], { type: 'text/plain' })
@@ -851,6 +920,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopSignalRSubscriptions()
+  stopLogStream()
   terminalResizeObserver?.disconnect()
   terminal?.dispose()
   disconnectTerminal()
@@ -861,6 +931,10 @@ watch(activeTab, async (val, oldVal) => {
   
   if (oldVal === 'terminal' && val !== 'terminal') {
     await disconnectTerminal()
+  }
+  
+  if (oldVal === 'logs' && val !== 'logs') {
+    stopLogStream()
   }
   
   if (val === 'logs') loadLogs()

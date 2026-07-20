@@ -22,7 +22,7 @@
         </el-tooltip>
       </div>
     </div>
-    <div class="console-window">
+    <div class="console-window" ref="consoleWindowRef">
       <el-input
         ref="logsTextareaRef"
         :model-value="logs"
@@ -55,7 +55,8 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const logsTextareaRef = ref<{ textarea: HTMLTextAreaElement } | null>(null)
+const logsTextareaRef = ref<any>(null)
+const consoleWindowRef = ref<HTMLElement | null>(null)
 
 const localTail = ref(props.tail)
 const localFollow = ref(props.follow)
@@ -70,14 +71,25 @@ const onTailChange = (val: number) => {
 watch(localFollow, (val) => {
   emit('update:follow', val)
   if (val) {
-    nextTick(() => {
-      const textarea = logsTextareaRef.value?.textarea
-      if (textarea) {
-        textarea.scrollTop = textarea.scrollHeight
-      }
-    })
+    scrollToBottom()
   }
 })
+
+watch(() => props.logs, () => {
+  if (localFollow.value) {
+    scrollToBottom()
+  }
+})
+
+const scrollToBottom = () => {
+  // 考虑到数据量大时 DOM 渲染可能有微小延迟，使用 setTimeout 确保能滚到底部
+  setTimeout(() => {
+    const textarea = consoleWindowRef.value?.querySelector('textarea')
+    if (textarea) {
+      textarea.scrollTop = textarea.scrollHeight
+    }
+  }, 50)
+}
 </script>
 
 <style>

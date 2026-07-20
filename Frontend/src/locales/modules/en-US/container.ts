@@ -241,6 +241,8 @@ export default {
     containerName: 'Container Name',
     newNamePlaceholder: 'Enter new name',
     editConfigHint: 'Renaming the container will not affect its operation',
+    pullLatestOnEditHint: 'When checked, the latest image will be pulled and the container recreated to apply updates',
+    saveAndRecreate: 'Save and Pull Latest Recreate',
     recreateWarning: 'Recreating the container will delete the current container and recreate it with the same configuration. Please confirm the following options:',
     containerNameLabel: 'Container Name',
     pullLatestHint: 'Pull the latest version of the image',

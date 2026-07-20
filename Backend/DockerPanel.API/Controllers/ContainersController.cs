@@ -357,123 +357,43 @@ public class ContainersController : ControllerBase
     {
         try
         {
-            // 获取原容器信息
-            var container = await _containerService.GetContainerAsync(id);
-            if (container == null)
-            {
-                return NotFound(new { message = "容器未找到" });
-            }
+            request ??= new RecreateContainerRequest();
 
-            // 构建创建请求
-            var createRequest = new CreateContainerRequest
-            {
-                Name = container.Name?.TrimStart('/'),
-                Image = container.Image,
-                Entrypoint = container.Entrypoint,
-                Command = container.Command,
-                WorkingDir = container.WorkingDir,
-                Hostname = container.HostName,
-                NetworkMode = container.HostConfig?.NetworkMode ?? "bridge",
-                Labels = container.Labels
-            };
+            var recreateId = $"recreate-{id}";
+            var imageName = (await _containerService.GetContainerAsync(id))?.Image;
 
-            // 转换环境变量
-            if (container.Environment != null && container.Environment.Count > 0)
+            IProgress<ImagePullProgress>? pullProgress = null;
+            if (request.PullLatest && !string.IsNullOrEmpty(imageName))
             {
-                createRequest.Environment = new Dictionary<string, string>();
-                foreach (var env in container.Environment)
+                await DockerPanelHub.BroadcastImagePullProgress(_hubContext, recreateId, imageName, "准备中", 5, "正在拉取最新镜像...");
+                pullProgress = new Progress<ImagePullProgress>(p =>
                 {
-                    var idx = env.IndexOf('=');
-                    if (idx > 0)
-                    {
-                        createRequest.Environment[env.Substring(0, idx)] = env.Substring(idx + 1);
-                    }
-                }
+                    var status = p.Status ?? "";
+                    var detail = p.Id != null ? $"{p.Id}: {status}" : status;
+                    var progressValue = p.Current > 0 && p.Total > 0
+                        ? (int)((double)p.Current / p.Total * 80) + 10
+                        : 20;
+                    DockerPanelHub.BroadcastImagePullProgress(_hubContext, recreateId, imageName!, "拉取中", progressValue, detail).Wait();
+                });
             }
 
-            // 转换端口映射
-            if (container.Ports != null && container.Ports.Count > 0)
+            var newContainer = await _containerService.RecreateContainerAsync(
+                id,
+                pullLatest: request.PullLatest,
+                autoStart: request.AutoStart,
+                progress: pullProgress);
+
+            if (request.PullLatest && !string.IsNullOrEmpty(imageName))
             {
-                createRequest.Ports = container.Ports
-                    .Where(p => p.PublicPort > 0)
-                    .Select(p => new PortMapping
-                    {
-                        ContainerPort = p.PrivatePort.ToString(),
-                        HostPort = p.PublicPort.ToString(),
-                        Protocol = p.Type ?? "tcp"
-                    }).ToList();
+                await DockerPanelHub.BroadcastImagePullProgress(_hubContext, recreateId, imageName!, "完成", 100, "镜像拉取完成");
             }
 
-            // 转换卷映射
-            if (container.Mounts != null && container.Mounts.Count > 0)
+            return Ok(new
             {
-                createRequest.Volumes = container.Mounts
-                    .Select(m => new VolumeMapping
-                    {
-                        HostPath = m.Source ?? "",
-                        ContainerPath = m.Destination ?? "",
-                        ReadOnly = !m.Rw
-                    }).ToList();
-            }
-
-            // 设置重启策略
-            if (container.RestartPolicy != null)
-            {
-                createRequest.RestartPolicy = new RestartPolicy
-                {
-                    Name = container.RestartPolicy.Name ?? "no",
-                    MaximumRetryCount = container.RestartPolicy.MaximumRetryCount
-                };
-            }
-
-            // 备份原容器的所有域名映射
-            var dbContext = HttpContext.RequestServices.GetRequiredService<DockerPanel.API.Data.TinyDbContext>();
-            var mappingsCollection = dbContext.GetCollection<DomainMapping>("domain_mappings");
-            var oldMappings = mappingsCollection.Find(m => m.ContainerId == id).ToList();
-
-            // 如果需要拉取最新镜像
-            if (request?.PullLatest == true)
-            {
-                _logger.LogInformation("重建容器 {Id} 时拉取最新镜像", id);
-                // 拉取镜像的逻辑可以在这里添加
-            }
-
-            // 删除旧容器（这会级联删除数据库中的域名映射）
-            await _containerService.RemoveContainerAsync(id, force: true);
-            _logger.LogInformation("已删除旧容器 {Id}", id);
-
-            // 创建新容器
-            var newContainer = await _containerService.CreateContainerAsync(createRequest);
-            _logger.LogInformation("已创建新容器 {NewId}", newContainer.Id);
-
-            // 恢复域名映射
-            if (oldMappings.Count > 0)
-            {
-                var reverseProxyFactory = HttpContext.RequestServices.GetRequiredService<IReverseProxyFactory>();
-                foreach (var mapping in oldMappings)
-                {
-                    // 更新为新容器的ID和名称，但保留原有映射配置
-                    mapping.ContainerId = newContainer.Id;
-                    mapping.ContainerName = newContainer.Name ?? "unknown";
-                    
-                    // 重新添加到数据库和YARP配置中
-                    await reverseProxyFactory.AddDomainMappingAsync(mapping);
-                }
-                _logger.LogInformation("已恢复新容器 {NewId} 的 {Count} 个域名映射", newContainer.Id, oldMappings.Count);
-            }
-
-            // 如果原容器是运行状态或请求自动启动，则启动新容器
-            if (container.State == "running" || request?.AutoStart == true)
-            {
-                await _containerService.StartContainerAsync(newContainer.Id);
-                _logger.LogInformation("已启动新容器 {NewId}", newContainer.Id);
-            }
-
-            return Ok(new { 
-                message = "容器重建成功", 
-                oldId = id, 
+                message = "容器重建成功",
+                oldId = id,
                 newId = newContainer.Id,
-                name = container.Name
+                name = newContainer.Name
             });
         }
         catch (Exception ex)

@@ -6,6 +6,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { tasksApi, type BackgroundTask as ApiBackgroundTask } from '@/api/tasks'
+import type { PullLayer } from '@/types/image'
 
 const debugLog = (...args: unknown[]) => {
   if (import.meta.env.DEV) {
@@ -22,6 +23,7 @@ export interface BackgroundTask {
   detail?: string
   stream?: string
   error?: string
+  layers?: PullLayer[]
   createdAt: Date
   updatedAt: Date
 }
@@ -62,8 +64,18 @@ export const useTasksStore = defineStore('tasks', () => {
     }
   }
 
-  // 添加任务（后端已创建任务后调用）
+  // 添加任务（后端已创建任务后调用）。若同 id 任务已存在则更新，保证幂等，避免重复进度条目
   const addTask = (task: Omit<BackgroundTask, 'createdAt' | 'updatedAt'>) => {
+    const existingIndex = tasks.value.findIndex(t => t.id === task.id)
+    if (existingIndex !== -1) {
+      tasks.value[existingIndex] = {
+        ...tasks.value[existingIndex],
+        ...task,
+        createdAt: tasks.value[existingIndex].createdAt,
+        updatedAt: new Date()
+      }
+      return tasks.value[existingIndex]
+    }
     const newTask: BackgroundTask = {
       ...task,
       createdAt: new Date(),

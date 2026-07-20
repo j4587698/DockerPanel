@@ -464,6 +464,15 @@ export interface ImagePullProgress {
   total: number
 }
 
+// 单个镜像层拉取进度
+export interface PullLayer {
+  layerId: string
+  status: string
+  current: number
+  total: number
+  progress: number
+}
+
 // 镜像清理选项
 export interface PruneOptions {
   dangling: boolean

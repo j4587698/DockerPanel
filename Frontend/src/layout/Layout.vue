@@ -204,6 +204,18 @@
                 :status="task.status === 'failed' ? 'exception' : (task.status === 'completed' ? 'success' : '')"
                 :stroke-width="6"
               />
+              <div v-if="task.type === 'image-pull' && task.layers && task.layers.length" class="task-layers">
+                <div v-for="layer in task.layers" :key="layer.layerId" class="task-layer">
+                  <span class="layer-id">{{ layer.layerId.slice(0, 12) }}</span>
+                  <el-progress
+                    :percentage="layer.progress"
+                    :status="layer.status.includes('complete') ? 'success' : ''"
+                    :stroke-width="4"
+                    class="layer-progress"
+                  />
+                  <span class="layer-status">{{ layer.status }}</span>
+                </div>
+              </div>
               <div v-if="task.detail || task.stream" class="task-info">
                 <span v-if="task.detail" class="task-detail">{{ task.detail }}</span>
                 <span v-if="task.stream" class="task-stream">{{ task.stream }}</span>
@@ -266,6 +278,7 @@ import { useTasksStore } from '../stores/tasks'
 import { authApi } from '@/api/auth'
 import { formatLocalizedTime } from '@/utils/date'
 import { tasksApi } from '@/api/tasks'
+import type { PullLayer } from '@/types/image'
 import { signalrService } from '../services/signalr'
 import AppLogo from '@/components/common/AppLogo.vue'
 import { APP_NAME } from '@/utils/branding'
@@ -526,24 +539,44 @@ onMounted(async () => {
     const data = message.data
     // 后端返回的 pullId 可能已经包含 "pull-" 前缀，也可能没有
     const taskId = data.pullId.startsWith('pull-') ? data.pullId : `pull-${data.pullId}`
+    const isRecreate = data.pullId.includes('recreate')
     const existingTask = tasksStore.tasks.find(t => t.id === taskId)
 
     const taskStatus = data.status || (data.step === '完成' ? 'completed' : (data.step === '失败' ? 'failed' : 'running'))
+
+    // 按层维护进度，避免多个层并发推送导致整体进度来回跳动
+    const layers = existingTask?.layers ? [...existingTask.layers] : []
+    if (data.layer && data.layer.layerId) {
+      const idx = layers.findIndex(l => l.layerId === data.layer.layerId)
+      const layer: PullLayer = {
+        layerId: data.layer.layerId,
+        status: data.layer.status || '',
+        current: data.layer.current || 0,
+        total: data.layer.total || 0,
+        progress: data.layer.progress || 0
+      }
+      if (idx !== -1) layers[idx] = layer
+      else layers.push(layer)
+    }
+
+    const title = (isRecreate ? t('common.recreatingContainer') : t('common.pullingImage')) + `: ${data.imageName}`
 
     if (existingTask) {
       tasksStore.updateTask(taskId, {
         status: taskStatus,
         progress: data.progress,
-        detail: data.detail || data.step
+        detail: data.detail || data.step,
+        layers
       })
     } else {
       tasksStore.addTask({
         id: taskId,
         type: 'image-pull',
-        title: t('common.pullingImage') + `: ${data.imageName}`,
+        title,
         status: taskStatus,
         progress: data.progress,
-        detail: data.detail || data.step
+        detail: data.detail || data.step,
+        layers
       })
     }
   })
@@ -814,6 +847,47 @@ html.dark .task-badge {
   margin-top: 6px;
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.task-layers {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.task-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layer-id {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 78px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-progress {
+  flex: 1;
+}
+
+.layer-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+  width: 90px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
 }
 
 /* === Mobile Overlay === */

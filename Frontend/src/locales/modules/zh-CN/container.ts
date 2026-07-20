@@ -241,6 +241,8 @@ export default {
     containerName: '容器名称',
     newNamePlaceholder: '请输入新名称',
     editConfigHint: '修改容器名称不会影响容器运行',
+    pullLatestOnEditHint: '勾选后将拉取镜像的最新版本并重建容器，使更新生效',
+    saveAndRecreate: '保存并拉取最新重建',
     recreateWarning: '重建容器将删除当前容器并使用相同配置重新创建。请确认以下选项：',
     containerNameLabel: '容器名称',
     pullLatestHint: '拉取镜像的最新版本',

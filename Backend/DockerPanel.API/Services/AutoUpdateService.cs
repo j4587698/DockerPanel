@@ -115,6 +115,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
 {
     private readonly TinyDbContext _db;
     private readonly IContainerEngine _containerEngine;
+    private readonly IContainerService _containerService;
     private readonly IRegistryService _registryService;
     private readonly ILogger<AutoUpdateService> _logger;
     private readonly HttpClient _httpClient;
@@ -122,11 +123,13 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
     public AutoUpdateService(
         TinyDbContext db,
         IContainerEngine containerEngine,
+        IContainerService containerService,
         IRegistryService registryService,
         ILogger<AutoUpdateService> logger)
     {
         _db = db;
         _containerEngine = containerEngine;
+        _containerService = containerService;
         _registryService = registryService;
         _logger = logger;
         
@@ -330,9 +333,9 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 // 更新状态为正在重启
                 config.Status = AutoUpdateStatus.Restarting;
                 _db.AutoUpdateConfigs.Update(config);
-                
-                // 重启容器
-                await _containerEngine.RestartContainerAsync(containerId);
+
+                // 重建容器（删除并使用相同配置重新创建），使容器真正使用刚拉取的新镜像
+                await _containerService.RecreateContainerAsync(containerId, pullLatest: false, autoStart: true);
             }
             
             // 更新配置
@@ -720,13 +723,9 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             var newImage = await _containerEngine.GetImageAsync($"{name}:{targetTag}");
             result.NewDigest = newImage?.Id;
             result.OldDigest = config?.CurrentLocalDigest;
-            
-            // 重启容器（重建方式）
-            // 先停止容器
-            await _containerEngine.StopContainerAsync(containerId);
-            
-            // 重启容器会使用新镜像
-            await _containerEngine.RestartContainerAsync(containerId);
+
+            // 真正回滚：删除原容器并用 targetTag 镜像按原配置重建，使容器切换到目标版本
+            await _containerService.RecreateContainerAsync(containerId, pullLatest: false, autoStart: true, overrideImage: $"{name}:{targetTag}");
             
             // 更新配置
             if (config != null)

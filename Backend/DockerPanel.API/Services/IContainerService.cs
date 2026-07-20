@@ -261,6 +261,17 @@ public interface IContainerService
         /// <param name="path">文件路径</param>
         /// <param name="permissions">权限字符串（如 755, 644）</param>
         Task ChangeContainerFilePermissionsAsync(string id, string path, string permissions, string? nodeId = null);
+
+        /// <summary>
+        /// 重建容器（删除并使用相同配置重新创建，可选拉取最新镜像）
+        /// </summary>
+        /// <param name="id">原容器ID</param>
+        /// <param name="pullLatest">是否先拉取最新镜像</param>
+        /// <param name="autoStart">是否自动启动新容器</param>
+        /// <param name="overrideImage">覆盖使用的镜像（如回滚到指定标签）</param>
+        /// <param name="progress">拉取进度回调</param>
+        /// <returns>新容器信息</returns>
+        Task<ContainerInfo> RecreateContainerAsync(string id, bool pullLatest = false, bool autoStart = true, string? overrideImage = null, IProgress<ImagePullProgress>? progress = null);
     }
     
     /// <summary>
@@ -514,6 +525,6 @@ public interface IContainerService
         /// 从 tar.gz 归档文件恢复创建新卷
         /// </summary>
         Task<VolumeInfo> RestoreVolumeFromArchiveAsync(string? volumeName, Stream archiveStream, string? nodeId = null);
-    
+
         #endregion
     }

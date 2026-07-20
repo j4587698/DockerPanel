@@ -20,12 +20,21 @@
       <el-alert type="info" :closable="false" style="margin-top: 16px">
         {{ t('container.dialogs.editConfigHint') }}
       </el-alert>
+
+      <el-divider />
+
+      <el-form-item>
+        <el-checkbox v-model="editOptions.pullLatest">
+          {{ t('container.pullLatest') }}
+        </el-checkbox>
+        <div class="option-hint">{{ t('container.dialogs.pullLatestOnEditHint') }}</div>
+      </el-form-item>
     </el-form>
     
     <template #footer>
       <el-button @click="editVisible = false">{{ t('common.cancel') }}</el-button>
-      <el-button type="primary" @click="handleSaveEdit">
-        {{ t('common.save') }}
+      <el-button type="primary" @click="handleSaveEdit" :loading="loading">
+        {{ editOptions.pullLatest ? t('container.dialogs.saveAndRecreate') : t('common.save') }}
       </el-button>
     </template>
   </el-dialog>
@@ -146,7 +155,7 @@ const emit = defineEmits<{
   'update:editDialogVisible': [value: boolean]
   'update:recreateDialogVisible': [value: boolean]
   'update:connectNetworkDialogVisible': [value: boolean]
-  'save-edit': [name: string]
+  'save-edit': [payload: { name: string; pullLatest: boolean }]
   'confirm-recreate': [options: { pullLatest: boolean; autoStart: boolean; keepVolumes: boolean }]
   'connect-network': [networkId: string]
 }>()
@@ -156,6 +165,11 @@ const selectedNetworkId = ref('')
 // 编辑表单
 const editForm = reactive({
   name: ''
+})
+
+// 编辑时是否同时拉取最新镜像并重建
+const editOptions = reactive({
+  pullLatest: false
 })
 
 // 重建选项
@@ -174,6 +188,7 @@ watch(() => props.editDialogVisible, v => {
   editVisible.value = v
   if (v) {
     editForm.name = props.containerName?.replace(/^\//, '') || ''
+    editOptions.pullLatest = false
   }
 })
 watch(() => props.recreateDialogVisible, v => recreateVisible.value = v)
@@ -193,7 +208,7 @@ watch(() => props.autoStart, v => {
 // 事件处理
 const handleSaveEdit = () => {
   if (!editForm.name.trim()) return
-  emit('save-edit', editForm.name.trim())
+  emit('save-edit', { name: editForm.name.trim(), pullLatest: editOptions.pullLatest })
 }
 
 const handleConfirmRecreate = () => {

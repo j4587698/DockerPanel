@@ -465,7 +465,7 @@ public class DockerPanelHub : Hub
     /// <summary>
     /// 广播镜像拉取进度给所有客户端
     /// </summary>
-    public static async Task BroadcastImagePullProgress(IHubContext<DockerPanelHub> hubContext, string pullId, string imageName, string step, int progress, string? detail = null)
+    public static async Task BroadcastImagePullProgress(IHubContext<DockerPanelHub> hubContext, string pullId, string imageName, string step, int progress, string? detail = null, PullLayerInfo? layer = null)
     {
         await hubContext.Clients.All.SendAsync("ImagePullProgress", new
         {
@@ -476,8 +476,76 @@ public class DockerPanelHub : Hub
             Status = GetStatusFromStep(step),
             Progress = progress,
             Detail = detail,
+            Layer = layer == null ? null : new
+            {
+                LayerId = layer.LayerId,
+                Status = layer.Status,
+                Current = layer.Current,
+                Total = layer.Total,
+                Progress = layer.Total > 0 ? (int)((double)layer.Current / layer.Total * 100) : 0
+            },
             Timestamp = DateTime.UtcNow
         });
+    }
+
+    /// <summary>
+    /// 单个镜像层的拉取信息
+    /// </summary>
+    public class PullLayerInfo
+    {
+        public string LayerId { get; set; } = "";
+        public string Status { get; set; } = "";
+        public long Current { get; set; }
+        public long Total { get; set; }
+    }
+
+    /// <summary>
+    /// 按层聚合镜像拉取进度，避免多个层并发推送导致整体进度来回跳动。
+    /// 整体进度 = 各层完成度平均值；已完成的层记为 100。
+    /// </summary>
+    public class ImagePullProgressAggregator
+    {
+        private readonly Dictionary<string, PullLayerInfo> _layers = new();
+        private readonly object _lock = new();
+
+        public void Update(string layerId, string status, long current, long total)
+        {
+            lock (_lock)
+            {
+                _layers[layerId] = new PullLayerInfo
+                {
+                    LayerId = layerId,
+                    Status = status,
+                    Current = current,
+                    Total = total
+                };
+            }
+        }
+
+        public int OverallProgress
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    if (_layers.Count == 0)
+                        return 0;
+                    var sum = _layers.Values.Sum(l => l.Total > 0 ? (int)((double)l.Current / l.Total * 100) : (l.Status.Contains("Pull complete", StringComparison.OrdinalIgnoreCase) ? 100 : 0));
+                    return Math.Min(100, sum / _layers.Count);
+                }
+            }
+        }
+
+        public IReadOnlyCollection<PullLayerInfo> Layers
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _layers.Values.ToList();
+                }
+            }
+        }
     }
 
     /// <summary>

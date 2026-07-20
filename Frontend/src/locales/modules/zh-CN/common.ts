@@ -167,6 +167,7 @@ export default {
   // 任务类型
   buildingImage: '构建镜像',
   pullingImage: '拉取镜像',
+  recreatingContainer: '重建容器',
   pushingImage: '推送镜像',
   deployingProject: '部署项目',
   archivingVolume: '打包卷',

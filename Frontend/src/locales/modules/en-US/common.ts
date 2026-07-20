@@ -167,6 +167,7 @@ export default {
   // Task types
   buildingImage: 'Building Image',
   pullingImage: 'Pulling Image',
+  recreatingContainer: 'Recreating Container',
   pushingImage: 'Pushing Image',
   deployingProject: 'Deploying Project',
   archivingVolume: 'Archiving Volume',

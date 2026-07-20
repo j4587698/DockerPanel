@@ -3,6 +3,7 @@ using Docker.DotNet;
 using Microsoft.Extensions.DependencyInjection;
 using TinyDb;
 using System.Text.Json;
+using DockerPanel.API.Data;
 
 namespace DockerPanel.API.Services;
 
@@ -80,6 +81,123 @@ public class ContainerService : IContainerService
             _logger.LogError(ex, "创建容器流程失败");
             throw;
         }
+    }
+
+    public async Task PullImageAsync(string name, string? tag = null, string? nodeId = null, IProgress<ImagePullProgress>? progress = null, string? registryId = null)
+    {
+        await _engine.PullImageAsync(name, tag, progress, registryId, nodeId);
+    }
+
+    public async Task<ContainerInfo> RecreateContainerAsync(string id, bool pullLatest = false, bool autoStart = true, string? overrideImage = null, IProgress<ImagePullProgress>? progress = null)
+    {
+        var container = await GetContainerAsync(id);
+        if (container == null)
+        {
+            throw new InvalidOperationException("容器未找到");
+        }
+
+        var effectiveImage = overrideImage ?? container.Image;
+
+        // 构建创建请求
+        var createRequest = new CreateContainerRequest
+        {
+            Name = container.Name?.TrimStart('/'),
+            Image = effectiveImage,
+            Entrypoint = container.Entrypoint,
+            Command = container.Command,
+            WorkingDir = container.WorkingDir,
+            Hostname = container.HostName,
+            NetworkMode = container.HostConfig?.NetworkMode ?? "bridge",
+            Labels = container.Labels
+        };
+
+        if (container.Environment != null && container.Environment.Count > 0)
+        {
+            createRequest.Environment = new Dictionary<string, string>();
+            foreach (var env in container.Environment)
+            {
+                var idx = env.IndexOf('=');
+                if (idx > 0)
+                {
+                    createRequest.Environment[env.Substring(0, idx)] = env.Substring(idx + 1);
+                }
+            }
+        }
+
+        if (container.Ports != null && container.Ports.Count > 0)
+        {
+            createRequest.Ports = container.Ports
+                .Where(p => p.PublicPort > 0)
+                .Select(p => new PortMapping
+                {
+                    ContainerPort = p.PrivatePort.ToString(),
+                    HostPort = p.PublicPort.ToString(),
+                    Protocol = p.Type ?? "tcp"
+                }).ToList();
+        }
+
+        if (container.Mounts != null && container.Mounts.Count > 0)
+        {
+            createRequest.Volumes = container.Mounts
+                .Select(m => new VolumeMapping
+                {
+                    HostPath = m.Source ?? "",
+                    ContainerPath = m.Destination ?? "",
+                    ReadOnly = !m.Rw
+                }).ToList();
+        }
+
+        if (container.RestartPolicy != null)
+        {
+            createRequest.RestartPolicy = new RestartPolicy
+            {
+                Name = container.RestartPolicy.Name ?? "no",
+                MaximumRetryCount = container.RestartPolicy.MaximumRetryCount
+            };
+        }
+
+        // 拉取最新镜像
+        if (pullLatest && !string.IsNullOrEmpty(container.Image))
+        {
+            var imageName = container.Image!;
+            var colonIdx = imageName.LastIndexOf(':');
+            var slashIdx = imageName.LastIndexOf('/');
+            var (pullName, pullTag) = colonIdx > slashIdx
+                ? (imageName[..colonIdx], imageName[(colonIdx + 1)..])
+                : (imageName, "latest");
+            await PullImageAsync(pullName, pullTag, progress: progress);
+        }
+
+        // 备份原容器域名映射
+        var dbContext = _serviceProvider.GetRequiredService<TinyDbContext>();
+        var mappingsCollection = dbContext.GetCollection<DomainMapping>("domain_mappings");
+        var oldMappings = mappingsCollection.Find(m => m.ContainerId == id).ToList();
+
+        // 删除旧容器
+        await RemoveContainerAsync(id, force: true);
+
+        // 创建新容器
+        var newContainer = await CreateContainerAsync(createRequest);
+
+        // 恢复域名映射
+        if (oldMappings.Count > 0)
+        {
+            var reverseProxyFactory = _serviceProvider.GetRequiredService<IReverseProxyFactory>();
+            foreach (var mapping in oldMappings)
+            {
+                mapping.ContainerId = newContainer.Id;
+                mapping.ContainerName = newContainer.Name ?? "unknown";
+                await reverseProxyFactory.AddDomainMappingAsync(mapping);
+            }
+        }
+
+        // 启动新容器
+        if (container.State == "running" || autoStart)
+        {
+            await StartContainerAsync(newContainer.Id);
+        }
+
+        return newContainer;
     }
 
     public async Task StartContainerAsync(string id, string? nodeId = null)

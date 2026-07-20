@@ -623,14 +623,36 @@ const handleEditSuccess = async () => {
   await loadContainerDetail()
 }
 
-const saveEdit = async (newName: string) => {
+const saveEdit = async (payload: { name: string; pullLatest: boolean }) => {
   if (!container.value) return
+  const { name: newName, pullLatest } = payload
 
   try {
-    await containerApi.renameContainer(container.value.id, newName)
-    editDialogVisible.value = false
-    ElMessage.success(t('container.containerDetail.renameSuccess'))
-    await loadContainerDetail()
+    if (pullLatest) {
+      // 如果名称发生变化，先重命名
+      const currentName = container.value.name?.replace(/^\//, '')
+      if (newName !== currentName) {
+        await containerApi.renameContainer(container.value.id, newName)
+      }
+      
+      // 拉取最新镜像并重建容器（使用原配置，应用新镜像）
+      const result = await containerApi.recreateContainer(container.value.id, {
+        pullLatest: true,
+        autoStart: true
+      })
+      editDialogVisible.value = false
+      ElMessage.success(t('container.containerDetail.recreateSuccess'))
+      if (result.newId) {
+        router.push(`/containers/${result.newId}`)
+      } else {
+        await loadContainerDetail()
+      }
+    } else {
+      await containerApi.renameContainer(container.value.id, newName)
+      editDialogVisible.value = false
+      ElMessage.success(t('container.containerDetail.renameSuccess'))
+      await loadContainerDetail()
+    }
   } catch (e: any) {
     ElMessage.error(e.message || t('container.containerDetail.renameFailed'))
   }

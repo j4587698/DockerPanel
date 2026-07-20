@@ -2483,3 +2483,12 @@ html.dark .el-divider__text {
     margin: 4vh auto !important;
   }
 }
+
+/* Force scrollbars to be always visible (opacity > 0) to indicate scrollable content */
+.el-scrollbar__bar,
+.el-scrollbar:hover > .el-scrollbar__bar, 
+.el-scrollbar:active > .el-scrollbar__bar, 
+.el-scrollbar:focus > .el-scrollbar__bar {
+  opacity: 0.8 !important;
+  display: block !important;
+}

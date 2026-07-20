@@ -205,7 +205,7 @@ public class ContainersController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "创建容器失败");
-            return BadRequest(new { message = _localization.GetMessage("container.createFailed"), error = ex.Message });
+            return BadRequest(new { message = $"{_localization.GetMessage("container.createFailed")}: {ex.Message}", error = ex.Message });
         }
     }
 

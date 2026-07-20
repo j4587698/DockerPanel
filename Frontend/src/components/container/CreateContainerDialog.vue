@@ -1754,7 +1754,9 @@ const pullFromRegistry = async () => {
 
     // 获取注册表信息用于构建完整镜像名
     const registry = registries.value.find(r => r.id === selectedRegistryId.value)
-    const fullName = registry ? `${registry.url}/${imageName}` : imageName
+    // 优先使用 domain（避免带有 https://），兼容 fallback 到 url
+    const registryHost = registry ? (registry.domain || registry.url) : ''
+    const fullName = registryHost ? `${registryHost}/${imageName}` : imageName
     form.image = fullName
     showPullDialog.value = false
     registryImageName.value = ''

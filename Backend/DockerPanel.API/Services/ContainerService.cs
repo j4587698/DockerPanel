@@ -51,7 +51,15 @@ public class ContainerService : IContainerService
         try
         {
             // 检查镜像是否存在
-            var localImage = await _engine.GetImageAsync(request.Image ?? string.Empty);
+            var requestImage = request.Image ?? string.Empty;
+            if (requestImage.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                requestImage = requestImage.Substring(8);
+            else if (requestImage.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                requestImage = requestImage.Substring(7);
+            
+            request.Image = requestImage;
+            
+            var localImage = await _engine.GetImageAsync(requestImage);
             if (localImage == null)
             {
                 throw new InvalidOperationException($"镜像 {request.Image} 不存在，请先拉取镜像");

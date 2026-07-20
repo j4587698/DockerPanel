@@ -824,9 +824,6 @@ public class DockerEngine : IContainerEngine, IDisposable
     {
         var client = await GetDockerClientAsync(nodeId);
         var imageRef = SplitImageNameAndTag(name, tag);
-        var dockerProgress = new Progress<JSONMessage>(m => {
-            progress?.Report(new ImagePullProgress { Id = m.ID ?? "layer", Status = m.Status ?? "", ProgressDetail = m.Progress != null ? $"{m.Progress.Current}/{m.Progress.Total}" : "", Current = m.Progress?.Current ?? 0, Total = m.Progress?.Total ?? 0 });
-        });
 
         // 获取认证配置
         AuthConfig authConfig;
@@ -834,38 +831,47 @@ public class DockerEngine : IContainerEngine, IDisposable
         bool useMirror = false;
         string? mirrorDomain = null;
         
-        // 如果指定了加速器 ID，使用加速器
+        // 如果指定了加速器 ID，使用加速器或私有仓库
         if (!string.IsNullOrEmpty(registryId))
         {
-            var mirrorConfig = await GetMirrorConfigAsync(registryId);
+            var mirrorConfig = await GetRegistryConfigAsync(registryId);
             if (mirrorConfig != null)
             {
-                useMirror = true;
+                useMirror = mirrorConfig.Type == "Mirror";
                 mirrorDomain = mirrorConfig.Domain;
-                _logger.LogInformation("使用镜像加速器: {MirrorName} ({MirrorDomain})", mirrorConfig.Name, mirrorConfig.Domain);
+                _logger.LogInformation("使用镜像仓库/加速器: {MirrorName} ({MirrorDomain}), 类型: {Type}", mirrorConfig.Name, mirrorConfig.Domain, mirrorConfig.Type);
                 
-                // 构建加速器镜像地址
-                // Docker Hub 镜像格式: mirror.domain.com/library/nginx 或 mirror.domain.com/nginx
-                // 私有镜像格式: mirror.domain.com/namespace/image
-                if (!imageRef.Name.Contains('/') || (imageRef.Name.Split('/')[0].Equals("library", StringComparison.OrdinalIgnoreCase)))
+                // 构建拉取镜像地址
+                if (imageRef.Name.StartsWith(mirrorConfig.Domain + "/", StringComparison.OrdinalIgnoreCase) || 
+                    imageRef.Name.Equals(mirrorConfig.Domain, StringComparison.OrdinalIgnoreCase))
                 {
-                    // Docker Hub 官方镜像或无命名空间的镜像
-                    var imageParts = imageRef.Name.Split('/');
-                    var imageNameWithTag = imageParts.Length > 1 && imageParts[0].Equals("library", StringComparison.OrdinalIgnoreCase)
-                        ? string.Join("/", imageParts.Skip(1))
-                        : imageRef.Name;
-                    pullImageName = $"{mirrorConfig.Domain}/{imageNameWithTag}";
+                    pullImageName = imageRef.Name;
+                }
+                else if (useMirror)
+                {
+                    // Docker Hub 镜像加速器
+                    if (!imageRef.Name.Contains('/') || imageRef.Name.StartsWith("library/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var imageParts = imageRef.Name.Split('/');
+                        var imageNameWithTag = imageParts.Length > 1 && imageParts[0].Equals("library", StringComparison.OrdinalIgnoreCase)
+                            ? string.Join("/", imageParts.Skip(1))
+                            : imageRef.Name;
+                        pullImageName = $"{mirrorConfig.Domain}/{imageNameWithTag}";
+                    }
+                    else
+                    {
+                        pullImageName = $"{mirrorConfig.Domain}/{imageRef.Name}";
+                    }
                 }
                 else
                 {
-                    // 私有仓库镜像，直接使用加速器地址
-                    var imageNameOnly = imageRef.Name.Contains('/') ? imageRef.Name.Substring(imageRef.Name.IndexOf('/') + 1) : imageRef.Name;
-                    pullImageName = $"{mirrorConfig.Domain}/{imageNameOnly}";
+                    // 私有仓库镜像，直接拼接域名
+                    pullImageName = $"{mirrorConfig.Domain}/{imageRef.Name}";
                 }
                 
-                _logger.LogInformation("加速器镜像地址: {PullImageName}:{Tag}", pullImageName, imageRef.Tag);
+                _logger.LogInformation("拉取镜像地址: {PullImageName}:{Tag}", pullImageName, imageRef.Tag);
                 
-                // 如果加速器需要认证，设置认证配置
+                // 如果需要认证，设置认证配置
                 if (!string.IsNullOrEmpty(mirrorConfig.Username) && !string.IsNullOrEmpty(mirrorConfig.Password))
                 {
                     authConfig = new AuthConfig
@@ -897,9 +903,27 @@ public class DockerEngine : IContainerEngine, IDisposable
         _logger.LogInformation("AuthConfig JSON: {AuthJson}", authJson);
         
         var actualTag = imageRef.Tag;
+        string? pullError = null;
+        var dockerProgress = new Progress<JSONMessage>(m => {
+            if (m.Error != null && !string.IsNullOrEmpty(m.Error.Message))
+            {
+                pullError = m.Error.Message;
+            }
+            else if (!string.IsNullOrEmpty(m.Status) && (m.Status.Contains("error", StringComparison.OrdinalIgnoreCase) || m.Status.Contains("failed", StringComparison.OrdinalIgnoreCase)))
+            {
+                pullError = m.Status;
+            }
+            progress?.Report(new ImagePullProgress { Id = m.ID ?? "layer", Status = m.Status ?? "", ProgressDetail = m.Progress != null ? $"{m.Progress.Current}/{m.Progress.Total}" : "", Current = m.Progress?.Current ?? 0, Total = m.Progress?.Total ?? 0 });
+        });
+
         await client.Images.CreateImageAsync(new ImagesCreateParameters { FromImage = pullImageName, Tag = actualTag }, authConfig, dockerProgress);
         
-        // 如果使用了加速器，需要重命名镜像回原始名称
+        if (pullError != null)
+        {
+            throw new InvalidOperationException($"拉取镜像失败: {pullError}");
+        }
+        
+        // 如果使用了加速器(Mirror)，需要重命名镜像回原始名称
         if (useMirror && pullImageName != imageRef.Name)
         {
             try
@@ -938,6 +962,11 @@ public class DockerEngine : IContainerEngine, IDisposable
 
     private static (string Name, string Tag) SplitImageNameAndTag(string name, string? tag)
     {
+        if (name.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            name = name.Substring(8);
+        else if (name.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            name = name.Substring(7);
+
         if (!string.IsNullOrWhiteSpace(tag))
         {
             return (name, tag);
@@ -954,9 +983,9 @@ public class DockerEngine : IContainerEngine, IDisposable
     }
 
     /// <summary>
-    /// 根据 ID 获取镜像加速器配置
+    /// 根据 ID 获取镜像仓库/加速器配置
     /// </summary>
-    private async Task<ImageRegistry?> GetMirrorConfigAsync(string registryId)
+    private async Task<ImageRegistry?> GetRegistryConfigAsync(string registryId)
     {
         try
         {
@@ -969,13 +998,7 @@ public class DockerEngine : IContainerEngine, IDisposable
                 return null;
             }
 
-            var registry = await registryService.GetRegistryByIdAsync(registryId);
-            if (registry != null && registry.Type == "Mirror")
-            {
-                return registry;
-            }
-            
-            return null;
+            return await registryService.GetRegistryByIdAsync(registryId);
         }
         catch (Exception ex)
         {
@@ -1160,6 +1183,11 @@ public class DockerEngine : IContainerEngine, IDisposable
     
     public async Task<ImageInfo?> GetImageAsync(string id, string? nodeId = null)
     {
+        if (id.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            id = id.Substring(8);
+        else if (id.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            id = id.Substring(7);
+
         try
         {
             var client = await GetDockerClientAsync(nodeId);

@@ -271,6 +271,28 @@ namespace DockerPanel.API.Services.Acme
                     return result;
                 }
 
+                // 添加 DNS 解析重试机制 (最多等待60秒)
+                _logger.LogInformation("等待 DNS 记录生效: {RecordName}", fullRecordName);
+                bool dnsResolved = false;
+                for (int i = 0; i < 12; i++)
+                {
+                    await Task.Delay(5000); // 每次等 5 秒
+                    var resolvedValues = await QueryDnsRecord(fullRecordName, "TXT");
+                    if (resolvedValues.Any(v => v.Trim('"') == recordValue))
+                    {
+                        dnsResolved = true;
+                        _logger.LogInformation("DNS 记录已生效: {RecordName}", fullRecordName);
+                        break;
+                    }
+                    _logger.LogDebug("DNS 记录尚未生效，继续等待... ({Attempt}/12)", i + 1);
+                }
+                
+                if (!dnsResolved)
+                {
+                    _logger.LogWarning("DNS 记录未在预期时间内生效，将继续进行但可能会验证失败");
+                    result.ValidationSteps.Add("警告: DNS记录未在本地解析成功");
+                }
+
                 result.ValidationSteps.Add("DNS TXT记录配置完成");
                 result.ConfigurationDetails["RecordName"] = fullRecordName;
                 result.ConfigurationDetails["RecordValue"] = recordValue;

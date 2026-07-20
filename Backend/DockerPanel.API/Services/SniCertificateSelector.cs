@@ -1,10 +1,10 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography.X509Certificates;
 using System.IO;
 using DockerPanel.API.Data;
 using DockerPanel.API.Services.Acme;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace DockerPanel.API.Services;
 
@@ -17,19 +17,20 @@ public class SniCertificateSelector
     private readonly ILogger<SniCertificateSelector> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly TlsAlpnChallengeService _tlsAlpnChallengeService;
-    private readonly ConcurrentDictionary<string, X509Certificate2> _certificateCache = new();
-    private readonly ConcurrentDictionary<string, DateTime> _cacheExpiry = new();
+    private readonly IMemoryCache _cache;
     private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(5);
     private readonly X509Certificate2 _defaultCertificate;
 
     public SniCertificateSelector(
         ILogger<SniCertificateSelector> logger,
         IServiceScopeFactory scopeFactory,
-        TlsAlpnChallengeService tlsAlpnChallengeService)
+        TlsAlpnChallengeService tlsAlpnChallengeService,
+        IMemoryCache cache)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
         _tlsAlpnChallengeService = tlsAlpnChallengeService;
+        _cache = cache;
         _defaultCertificate = EnsureDefaultCertificate();
     }
 
@@ -55,19 +56,19 @@ public class SniCertificateSelector
             }
 
             // 2. 从缓存获取
-            if (_certificateCache.TryGetValue(sni, out var cachedCert))
+            var cacheKey = $"sni_{sni.ToLowerInvariant()}";
+            if (_cache.TryGetValue(cacheKey, out X509Certificate2? cachedCert))
             {
-                if (_cacheExpiry.TryGetValue(sni, out var expiry) && expiry > DateTime.UtcNow)
+                // 如果缓存中有值（即使为 null，即负向缓存）
+                if (cachedCert != null && cachedCert.NotAfter > DateTime.UtcNow)
                 {
-                    // 验证证书是否仍然有效
-                    if (cachedCert.NotAfter > DateTime.UtcNow)
-                    {
-                        return cachedCert;
-                    }
+                    return cachedCert;
                 }
-                // 缓存过期或证书过期，移除
-                _certificateCache.TryRemove(sni, out _);
-                _cacheExpiry.TryRemove(sni, out _);
+                else if (cachedCert == null)
+                {
+                    // 负向缓存命中，说明数据库里确实没有，直接返回默认证书
+                    return _defaultCertificate;
+                }
             }
 
             // 3. 从数据库加载
@@ -75,8 +76,7 @@ public class SniCertificateSelector
             if (cert != null)
             {
                 // 缓存证书
-                _certificateCache[sni] = cert;
-                _cacheExpiry[sni] = DateTime.UtcNow.Add(_cacheDuration);
+                _cache.Set(cacheKey, cert, _cacheDuration);
                 _logger.LogDebug("从数据库加载证书: {Domain}, 过期: {Expiry}", sni, cert.NotAfter);
                 return cert;
             }
@@ -85,12 +85,13 @@ public class SniCertificateSelector
             var wildcardCert = FindWildcardCertificate(sni);
             if (wildcardCert != null)
             {
-                _certificateCache[sni] = wildcardCert;
-                _cacheExpiry[sni] = DateTime.UtcNow.Add(_cacheDuration);
+                _cache.Set(cacheKey, wildcardCert, _cacheDuration);
                 _logger.LogDebug("使用通配符证书: {Domain}", sni);
                 return wildcardCert;
             }
 
+            // 5. 找不到证书，设置负向缓存，防止恶意 SNI 洪水攻击拖垮数据库
+            _cache.Set<X509Certificate2?>(cacheKey, null, _cacheDuration);
             _logger.LogWarning("未找到证书: {Domain}，使用默认自签名证书兜底", sni);
             return _defaultCertificate;
         }
@@ -323,14 +324,15 @@ public class SniCertificateSelector
     {
         if (string.IsNullOrEmpty(domain))
         {
-            _certificateCache.Clear();
-            _cacheExpiry.Clear();
+            if (_cache is MemoryCache memoryCache)
+            {
+                memoryCache.Clear();
+            }
             _logger.LogInformation("已清除所有证书缓存");
         }
         else
         {
-            _certificateCache.TryRemove(domain, out _);
-            _cacheExpiry.TryRemove(domain, out _);
+            _cache.Remove($"sni_{domain.ToLowerInvariant()}");
             _logger.LogInformation("已清除证书缓存: {Domain}", domain);
         }
     }
@@ -352,6 +354,7 @@ public class SniCertificateSelector
                 r.CertificateData != null && r.CertificateData != "" &&
                 r.PrivateKeyData != null && r.PrivateKeyData != "");
 
+            int count = 0;
             foreach (var record in records)
             {
                 var cert = CreateCertificateFromRecord(record);
@@ -359,15 +362,12 @@ public class SniCertificateSelector
 
                 foreach (var domain in record.Domains)
                 {
-                    if (!_certificateCache.ContainsKey(domain))
-                    {
-                        _certificateCache[domain] = cert;
-                        _cacheExpiry[domain] = DateTime.UtcNow.Add(_cacheDuration);
-                    }
+                    _cache.Set($"sni_{domain.ToLowerInvariant()}", cert, _cacheDuration);
+                    count++;
                 }
             }
 
-            _logger.LogInformation("证书缓存预热完成: {Count} 个域名", _certificateCache.Count);
+            _logger.LogInformation("证书缓存预热完成: {Count} 个域名", count);
         }
         catch (Exception ex)
         {

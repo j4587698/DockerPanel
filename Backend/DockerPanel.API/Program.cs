@@ -176,12 +176,17 @@ builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddFixedWindowLimiter("LoginPolicy", opt =>
+    options.AddPolicy("LoginPolicy", context =>
     {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 20; // 整个节点每分钟 20 次登录尝试
-        opt.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
-        opt.QueueLimit = 0;
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? context.Request.Headers.Host.ToString();
+        return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(ip,
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 20, // 每个 IP 每分钟 20 次尝试
+                QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
     });
 });
 
@@ -498,6 +503,31 @@ app.UseRouting();
 
 // 启用速率限制 (在 UseRouting 之后，UseAuthentication 之前)
 app.UseRateLimiter();
+
+// CSRF 保护中间件：强制校验自定义 Header
+app.Use(async (context, next) =>
+{
+    var endpoint = context.GetEndpoint();
+    bool isYarp = endpoint?.Metadata?.GetMetadata<Yarp.ReverseProxy.Model.RouteModel>() != null;
+
+    if (!isYarp && context.Request.Path.StartsWithSegments("/api"))
+    {
+        var method = context.Request.Method;
+        if (!HttpMethods.IsGet(method) && 
+            !HttpMethods.IsHead(method) && 
+            !HttpMethods.IsOptions(method))
+        {
+            if (!context.Request.Headers.ContainsKey("X-DockerPanel-Api"))
+            {
+                context.Response.StatusCode = 403;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(new { message = "CSRF Protection: Missing X-DockerPanel-Api header" });
+                return;
+            }
+        }
+    }
+    await next();
+});
 
 // 全局错误处理（必须在控制器之前，以捕获控制器异常）
 app.Use(async (context, next) =>

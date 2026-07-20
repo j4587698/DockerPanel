@@ -1123,13 +1123,16 @@ html.dark .el-button--primary:hover {
    Popover & Tooltip - Enhanced
    ============================================ */
 
-.el-popover.el-popper {
+.el-popper:not(.el-tooltip__popper) {
   border-radius: var(--border-radius-lg) !important;
   border: 1px solid var(--border-color) !important;
   box-shadow: 
     0 8px 24px -4px rgba(0, 0, 0, 0.12),
     0 4px 12px -2px rgba(0, 0, 0, 0.08) !important;
   background: var(--bg-surface) !important;
+}
+
+.el-popover.el-popper {
   padding: 0 !important;
 }
 
@@ -1223,12 +1226,9 @@ html.dark .el-button--primary:hover {
    ============================================ */
 
 .el-dropdown-menu {
-  border-radius: var(--border-radius-lg) !important;
-  border: 1px solid var(--border-color) !important;
-  box-shadow: 
-    0 8px 24px -4px rgba(0, 0, 0, 0.12),
-    0 4px 12px -2px rgba(0, 0, 0, 0.08) !important;
-  background: var(--bg-surface) !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
   padding: 8px !important;
   min-width: 160px;
 }
@@ -1323,12 +1323,9 @@ html.dark .el-button--primary:hover {
 
 /* Select Dropdown */
 .el-select-dropdown {
-  border-radius: var(--border-radius-lg) !important;
-  border: 1px solid var(--border-color) !important;
-  box-shadow: 
-    0 8px 24px -4px rgba(0, 0, 0, 0.12),
-    0 4px 12px -2px rgba(0, 0, 0, 0.08) !important;
-  background: var(--bg-surface) !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
   padding: 6px !important;
 }
 

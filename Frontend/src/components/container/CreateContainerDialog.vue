@@ -1735,9 +1735,18 @@ const pullFromRegistry = async () => {
 
   try {
     const connectionId = await startSignalR()
-    await registryApi.pullImage({
-      registryId: selectedRegistryId.value,
-      image: imageName,
+    let parsedName = imageName
+    let tag = 'latest'
+    const colonIdx = imageName.lastIndexOf(':')
+    if (colonIdx > 0 && !imageName.substring(colonIdx).includes('/')) {
+      parsedName = imageName.substring(0, colonIdx)
+      tag = imageName.substring(colonIdx + 1)
+    }
+
+    await imageApi.pullImage({
+      registry: selectedRegistryId.value,
+      imageName: parsedName,
+      tag: tag,
       connectionId
     })
 

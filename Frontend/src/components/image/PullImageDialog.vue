@@ -10,9 +10,7 @@
     <div class="mirror-section" v-if="mirrors.length > 0">
       <div class="mirror-header">
         <span class="mirror-label">镜像加速器</span>
-        <el-tooltip content="选择加速器可大幅提升国内拉取 Docker Hub 镜像的速度" placement="top">
-          <el-icon class="info-icon"><InfoFilled /></el-icon>
-        </el-tooltip>
+        <el-icon class="info-icon" title="选择加速器可大幅提升国内拉取 Docker Hub 镜像的速度"><InfoFilled /></el-icon>
       </div>
       <el-select 
         v-model="selectedMirrorId" 

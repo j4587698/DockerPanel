@@ -82,96 +82,68 @@
 
     <!-- Data Table -->
     <div class="data-table" v-if="paginatedImages.length > 0">
-      <!-- Table Header -->
-      <div class="table-header">
-        <div class="th th-checkbox">
-          <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected" />
-        </div>
-        <div class="th th-repo">{{ t('image.image') }}</div>
-        <div class="th th-id">{{ t('common.id') }}</div>
-        <div class="th th-size">{{ t('common.size') }}</div>
-        <div class="th th-created">{{ t('common.created') }}</div>
-        <div class="th th-actions">{{ t('common.actions') }}</div>
-      </div>
-
-      <!-- Table Rows -->
-      <div 
-        v-for="image in paginatedImages"
-        :key="image.id"
-        class="table-row"
-        :class="{ selected: selectedIds.includes(image.id) }"
+      <el-table
+        :data="paginatedImages"
+        style="width: 100%"
+        v-loading="loading"
+        row-key="id"
+        @selection-change="handleSelectionChange"
       >
-        <div class="td td-checkbox">
-          <input type="checkbox" :checked="selectedIds.includes(image.id)" @change="toggleSelect(image.id)" />
-        </div>
-        
-        <div class="td td-repo">
-          <div class="repo-icon" :class="{ 'is-none': image.repository === '<none>', 'is-unused': !image.isUsed }">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-            </svg>
-          </div>
-          <div class="repo-info">
-            <span class="repo-name clickable" @click="handleDetail(image)" :title="image.repository === '<none>' ? t('image.noTag') : `${image.repository}:${image.tag}`">
-              {{ image.repository === '<none>' ? t('image.noTag') : image.repository }}
-            </span>
-            <div class="repo-meta">
-              <span v-if="image.tag && image.repository !== '<none>'" class="tag">{{ image.tag }}</span>
-              <span v-if="!image.isUsed" class="unused-badge">{{ t('image.unused') }}</span>
-              <span v-else-if="image.containersCount > 0" class="used-badge">{{ image.containersCount }} {{ t('image.containersCount') }}</span>
+        <el-table-column type="selection" width="40" reserve-selection />
+
+        <el-table-column :label="t('image.image')" min-width="240">
+          <template #default="{ row }">
+            <div class="td-repo">
+              <div class="repo-icon" :class="{ 'is-none': row.repository === '<none>', 'is-unused': !row.isUsed }">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+              </div>
+              <div class="repo-info">
+                <span class="repo-name clickable" @click="handleDetail(row)" :title="row.repository === '<none>' ? t('image.noTag') : `${row.repository}:${row.tag}`">
+                  {{ row.repository === '<none>' ? t('image.noTag') : row.repository }}
+                </span>
+                <div class="repo-meta">
+                  <span v-if="row.tag && row.repository !== '<none>'" class="tag">{{ row.tag }}</span>
+                  <span v-if="!row.isUsed" class="unused-badge">{{ t('image.unused') }}</span>
+                  <span v-else-if="row.containersCount > 0" class="used-badge">{{ row.containersCount }} {{ t('image.containersCount') }}</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </template>
+        </el-table-column>
 
-        <div class="td td-id">
-          <code>{{ image.id?.substring(7, 19) || '-' }}</code>
-        </div>
+        <el-table-column :label="t('common.id')" width="130">
+          <template #default="{ row }">
+            <code>{{ row.id?.substring(7, 19) || '-' }}</code>
+          </template>
+        </el-table-column>
 
-        <div class="td td-size">
-          <span class="size">{{ formatSize(image.size) }}</span>
-        </div>
+        <el-table-column :label="t('common.size')" width="130" align="center">
+          <template #default="{ row }">
+            <span class="size">{{ formatSize(row.size) }}</span>
+          </template>
+        </el-table-column>
 
-        <div class="td td-created">
-          <span class="time">{{ formatDate(image.created) }}</span>
-        </div>
+        <el-table-column :label="t('common.created')" min-width="160">
+          <template #default="{ row }">
+            <span class="time">{{ formatDate(row.created) }}</span>
+          </template>
+        </el-table-column>
 
-        <div class="td td-actions">
-          <button class="action-btn" @click="handleDetail(image)" :title="t('image.viewDetails')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-          </button>
-          <button class="action-btn" @click="handleRun(image)" :title="t('image.runContainer')">
-            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          </button>
-          <button class="action-btn" @click="handleExport(image)" :title="t('image.exportImage')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-          </button>
-          <button class="action-btn" @click="openTagDialog(image)" :title="t('image.tagImage')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-              <line x1="7" y1="7" x2="7.01" y2="7"></line>
-            </svg>
-          </button>
-          <button class="action-btn" @click="openPushDialog(image)" :title="t('image.push')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 19V5"></path>
-              <polyline points="5 12 12 5 19 12"></polyline>
-            </svg>
-          </button>
-          <button class="action-btn danger" @click="handleDelete(image)" :title="t('image.removeImage')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
-        </div>
-      </div>
+        <el-table-column :label="t('common.actions')" width="260" align="center" fixed="right">
+          <template #default="{ row }">
+            <div class="actions-cell">
+              <el-button class="table-action-btn" :icon="Document" :title="t('image.viewDetails')" @click="handleDetail(row)" />
+              <el-button class="table-action-btn" :icon="VideoPlay" :title="t('image.runContainer')" @click="handleRun(row)" />
+              <el-button class="table-action-btn" :icon="Download" :title="t('image.exportImage')" @click="handleExport(row)" />
+              <el-button class="table-action-btn" :icon="PriceTag" :title="t('image.tagImage')" @click="openTagDialog(row)" />
+              <el-button class="table-action-btn" :icon="Top" :title="t('image.push')" @click="openPushDialog(row)" />
+              <el-button class="table-action-btn danger" :icon="Delete" :title="t('image.removeImage')" @click="handleDelete(row)" />
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
     </div>
 
     <!-- Pagination -->
@@ -400,6 +372,7 @@ import ImageDetailDrawer from '@/components/image/ImageDetailDrawer.vue'
 import CreateContainerDialog from '@/components/container/CreateContainerDialog.vue'
 import { imageApi } from '@/api/images'
 import { UploadFilled } from '@element-plus/icons-vue'
+import { Document, VideoPlay, Download, PriceTag, Top, Delete } from '@element-plus/icons-vue'
 import { useTasksStore } from '@/stores/tasks'
 import { formatLocalizedDateTime } from '@/utils/date'
 
@@ -479,6 +452,10 @@ const visiblePages = computed(() => {
 const totalSize = computed(() => store.images.reduce((sum: number, i: any) => sum + (i.size || 0), 0))
 
 const isAllSelected = computed(() => paginatedImages.value.length > 0 && paginatedImages.value.every(i => selectedIds.value.includes(i.id)))
+
+const handleSelectionChange = (selection: any[]) => {
+  selectedIds.value = selection.map(i => i.id)
+}
 
 const toggleSelect = (id: string) => {
   const index = selectedIds.value.indexOf(id)
@@ -880,50 +857,9 @@ watch(() => settingsStore.defaultPageSize, (size) => {
   border-radius: 12px;
   border: 1px solid var(--border-color);
   overflow: hidden;
-  overflow-x: auto;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: 40px 2fr 1fr 1fr 1.5fr 240px;
-  gap: 12px;
-  padding: 14px 16px;
-  background: var(--bg-glass-dark);
-  border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: 40px 2fr 1fr 1fr 1.5fr 240px;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color-light);
-  align-items: center;
-  transition: background 0.15s ease;
-}
-
-.table-row:last-child { border-bottom: none; }
-.table-row:hover { background: var(--bg-glass-dark); }
-.table-row.selected { background: rgba(59, 130, 246, 0.05); }
-
-.th, .td { 
-  min-width: 0;
-  overflow: hidden;
-}
-
-.td { font-size: 13px; color: var(--text-secondary); }
-
-.td-checkbox, .th-checkbox { 
-  justify-content: center; 
-  display: flex;
-}
-
-.td-repo { 
+.td-repo {
   display: flex;
   align-items: center;
   gap: 10px; 
@@ -1032,46 +968,43 @@ watch(() => settingsStore.defaultPageSize, (size) => {
   color: var(--text-muted); 
 }
 
-.td-actions { 
+.td-actions {
   display: flex;
-  gap: 6px; 
-  justify-content: center; 
+  gap: 6px;
+  justify-content: center;
   width: 100%;
 }
 
-.th-actions { 
-  text-align: center; 
+.actions-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
-.action-btn { 
-  width: 32px; 
-  height: 32px; 
-  border-radius: 8px; 
-  border: 1px solid var(--border-color); 
-  background: var(--bg-surface); 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  cursor: pointer; 
-  color: var(--text-muted); 
-  transition: all 0.2s ease; 
+.actions-cell :deep(.table-action-btn) {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
 }
 
-.action-btn:hover { 
-  border-color: #3b82f6; 
-  color: #3b82f6; 
-  background: rgba(59, 130, 246, 0.08); 
+.actions-cell :deep(.table-action-btn:hover) {
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
 }
 
-.action-btn.danger:hover { 
-  border-color: #ef4444; 
-  color: #ef4444; 
-  background: rgba(239, 68, 68, 0.08); 
+.actions-cell :deep(.table-action-btn.danger:hover) {
+  color: #ef4444;
 }
 
-.action-btn svg { 
-  width: 14px; 
-  height: 14px; 
+.actions-cell :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 
 /* === Pagination === */
@@ -1190,12 +1123,6 @@ watch(() => settingsStore.defaultPageSize, (size) => {
 }
 
 /* === Responsive === */
-@media (max-width: 1024px) {
-  /* Hide ID column */
-  .table-header, .table-row { grid-template-columns: 40px minmax(180px, 2fr) 100px 160px 100px; }
-  .th:nth-child(3), .td-id { display: none; }
-}
-
 @media (max-width: 768px) {
   .images-page { padding: 16px; }
   .page-header { flex-direction: column; gap: 12px; align-items: stretch; }
@@ -1203,20 +1130,11 @@ watch(() => settingsStore.defaultPageSize, (size) => {
   .toolbar { flex-wrap: wrap; }
   .search-box { max-width: none; width: 100%; }
   .stats { width: 100%; text-align: center; }
-  /* Hide ID + Created columns */
-  .table-header, .table-row { grid-template-columns: 40px minmax(140px, 2fr) 80px 90px; }
-  .th:nth-child(3), .td-id,
-  .th:nth-child(5), .td-created { display: none; }
   .pagination { flex-direction: column; gap: 8px; align-items: center; }
 }
 
 @media (max-width: 480px) {
   .images-page { padding: 12px; }
-  /* Hide Size too, keep only checkbox + repo + actions */
-  .table-header, .table-row { grid-template-columns: 36px 1fr 80px; }
-  .th:nth-child(3), .td-id,
-  .th:nth-child(4), .td-size,
-  .th:nth-child(5), .td-created { display: none; }
   .btn { padding: 6px 8px; font-size: 11px; }
   .btn-icon { width: 12px; height: 12px; }
   .empty-state { padding: 40px 20px; }
@@ -1339,10 +1257,16 @@ html.dark .repo-name, html.dark .stats strong, html.dark .page-num.active {
   color: #f1f5f9; 
 }
 
-html.dark .action-btn, html.dark .page-btn, html.dark .page-size { 
-  background: rgba(30, 41, 59, 0.8); 
-  border-color: rgba(255, 255, 255, 0.1); 
-  color: #cbd5e1; 
+html.dark .action-btn, html.dark .page-btn, html.dark .page-size {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+html.dark .actions-cell :deep(.table-action-btn) {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
 }
 
 html.dark .tag { 

@@ -121,18 +121,10 @@
         <el-table-column :label="t('common.actions')" width="200" align="center" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
-              <el-tooltip :content="t('node.testConnection')">
-                <el-button circle size="small" :icon="Connection" @click="testConnection(row)" />
-              </el-tooltip>
-              <el-tooltip :content="t('node.setDefault')">
-                <el-button circle size="small" :icon="Star" @click="setDefaultNode(row)" :disabled="row.isDefault" />
-              </el-tooltip>
-              <el-tooltip :content="t('common.edit')">
-                <el-button circle size="small" type="primary" plain :icon="Edit" @click="editNode(row)" />
-              </el-tooltip>
-              <el-tooltip :content="t('common.delete')">
-                <el-button circle size="small" type="danger" plain :icon="Delete" :disabled="isLocalNode(row)" @click="deleteNode(row)" />
-              </el-tooltip>
+              <el-button circle size="small" :icon="Connection" :title="t('node.testConnection')" @click="testConnection(row)" />
+              <el-button circle size="small" :icon="Star" :title="t('node.setDefault')" @click="setDefaultNode(row)" :disabled="row.isDefault" />
+              <el-button circle size="small" type="primary" plain :icon="Edit" :title="t('common.edit')" @click="editNode(row)" />
+              <el-button circle size="small" type="danger" plain :icon="Delete" :title="t('common.delete')" :disabled="isLocalNode(row)" @click="deleteNode(row)" />
             </div>
           </template>
         </el-table-column>

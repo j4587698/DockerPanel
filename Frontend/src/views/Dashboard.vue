@@ -118,12 +118,12 @@
               <div class="resource-chart-header network-resource-header">
                 <div>
                   <span class="resource-label">{{ t('dashboard.networkTraffic') }}</span>
-                  <div class="network-live-values">
-                    <span><i class="legend-dot rx"></i>{{ t('dashboard.receiveLabel') }} {{ rxSpeed }}</span>
-                    <span><i class="legend-dot tx"></i>{{ t('dashboard.sendLabel') }} {{ txSpeed }}</span>
-                  </div>
+                  <span class="resource-subtitle">{{ t('dashboard.receiveSpeed') }} / {{ t('dashboard.sendSpeed') }}</span>
                 </div>
-                <span class="resource-subtitle">{{ t('dashboard.receiveSpeed') }} / {{ t('dashboard.sendSpeed') }}</span>
+              </div>
+              <div class="network-live-values">
+                <span><i class="legend-dot rx"></i>{{ t('dashboard.receiveLabel') }} {{ rxSpeed }}</span>
+                <span><i class="legend-dot tx"></i>{{ t('dashboard.sendLabel') }} {{ txSpeed }}</span>
               </div>
               <div class="mini-chart-container" ref="networkChartContainer"></div>
             </div>
@@ -921,10 +921,6 @@ onUnmounted(() => {
   margin-bottom: 10px;
 }
 
-.network-resource-header {
-  align-items: flex-start;
-}
-
 .resource-label {
   display: block;
   margin-bottom: 4px;
@@ -966,6 +962,7 @@ onUnmounted(() => {
   color: var(--text-main);
   font-size: 13px;
   font-weight: 600;
+  margin-bottom: 10px;
 }
 
 .network-live-values span {

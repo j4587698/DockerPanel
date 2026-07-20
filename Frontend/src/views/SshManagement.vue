@@ -123,77 +123,67 @@
 
             <!-- 连接列表 -->
             <div class="connection-list">
-              <!-- 自定义表格 -->
-              <div class="data-table" v-if="filteredConnections.length > 0">
-                <!-- 表头 -->
-                <div class="table-header">
-                  <div class="th th-checkbox">
-                    <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected" />
-                  </div>
-                  <div class="th th-host">{{ t('ssh.host') }}</div>
-                  <div class="th th-port">{{ t('ssh.port') }}</div>
-                  <div class="th th-user">{{ t('ssh.username') }}</div>
-                  <div class="th th-status">{{ t('ssh.status') }}</div>
-                  <div class="th th-activity">{{ t('ssh.lastActivity') }}</div>
-                  <div class="th th-actions">{{ t('common.actions') }}</div>
-                </div>
+              <el-table
+                :data="filteredConnections"
+                style="width: 100%"
+                v-loading="loading"
+                @selection-change="handleSelectionChange"
+                row-key="id"
+              >
+                <el-table-column type="selection" width="40" reserve-selection />
 
-                <!-- 表格行 -->
-                <div 
-                  v-for="row in filteredConnections"
-                  :key="row.id || row.host"
-                  class="table-row"
-                  :class="{ selected: isRowSelected(row), connected: row.status === 'connected' }"
-                >
-                  <div class="td td-checkbox">
-                    <input type="checkbox" :checked="isRowSelected(row)" @change="toggleRowSelect(row)" />
-                  </div>
-                  
-                  <div class="td td-host">
-                    <div class="status-dot" :class="row.status || 'disconnected'"></div>
-                    <div class="host-info">
-                      <span class="hostname">{{ row.host }}</span>
-                      <span class="host-name" v-if="row.name">{{ row.name }}</span>
+                <el-table-column :label="t('ssh.host')" min-width="200">
+                  <template #default="{ row }">
+                    <div class="host-cell" @click="handleConnectionAction('edit', row)" style="cursor: pointer">
+                      <div class="status-dot" :class="row.status || 'disconnected'"></div>
+                      <div class="host-info">
+                        <span class="hostname">{{ row.host }}</span>
+                        <span class="host-name" v-if="row.name">{{ row.name }}</span>
+                      </div>
                     </div>
-                  </div>
+                  </template>
+                </el-table-column>
 
-                  <div class="td td-port">
+                <el-table-column :label="t('ssh.port')" width="90" align="center">
+                  <template #default="{ row }">
                     <code class="port-code">{{ row.port }}</code>
-                  </div>
+                  </template>
+                </el-table-column>
 
-                  <div class="td td-user">
+                <el-table-column :label="t('ssh.username')" width="140" align="center">
+                  <template #default="{ row }">
                     <span class="username">{{ row.username }}</span>
-                  </div>
+                  </template>
+                </el-table-column>
 
-                  <div class="td td-status">
-                    <span class="status-badge" :class="row.status || 'disconnected'">
+                <el-table-column :label="t('ssh.status')" width="130" align="center">
+                  <template #default="{ row }">
+                    <el-tag :type="getStatusType(row.status || 'disconnected')" size="small">
                       {{ getStatusText(row.status || '') }}
-                    </span>
-                  </div>
+                    </el-tag>
+                  </template>
+                </el-table-column>
 
-                  <div class="td td-activity">
+                <el-table-column :label="t('ssh.lastActivity')" min-width="160">
+                  <template #default="{ row }">
                     <span class="time">{{ formatTime(row.lastConnectedAt || '') }}</span>
-                  </div>
+                  </template>
+                </el-table-column>
 
-                  <div class="td td-actions">
-                    <button class="action-btn" @click="testConnection(row)" title="测试连接">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                    </button>
-                    <button class="action-btn" @click="openTerminal(row)" title="终端">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                    </button>
-                    <button class="action-btn" @click="executeCommand(row)" title="执行命令">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
-                    </button>
-                    <button class="action-btn danger" @click="handleConnectionAction('delete', row)" title="删除">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
+                <el-table-column :label="t('common.actions')" width="200" align="center" fixed="right">
+                  <template #default="{ row }">
+                    <div class="actions-cell">
+                      <el-button class="table-action-btn test" :icon="Monitor" :title="t('ssh.testConnection')" @click="testConnection(row)" />
+                      <el-button class="table-action-btn edit" :icon="Edit" :title="t('ssh.editConnection')" @click="handleConnectionAction('edit', row)" />
+                      <el-button class="table-action-btn sessions" :icon="View" :title="t('ssh.sessionManagement')" @click="showSessions(row)" />
+                      <el-button class="table-action-btn delete" :icon="Delete" :title="t('common.delete')" @click="handleConnectionAction('delete', row)" />
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
 
               <!-- 空状态 -->
-              <div v-else class="empty-state">
+              <div v-if="filteredConnections.length === 0" class="empty-state">
                 <div class="empty-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
@@ -303,7 +293,11 @@ import {
   SuccessFilled,
   DocumentCopy,
   Search,
-  Refresh
+  Refresh,
+  Monitor,
+  Edit,
+  View,
+  Delete
 } from '@element-plus/icons-vue'
 import { useSshStore } from '@/stores/ssh'
 import { useSettingsStore } from '@/stores/settings'
@@ -456,29 +450,14 @@ const handleSelectionChange = (selection: SshConnectionConfig[]) => {
   selectedConnections.value = selection
 }
 
-// 自定义表格选择方法
-const isRowSelected = (row: SshConnectionConfig) => selectedConnections.value.some(c => c.id === row.id || (c.host === row.host && c.port === row.port))
-const isAllSelected = computed(() => 
-  filteredConnections.value.length > 0 && filteredConnections.value.every(c => isRowSelected(c))
-)
-
-const toggleRowSelect = (row: SshConnectionConfig) => {
-  const idx = selectedConnections.value.findIndex(c => c.id === row.id || (c.host === row.host && c.port === row.port))
-  if (idx > -1) selectedConnections.value.splice(idx, 1)
-  else selectedConnections.value.push(row)
+// 编辑连接
+const editConnection = (connection: SshConnectionConfig) => {
+  handleConnectionAction('edit', connection)
 }
 
-const toggleSelectAll = () => {
-  if (isAllSelected.value) {
-    filteredConnections.value.forEach(c => {
-      const idx = selectedConnections.value.findIndex(s => s.id === c.id || (s.host === c.host && s.port === c.port))
-      if (idx > -1) selectedConnections.value.splice(idx, 1)
-    })
-  } else {
-    filteredConnections.value.forEach(c => {
-      if (!isRowSelected(c)) selectedConnections.value.push(c)
-    })
-  }
+// 会话管理
+const showSessions = (_connection: SshConnectionConfig) => {
+  activeTab.value = 'sessions'
 }
 
 const handlePageChange = (page: number) => {
@@ -782,79 +761,7 @@ const formatTime = (time: string) => {
   margin-top: 20px;
 }
 
-/* === Custom Data Table (matching Containers.vue) === */
-.data-table {
-  background: var(--bg-surface);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-  overflow-x: auto;
-}
-
-.table-header {
-  display: grid;
-  grid-template-columns: 40px minmax(180px, 1.5fr) 80px 120px 100px 140px 160px;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg-glass-dark);
-  border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  align-items: center;
-}
-
-.th {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.th-checkbox {
-  justify-content: center;
-}
-
-.th-actions {
-  justify-content: center;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: 40px minmax(180px, 1.5fr) 80px 120px 100px 140px 160px;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color-light);
-  align-items: center;
-  transition: background 0.15s ease;
-}
-
-.table-row:last-child { border-bottom: none; }
-.table-row:hover { background: var(--bg-glass-dark); }
-.table-row.selected { background: rgba(59, 130, 246, 0.05); }
-.table-row.connected { border-left: 3px solid #22c55e; padding-left: 13px; }
-
-.td {
-  font-size: 13px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.td-checkbox {
-  display: flex;
-  justify-content: center;
-}
-
-.td-host {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
+/* === Connection Table Cell === */
 .status-dot {
   width: 8px;
   height: 8px;
@@ -866,7 +773,14 @@ const formatTime = (time: string) => {
 .status-dot.disconnected { background: var(--text-muted); }
 .status-dot.error { background: #ef4444; }
 
-.host-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; align-items: center; text-align: center; }
+.host-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.host-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
 .hostname {
   font-weight: 600;
@@ -895,39 +809,52 @@ const formatTime = (time: string) => {
   color: var(--text-secondary);
 }
 
-.status-badge {
-  display: inline-flex;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.status-badge.connected { background: rgba(34, 197, 94, 0.1); color: #16a34a; }
-.status-badge.disconnected { background: var(--bg-subtle); color: var(--text-muted); }
-.status-badge.error { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
-
 .time { font-size: 12px; color: var(--text-muted); }
 
-.td-actions { display: flex; gap: 4px; justify-content: center; }
-
-.action-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
+/* === Actions Cell (matching UserManagement.vue) === */
+.actions-cell {
   display: flex;
-  align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--text-muted);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
-.action-btn svg { width: 14px; height: 14px; }
-.action-btn:hover { border-color: #3b82f6; color: #3b82f6; }
-.action-btn.danger:hover { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.actions-cell :deep(.table-action-btn) {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.actions-cell :deep(.table-action-btn:hover) {
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+.actions-cell :deep(.table-action-btn.test:hover) {
+  color: var(--color-primary);
+}
+
+.actions-cell :deep(.table-action-btn.edit:hover) {
+  color: var(--color-primary);
+}
+
+.actions-cell :deep(.table-action-btn.sessions:hover) {
+  color: var(--color-info, #409eff);
+}
+
+.actions-cell :deep(.table-action-btn.delete:hover) {
+  color: var(--color-danger);
+}
+
+.actions-cell :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
 
 /* === Empty State === */
 .empty-state {

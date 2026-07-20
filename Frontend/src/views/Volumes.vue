@@ -48,67 +48,59 @@
     </div>
 
     <!-- Data Table -->
-    <div class="data-table" v-if="paginatedVolumes.length > 0">
-      <div class="table-header">
-        <div class="th th-name sortable" @click="toggleSort('name')">
-          {{ t('common.name') }}
-          <span class="sort-icon" v-if="sortField === 'name'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
-        </div>
-        <div class="th th-driver">{{ t('volume.driver') }}</div>
-        <div class="th th-created sortable" @click="toggleSort('created')">
-          {{ t('common.created') }}
-          <span class="sort-icon" v-if="sortField === 'created'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
-        </div>
-        <div class="th th-usage sortable" @click="toggleSort('usageCount')">
-          {{ t('volume.usage') }}
-          <span class="sort-icon" v-if="sortField === 'usageCount'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
-        </div>
-        <div class="th th-actions">{{ t('common.actions') }}</div>
-      </div>
-
-      <div v-for="volume in paginatedVolumes" :key="volume.name" class="table-row">
-        <div class="td td-name" @click="openDetail(volume)" style="cursor: pointer;">
-          <div class="volume-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-            </svg>
+    <el-table
+      v-if="paginatedVolumes.length > 0"
+      :data="paginatedVolumes"
+      style="width: 100%"
+      v-loading="loading"
+    >
+      <el-table-column :label="t('common.name')" min-width="280" sortable :sort-method="(a: any, b: any) => toggleSortCompare('name', a, b)">
+        <template #default="{ row }">
+          <div class="td-name" @click="openDetail(row)" style="cursor: pointer;">
+            <div class="volume-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </div>
+            <div class="name-info">
+              <span class="name clickable" @click="openDetail(row)">{{ row.name }}</span>
+              <code class="id">{{ row.id?.substring(0, 12) || '-' }}</code>
+            </div>
           </div>
-          <div class="name-info">
-            <span class="name clickable" @click="openDetail(volume)">{{ volume.name }}</span>
-            <code class="id">{{ volume.id?.substring(0, 12) || '-' }}</code>
-          </div>
-        </div>
+        </template>
+      </el-table-column>
 
-        <div class="td td-driver">
-          <span class="driver-badge">{{ volume.driver || 'local' }}</span>
-        </div>
+      <el-table-column :label="t('volume.driver')" width="120" align="center">
+        <template #default="{ row }">
+          <span class="driver-badge">{{ row.driver || 'local' }}</span>
+        </template>
+      </el-table-column>
 
-        <div class="td td-created">
-          <span class="time">{{ formatDate(volume.created) }}</span>
-        </div>
+      <el-table-column :label="t('common.created')" min-width="160" sortable :sort-method="(a: any, b: any) => toggleSortCompare('created', a, b)">
+        <template #default="{ row }">
+          <span class="time">{{ formatDate(row.created) }}</span>
+        </template>
+      </el-table-column>
 
-        <div class="td td-usage">
-          <span class="usage-badge" :class="getUsageClass(volume)">
-            {{ volume.usageCount ?? '-' }}
+      <el-table-column :label="t('volume.usage')" width="110" align="center" sortable :sort-method="(a: any, b: any) => toggleSortCompare('usageCount', a, b)">
+        <template #default="{ row }">
+          <span class="usage-badge" :class="getUsageClass(row)">
+            {{ row.usageCount ?? '-' }}
           </span>
-        </div>
+        </template>
+      </el-table-column>
 
-        <div class="td td-actions">
-          <button class="action-btn" @click="openFileManager(volume)" :title="t('volume.browseFiles')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          </button>
-          <button class="action-btn" @click="downloadVolume(volume)" :title="t('volume.downloadVolume')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          </button>
-          <button class="action-btn" @click="openDetail(volume)" :title="t('common.details')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-          </button>
-          <button class="action-btn danger" @click="handleDeleteVolume(volume)" :title="t('common.delete')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
-        </div>
-      </div>
-    </div>
+      <el-table-column :label="t('common.actions')" width="200" align="center" fixed="right">
+        <template #default="{ row }">
+          <div class="actions-cell">
+              <el-button class="table-action-btn browse" :icon="Folder" :title="t('volume.browseFiles')" @click="openFileManager(row)" />
+              <el-button class="table-action-btn download" :icon="Download" :title="t('volume.downloadVolume')" @click="downloadVolume(row)" />
+              <el-button class="table-action-btn detail" :icon="View" :title="t('common.details')" @click="openDetail(row)" />
+              <el-button class="table-action-btn danger" :icon="Delete" :title="t('common.delete')" @click="handleDeleteVolume(row)" />
+          </div>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <!-- Pagination -->
     <div class="pagination" v-if="totalPages > 1">
@@ -290,7 +282,7 @@ import { useVolumesStore } from '@/stores/volumes'
 import { useTasksStore } from '@/stores/tasks'
 import { useSettingsStore } from '@/stores/settings'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, Folder, Download, View, Delete } from '@element-plus/icons-vue'
 import { volumeApi } from '@/api/volumes'
 import VolumeFileManagerDialog from '@/components/volume/VolumeFileManagerDialog.vue'
 import CleanupVolumesDialog from '@/components/volume/CleanupVolumesDialog.vue'
@@ -389,6 +381,29 @@ const toggleSort = (field: string) => {
     sortField.value = field
     sortOrder.value = 'desc'
   }
+}
+
+const toggleSortCompare = (field: string, a: any, b: any) => {
+  let aVal: any, bVal: any
+  switch (field) {
+    case 'name':
+      aVal = a.name || ''
+      bVal = b.name || ''
+      break
+    case 'created':
+      aVal = new Date(a.created || 0).getTime()
+      bVal = new Date(b.created || 0).getTime()
+      break
+    case 'usageCount':
+      aVal = a.usageCount ?? 0
+      bVal = b.usageCount ?? 0
+      break
+    default:
+      aVal = a.name || ''
+      bVal = b.name || ''
+  }
+  const base = typeof aVal === 'string' ? aVal.localeCompare(bVal) : aVal - bVal
+  return sortOrder.value === 'asc' ? base : -base
 }
 
 const formatDate = (str: string) => {
@@ -620,47 +635,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: minmax(300px, 2fr) 100px 130px 80px 110px;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg-glass-dark);
-  border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.th.sortable {
-  cursor: pointer;
-  user-select: none;
-  transition: color 0.15s ease;
-}
-
-.th.sortable:hover {
-  color: var(--color-primary);
-}
-
-.sort-icon {
-  margin-left: 4px;
-  font-size: 10px;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: minmax(300px, 2fr) 100px 130px 80px 110px;
-  gap: 8px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color-light);
-  align-items: center;
-  transition: all 0.15s ease;
-}
-
-.table-row:last-child { border-bottom: none; }
-.table-row:hover { background: var(--bg-glass-dark); }
-
 .td-name { display: flex; align-items: center; gap: 12px; }
 
 .volume-icon {
@@ -726,23 +700,43 @@ onMounted(() => {
 .td-actions { display: flex; gap: 4px; justify-content: center; width: 100%; }
 .th-actions { text-align: center; }
 
-.action-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
+.actions-cell {
   display: flex;
-  align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--text-muted);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
-.action-btn svg { width: 14px; height: 14px; }
-.action-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.action-btn.danger:hover { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.actions-cell :deep(.table-action-btn) {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.actions-cell :deep(.table-action-btn:hover) {
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+.actions-cell :deep(.table-action-btn.browse:hover),
+.actions-cell :deep(.table-action-btn.download:hover),
+.actions-cell :deep(.table-action-btn.detail:hover) {
+  color: var(--color-primary);
+}
+
+.actions-cell :deep(.table-action-btn.danger:hover) {
+  color: var(--color-danger);
+}
+
+.actions-cell :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
 
 .pagination {
   display: flex;
@@ -951,8 +945,6 @@ onMounted(() => {
   .page-header { flex-direction: column; gap: 12px; }
   .toolbar { flex-wrap: wrap; }
   .search-box { max-width: none; width: 100%; }
-  .th-created, .td-created { display: none; }
-  .table-header, .table-row { grid-template-columns: 1fr 90px 70px; }
 }
 
 </style>
@@ -962,11 +954,8 @@ onMounted(() => {
 html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-input { color: #f1f5f9; }
-html.dark .table-header { background: #0f172a; color: #94a3b8; }
-html.dark .table-row { border-color: rgba(255, 255, 255, 0.05); }
-html.dark .table-row:hover { background: rgba(255, 255, 255, 0.03); }
 html.dark .name { color: #f1f5f9; }
 html.dark .stats strong { color: #f1f5f9; }
 html.dark .driver-badge { background: rgba(255, 255, 255, 0.1); }
-html.dark .action-btn, html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
+html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 </style>

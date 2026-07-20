@@ -32,17 +32,11 @@
       </div>
 
       <div class="header-right">
-         <el-tooltip :content="t('container.start')" v-if="container?.state === 'exited' || container?.state === 'created'">
-            <el-button type="success" @click="startContainer" :loading="actionLoading.start" :icon="VideoPlay">{{ t('container.start') }}</el-button>
-         </el-tooltip>
-         
-         <el-tooltip :content="t('container.stop')" v-if="container?.state === 'running'">
-            <el-button type="warning" @click="stopContainer" :loading="actionLoading.stop" :icon="VideoPause">{{ t('container.stop') }}</el-button>
-         </el-tooltip>
+         <el-button type="success" v-if="container?.state === 'exited' || container?.state === 'created'" @click="startContainer" :loading="actionLoading.start" :icon="VideoPlay" :title="t('container.start')">{{ t('container.start') }}</el-button>
 
-         <el-tooltip :content="t('container.restart')" v-if="container?.state === 'running'">
-            <el-button type="primary" @click="restartContainer" :loading="actionLoading.restart" :icon="RefreshRight">{{ t('container.restart') }}</el-button>
-         </el-tooltip>
+         <el-button type="warning" v-if="container?.state === 'running'" @click="stopContainer" :loading="actionLoading.stop" :icon="VideoPause" :title="t('container.stop')">{{ t('container.stop') }}</el-button>
+
+         <el-button type="primary" v-if="container?.state === 'running'" @click="restartContainer" :loading="actionLoading.restart" :icon="RefreshRight" :title="t('container.restart')">{{ t('container.restart') }}</el-button>
 
          <el-dropdown trigger="click">
            <el-button :icon="MoreFilled">

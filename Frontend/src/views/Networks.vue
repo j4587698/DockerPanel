@@ -44,68 +44,66 @@
 
     <!-- Data Table -->
     <div class="data-table" v-if="paginatedNetworks.length > 0">
-      <div class="table-header">
-        <div class="th th-name">{{ t('network.table.nameId') }}</div>
-        <div class="th th-driver">{{ t('network.driver') }}</div>
-        <div class="th th-scope">{{ t('network.scope') }}</div>
-        <div class="th th-internal">{{ t('network.internal') }}</div>
-        <div class="th th-actions">{{ t('common.actions') }}</div>
-      </div>
+      <el-table
+        :data="paginatedNetworks"
+        style="width: 100%"
+        v-loading="loading"
+        row-key="id"
+      >
+        <el-table-column :label="t('network.table.nameId')" min-width="250">
+          <template #default="{ row }">
+            <div class="td-name">
+              <div class="network-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+              </div>
+              <div class="name-info" @click="handleDetail(row)">
+                <span class="name">{{ row.name }}</span>
+                <code class="id">{{ row.id.substring(0, 12) }}</code>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
 
-      <div v-for="network in paginatedNetworks" :key="network.id" class="table-row" :class="{ system: isSystemNetwork(network.name) }">
-        <div class="td td-name">
-          <div class="network-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
-          </div>
-          <div class="name-info" @click="handleDetail(network)">
-            <span class="name">{{ network.name }}</span>
-            <code class="id">{{ network.id.substring(0, 12) }}</code>
-          </div>
-        </div>
+        <el-table-column :label="t('network.driver')" width="140" align="center">
+          <template #default="{ row }">
+            <span class="driver-badge">{{ row.driver }}</span>
+          </template>
+        </el-table-column>
 
-        <div class="td td-driver">
-          <span class="driver-badge">{{ network.driver }}</span>
-        </div>
+        <el-table-column :label="t('network.scope')" width="120" align="center">
+          <template #default="{ row }">
+            <span class="scope-badge" :class="row.scope">{{ row.scope }}</span>
+          </template>
+        </el-table-column>
 
-        <div class="td td-scope">
-          <span class="scope-badge" :class="network.scope">{{ network.scope }}</span>
-        </div>
+        <el-table-column :label="t('network.internal')" width="120" align="center">
+          <template #default="{ row }">
+            <span class="internal-badge" :class="{ yes: row.internal }">
+              {{ row.internal ? t('common.yes') : t('common.no') }}
+            </span>
+          </template>
+        </el-table-column>
 
-        <div class="td td-internal">
-          <span class="internal-badge" :class="{ yes: network.internal }">
-            {{ network.internal ? t('common.yes') : t('common.no') }}
-          </span>
-        </div>
-
-        <div class="td td-actions">
-          <button 
-            class="action-btn info"
-            @click="handleDetail(network)"
-            :title="t('network.inspectNetwork')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-          </button>
-          <button 
-            class="action-btn primary"
-            @click="handleConnect(network)"
-            :title="t('network.connectContainer')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-          </button>
-          <button 
-            class="action-btn danger"
-            @click="handleDelete(network)"
-            :disabled="isSystemNetwork(network.name)"
-            :title="isSystemNetwork(network.name) ? t('network.cannotDeleteDefault') : t('common.delete')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
-        </div>
-      </div>
+        <el-table-column :label="t('common.actions')" width="220" align="center" fixed="right">
+          <template #default="{ row }">
+            <div class="actions-cell">
+              <el-button class="table-action-btn info" :icon="View" :title="t('network.inspectNetwork')" @click="handleDetail(row)" />
+              <el-button class="table-action-btn primary" :icon="Link" :title="t('network.connectContainer')" @click="handleConnect(row)" />
+              <el-button
+                class="table-action-btn danger"
+                :icon="Delete"
+                :disabled="isSystemNetwork(row.name)"
+                :title="isSystemNetwork(row.name) ? t('network.cannotDeleteDefault') : t('common.delete')"
+                @click="handleDelete(row)"
+              />
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
     </div>
 
     <!-- Pagination -->
@@ -157,6 +155,7 @@ import { useI18n } from 'vue-i18n'
 import { useNetworksStore } from '@/stores/networks'
 import { useSettingsStore } from '@/stores/settings'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { View, Link, Delete } from '@element-plus/icons-vue'
 import CreateNetworkDialog from '@/components/network/CreateNetworkDialog.vue'
 import ConnectContainerDialog from '@/components/network/ConnectContainerDialog.vue'
 import NetworkDetailDrawer from '@/components/network/NetworkDetailDrawer.vue'
@@ -316,33 +315,6 @@ onMounted(() => refreshData())
   overflow: hidden;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: minmax(250px, 2fr) 120px 100px 100px 120px;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg-glass-dark);
-  border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: minmax(250px, 2fr) 120px 100px 100px 120px;
-  gap: 8px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color-light);
-  align-items: center;
-  transition: all 0.15s ease;
-}
-
-.table-row:last-child { border-bottom: none; }
-.table-row:hover { background: var(--bg-glass-dark); }
-.table-row.system { opacity: 0.6; }
-
 .td-name { display: flex; align-items: center; gap: 12px; }
 
 .network-icon {
@@ -395,27 +367,46 @@ onMounted(() => refreshData())
 }
 
 .td-actions { display: flex; gap: 4px; justify-content: center; width: 100%; }
-.th-actions { text-align: center; }
 
-.action-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
+.actions-cell {
   display: flex;
-  align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--text-muted);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
-.action-btn svg { width: 14px; height: 14px; }
-.action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.action-btn.danger:not(:disabled):hover { border-color: var(--color-danger); color: var(--color-danger); background: var(--color-danger-bg); }
-.action-btn.primary:not(:disabled):hover { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-bg); }
-.action-btn.info:not(:disabled):hover { border-color: var(--color-info); color: var(--color-info); background: var(--color-info-bg); }
+.actions-cell :deep(.table-action-btn) {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.actions-cell :deep(.table-action-btn:hover) {
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+.actions-cell :deep(.table-action-btn.danger:hover) {
+  color: var(--color-danger);
+}
+
+.actions-cell :deep(.table-action-btn.primary:hover) {
+  color: var(--color-primary);
+}
+
+.actions-cell :deep(.table-action-btn.info:hover) {
+  color: var(--color-info);
+}
+
+.actions-cell :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
 
 .pagination {
   display: flex;
@@ -458,18 +449,11 @@ onMounted(() => refreshData())
 .empty-title { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin: 0 0 8px 0; }
 .empty-desc { font-size: 14px; color: var(--text-muted); margin: 0 0 24px 0; }
 
-@media (max-width: 1024px) {
-  .th-internal, .td-internal { display: none; }
-  .table-header, .table-row { grid-template-columns: minmax(200px, 2fr) 100px 90px 100px; }
-}
-
 @media (max-width: 768px) {
   .networks-page { padding: 16px; }
   .page-header { flex-direction: column; gap: 12px; }
   .toolbar { flex-wrap: wrap; }
   .search-box { max-width: none; width: 100%; }
-  .th-scope, .td-scope { display: none; }
-  .table-header, .table-row { grid-template-columns: 1fr 90px 100px; }
 }
 </style>
 
@@ -485,4 +469,5 @@ html.dark .name { color: #f1f5f9; }
 html.dark .stats strong { color: #f1f5f9; }
 html.dark .driver-badge { background: rgba(255, 255, 255, 0.1); }
 html.dark .action-btn, html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
+html.dark .actions-cell :deep(.table-action-btn) { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 </style>

@@ -110,17 +110,11 @@
         <el-table-column :label="t('common.actions')" width="190" align="center" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
-              <el-tooltip :content="t('common.edit')">
-                <el-button class="table-action-btn edit" circle size="small" :icon="Edit" @click="openEditDialog(row)" />
-              </el-tooltip>
-              <el-tooltip :content="t('users.resetPassword')">
-                <el-button class="table-action-btn reset" circle size="small" :icon="Key" @click="openResetDialog(row)" />
-              </el-tooltip>
-              <el-tooltip :content="isCurrentUser(row) ? t('users.cannotDeleteSelf') : t('common.delete')">
-                <span>
-                  <el-button class="table-action-btn delete" circle size="small" :icon="Delete" :disabled="isCurrentUser(row)" @click="deleteUser(row)" />
-                </span>
-              </el-tooltip>
+              <el-button class="table-action-btn edit" circle size="small" :icon="Edit" :title="t('common.edit')" @click="openEditDialog(row)" />
+              <el-button class="table-action-btn reset" circle size="small" :icon="Key" :title="t('users.resetPassword')" @click="openResetDialog(row)" />
+              <span>
+                <el-button class="table-action-btn delete" circle size="small" :icon="Delete" :title="isCurrentUser(row) ? t('users.cannotDeleteSelf') : t('common.delete')" :disabled="isCurrentUser(row)" @click="deleteUser(row)" />
+              </span>
             </div>
           </template>
         </el-table-column>

@@ -11,15 +11,9 @@
         <el-checkbox v-model="localFollow" size="small" class="auto-scroll-chk">{{ t('container.autoScroll') }}</el-checkbox>
       </div>
       <div class="toolbar-right">
-        <el-tooltip :content="t('common.refresh')">
-          <el-button @click="$emit('refresh')" size="small" plain :icon="Refresh" />
-        </el-tooltip>
-        <el-tooltip :content="t('container.clearLogs')">
-          <el-button @click="$emit('clear')" size="small" plain :icon="Delete" />
-        </el-tooltip>
-        <el-tooltip :content="t('container.downloadLogs')">
-          <el-button @click="$emit('download')" size="small" plain :icon="Download" />
-        </el-tooltip>
+        <el-button @click="$emit('refresh')" size="small" plain :icon="Refresh" :title="t('common.refresh')" />
+        <el-button @click="$emit('clear')" size="small" plain :icon="Delete" :title="t('container.clearLogs')" />
+        <el-button @click="$emit('download')" size="small" plain :icon="Download" :title="t('container.downloadLogs')" />
       </div>
     </div>
     <div class="console-window" ref="consoleWindowRef">

@@ -40,66 +40,71 @@
     </div>
 
     <!-- Data Table -->
-    <div class="data-table" v-if="filteredMappings.length > 0">
-      <div class="table-header">
-        <div class="th th-domain">{{ t('proxy.yarpManagement.accessDomain') }}</div>
-        <div class="th th-target">{{ t('proxy.yarpManagement.backendTarget') }}</div>
-        <div class="th th-ssl">{{ t('proxy.yarpManagement.ssl') }}</div>
-        <div class="th th-status">{{ t('proxy.yarpManagement.status') }}</div>
-        <div class="th th-actions">{{ t('proxy.yarpManagement.actions') }}</div>
-      </div>
-
-      <div v-for="mapping in paginatedMappings" :key="mapping.id" class="table-row" :class="{ active: mapping.enabled }">
-        <div class="td td-domain">
-          <div class="domain-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
+    <el-table
+      v-if="filteredMappings.length > 0"
+      :data="paginatedMappings"
+      style="width: 100%"
+      v-loading="loading"
+    >
+      <el-table-column :label="t('proxy.yarpManagement.accessDomain')" min-width="280">
+        <template #default="{ row }">
+          <div class="td-domain">
+            <div class="domain-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            </div>
+            <div class="domain-info">
+              <span class="domain-host">{{ row.domain }}</span>
+              <code class="domain-path">{{ row.pathPrefix || '/' }}</code>
+            </div>
           </div>
-          <div class="domain-info">
-            <span class="domain-host">{{ mapping.domain }}</span>
-            <code class="domain-path">{{ mapping.pathPrefix || '/' }}</code>
-          </div>
-        </div>
+        </template>
+      </el-table-column>
 
-        <div class="td td-target">
+      <el-table-column :label="t('proxy.yarpManagement.backendTarget')" min-width="200" align="center">
+        <template #default="{ row }">
           <code class="target-badge">
-            {{ getContainerDisplayName(mapping) }}:{{ mapping.containerPort }}
+            {{ getContainerDisplayName(row) }}:{{ row.containerPort }}
           </code>
-        </div>
+        </template>
+      </el-table-column>
 
-        <div class="td td-ssl">
-          <span class="ssl-badge" :class="{ enabled: mapping.enableSsl }">
+      <el-table-column :label="t('proxy.yarpManagement.ssl')" width="110" align="center">
+        <template #default="{ row }">
+          <span class="ssl-badge" :class="{ enabled: row.enableSsl }">
             <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
-            {{ mapping.enableSsl ? 'HTTPS' : 'HTTP' }}
+            {{ row.enableSsl ? 'HTTPS' : 'HTTP' }}
           </span>
-        </div>
+        </template>
+      </el-table-column>
 
-        <div class="td td-status">
+      <el-table-column :label="t('proxy.yarpManagement.status')" width="120" align="center">
+        <template #default="{ row }">
           <el-switch
-            v-model="mapping.enabled"
-            :loading="mapping._toggling"
-            @change="toggleEnabled(mapping)"
+            v-model="row.enabled"
+            :loading="row._toggling"
+            @change="toggleEnabled(row)"
             active-color="#10b981"
             inactive-color="#374151"
           />
-        </div>
+        </template>
+      </el-table-column>
 
-        <div class="td td-actions">
-          <button class="action-btn" @click="editMapping(mapping)" :title="t('proxy.yarpManagement.edit')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-          </button>
-          <button class="action-btn danger" @click="handleDelete(mapping)" :title="t('proxy.yarpManagement.delete')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
-        </div>
-      </div>
-    </div>
+      <el-table-column :label="t('proxy.yarpManagement.actions')" width="120" align="center" fixed="right">
+        <template #default="{ row }">
+          <div class="actions-cell">
+              <el-button class="table-action-btn edit" :icon="Edit" :title="t('proxy.yarpManagement.edit')" @click="editMapping(row)" />
+              <el-button class="table-action-btn danger" :icon="Delete" :title="t('proxy.yarpManagement.delete')" @click="handleDelete(row)" />
+          </div>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <!-- Pagination -->
     <div class="pagination" v-if="totalPages > 1">
@@ -222,6 +227,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Edit, Delete } from '@element-plus/icons-vue'
 import { yarpApi } from '@/api/yarp'
 import { certificateApi, type Certificate } from '@/api/certificate'
 import { acmeApi } from '@/api/acme'
@@ -504,33 +510,6 @@ onMounted(() => {
   overflow-x: auto;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: minmax(250px, 2fr) minmax(180px, 1.5fr) 100px 120px 100px;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg-glass-dark);
-  border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: minmax(250px, 2fr) minmax(180px, 1.5fr) 100px 120px 100px;
-  gap: 8px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color-light);
-  align-items: center;
-  transition: all 0.15s ease;
-}
-
-.table-row:last-child { border-bottom: none; }
-.table-row:hover { background: var(--bg-glass-dark); }
-.table-row.active { border-left: 3px solid #10b981; padding-left: 13px; }
-
 .td-domain { display: flex; align-items: center; gap: 12px; }
 
 .domain-icon {
@@ -597,23 +576,41 @@ onMounted(() => {
 .td-actions { display: flex; gap: 4px; justify-content: center; width: 100%; }
 .th-actions { text-align: center; }
 
-.action-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
+.actions-cell {
   display: flex;
-  align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--text-muted);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
-.action-btn svg { width: 14px; height: 14px; }
-.action-btn:hover { border-color: #10b981; color: #10b981; }
-.action-btn.danger:hover { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.actions-cell :deep(.table-action-btn) {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.actions-cell :deep(.table-action-btn:hover) {
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+.actions-cell :deep(.table-action-btn.edit:hover) {
+  color: var(--color-primary);
+}
+
+.actions-cell :deep(.table-action-btn.danger:hover) {
+  color: var(--color-danger);
+}
+
+.actions-cell :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
 
 .pagination {
   display: flex;
@@ -705,8 +702,6 @@ onMounted(() => {
 }
 
 @media (max-width: 1024px) {
-  .th-ssl, .td-ssl { display: none; }
-  .table-header, .table-row { grid-template-columns: minmax(200px, 2fr) minmax(150px, 1.5fr) 100px 90px; }
 }
 
 @media (max-width: 768px) {
@@ -715,18 +710,11 @@ onMounted(() => {
   .toolbar { flex-wrap: wrap; }
   .search-box { max-width: none; width: 100%; }
   .stats { width: 100%; justify-content: center; }
-  /* Simplify table grid: hide status column */
-  .th-ssl, .td-ssl { display: none; }
-  .table-header, .table-row { grid-template-columns: minmax(140px, 2fr) minmax(120px, 1.5fr) 80px; }
-  .th:last-child, .td-actions { display: none; }
   .pagination { flex-direction: column; gap: 8px; align-items: center; }
 }
 
 @media (max-width: 480px) {
   .yarp-page { padding: 12px; }
-  /* Only show domain column */
-  .table-header, .table-row { grid-template-columns: 1fr 80px; }
-  .th-ssl, .td-ssl, .th:nth-child(3), .td:nth-child(3) { display: none; }
   .domain-icon { width: 30px; height: 30px; }
   .domain-host { font-size: 13px; }
 }
@@ -738,11 +726,8 @@ onMounted(() => {
 html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-input { color: #f1f5f9; }
-html.dark .table-header { background: #0f172a; color: #94a3b8; }
-html.dark .table-row { border-color: rgba(255, 255, 255, 0.05); }
-html.dark .table-row:hover { background: rgba(255, 255, 255, 0.03); }
 html.dark .domain-host { color: #f1f5f9; }
 html.dark .stats strong { color: #f1f5f9; }
 html.dark .target-badge, html.dark .ssl-badge { background: rgba(255, 255, 255, 0.1); }
-html.dark .action-btn, html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
+html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 </style>

@@ -55,9 +55,7 @@
       </el-table-column>
       <el-table-column prop="fingerprint" label="指纹" width="200" align="center">
         <template #default="{ row }">
-          <el-tooltip :content="row.fingerprint" placement="top">
-            <code class="fingerprint">{{ row.fingerprint?.substring(0, 20) }}...</code>
-          </el-tooltip>
+          <code class="fingerprint" :title="row.fingerprint">{{ row.fingerprint?.substring(0, 20) }}...</code>
         </template>
       </el-table-column>
       <el-table-column prop="hasPassphrase" label="密码保护" width="100" align="center">

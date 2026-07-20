@@ -138,76 +138,78 @@
       </div>
 
       <!-- Data Table -->
-      <div class="data-table" v-if="filteredCertificates.length > 0">
-        <div class="table-header">
-          <div class="th th-domain">{{ t('certificate.domain') }}</div>
-          <div class="th th-status">{{ t('certificate.status') }}</div>
-          <div class="th th-provider">{{ t('certificate.provider') }}</div>
-          <div class="th th-expires">{{ t('certificate.expiresAt') }}</div>
-          <div class="th th-autorenew">{{ t('certificate.autoRenew') }}</div>
-          <div class="th th-actions">{{ t('common.actions') }}</div>
-        </div>
-
-        <div v-for="cert in paginatedCertificates" :key="cert.id" class="table-row" :class="cert.status">
-          <div class="td td-domain" @click="viewCertificate(cert)">
-            <div class="cert-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-              </svg>
+      <el-table
+        v-if="filteredCertificates.length > 0"
+        :data="paginatedCertificates"
+        style="width: 100%"
+        v-loading="loading"
+      >
+        <el-table-column :label="t('certificate.domain')" min-width="280">
+          <template #default="{ row }">
+            <div class="td-domain" @click="viewCertificate(row)">
+              <div class="cert-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              </div>
+              <div class="domain-list">
+                <span v-for="domain in row.domains?.slice(0, 2)" :key="domain" class="domain-tag">
+                  {{ domain }}
+                </span>
+                <span v-if="row.domains?.length > 2" class="domain-more">+{{ row.domains.length - 2 }}</span>
+              </div>
             </div>
-            <div class="domain-list">
-              <span v-for="domain in cert.domains?.slice(0, 2)" :key="domain" class="domain-tag">
-                {{ domain }}
-              </span>
-              <span v-if="cert.domains?.length > 2" class="domain-more">+{{ cert.domains.length - 2 }}</span>
-            </div>
-          </div>
+          </template>
+        </el-table-column>
 
-          <div class="td td-status">
-            <span class="status-badge" :class="cert.status">
-              {{ getStatusLabel(cert.status) }}
+        <el-table-column :label="t('certificate.status')" width="110" align="center">
+          <template #default="{ row }">
+            <span class="status-badge" :class="row.status">
+              {{ getStatusLabel(row.status) }}
             </span>
-          </div>
+          </template>
+        </el-table-column>
 
-          <div class="td td-provider">
-            <span class="provider-text">{{ getProviderLabel(cert.provider) }}</span>
-          </div>
+        <el-table-column :label="t('certificate.provider')" width="130" align="center">
+          <template #default="{ row }">
+            <span class="provider-text">{{ getProviderLabel(row.provider) }}</span>
+          </template>
+        </el-table-column>
 
-          <div class="td td-expires">
+        <el-table-column :label="t('certificate.expiresAt')" min-width="170">
+          <template #default="{ row }">
             <div class="expiry-info">
-              <span class="expiry-date">{{ formatDate(cert.expiresAt) }}</span>
-              <span v-if="cert.status === 'valid'" class="expiry-days" :class="getExpiryClass(cert.expiresAt)">
-                {{ getExpiryDays(cert.expiresAt) }}
+              <span class="expiry-date">{{ formatDate(row.expiresAt) }}</span>
+              <span v-if="row.status === 'valid'" class="expiry-days" :class="getExpiryClass(row.expiresAt)">
+                {{ getExpiryDays(row.expiresAt) }}
               </span>
             </div>
-          </div>
+          </template>
+        </el-table-column>
 
-          <div class="td td-autorenew">
+        <el-table-column :label="t('certificate.autoRenew')" width="110" align="center">
+          <template #default="{ row }">
             <el-switch 
-              v-model="cert.autoRenew" 
-              @change="handleAutoRenewChange(cert)"
-              :disabled="cert.status !== 'valid'"
+              v-model="row.autoRenew" 
+              @change="handleAutoRenewChange(row)"
+              :disabled="row.status !== 'valid'"
               size="small"
             />
-          </div>
+          </template>
+        </el-table-column>
 
-          <div class="td td-actions">
-            <button class="action-btn" @click="viewCertificate(cert)" :title="t('common.details')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
-            <button v-if="cert.status === 'valid' || cert.status === 'expiring'" class="action-btn" @click="downloadCertificate(cert)" :title="t('common.download')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            </button>
-            <button v-if="shouldShowRenewButton(cert)" class="action-btn warning" @click="renewCertificate(cert)" :title="t('certificate.renewButton')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-            </button>
-            <button class="action-btn danger" @click="deleteCertificate(cert)" :title="t('common.delete')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
-          </div>
-        </div>
-      </div>
+        <el-table-column :label="t('common.actions')" width="200" align="center" fixed="right">
+          <template #default="{ row }">
+            <div class="actions-cell">
+              <el-button class="table-action-btn detail" :icon="View" :title="t('common.details')" @click="viewCertificate(row)" />
+              <el-button v-if="row.status === 'valid' || row.status === 'expiring'" class="table-action-btn download" :icon="Download" :title="t('common.download')" @click="downloadCertificate(row)" />
+              <el-button v-if="shouldShowRenewButton(row)" class="table-action-btn renew" :icon="Refresh" :title="t('certificate.renewButton')" @click="renewCertificate(row)" />
+              <el-button class="table-action-btn danger" :icon="Delete" :title="t('common.delete')" @click="deleteCertificate(row)" />
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
 
       <!-- Pagination -->
       <div class="pagination" v-if="totalPages > 1">
@@ -267,43 +269,48 @@
         </el-alert>
       </div>
 
-      <div class="data-table" v-if="accounts.length > 0">
-        <div class="table-header accounts-header">
-          <div class="th">{{ t('certificate.email') }}</div>
-          <div class="th">{{ t('certificate.provider') }}</div>
-          <div class="th">{{ t('certificate.status') }}</div>
-          <div class="th">{{ t('certificate.createdAt') }}</div>
-          <div class="th th-actions">{{ t('common.actions') }}</div>
-        </div>
-
-        <div v-for="account in accounts" :key="account.id" class="table-row accounts-row">
-          <div class="td">
+      <el-table
+        v-if="accounts.length > 0"
+        :data="accounts"
+        style="width: 100%"
+        v-loading="loading"
+      >
+        <el-table-column :label="t('certificate.email')" min-width="240">
+          <template #default="{ row }">
             <div class="account-email">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="email-icon">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                 <polyline points="22,6 12,13 2,6"></polyline>
               </svg>
-              {{ account.email }}
+              {{ row.email }}
             </div>
-          </div>
-          <div class="td">
-            <span class="provider-badge">{{ getProviderLabel(account.provider) }}</span>
-          </div>
-          <div class="td">
-            <span class="status-badge" :class="account.isActive ? 'valid' : 'inactive'">
-              {{ account.isActive ? t('certificate.active') : t('certificate.inactive') }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('certificate.provider')" width="150" align="center">
+          <template #default="{ row }">
+            <span class="provider-badge">{{ getProviderLabel(row.provider) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('certificate.status')" width="120" align="center">
+          <template #default="{ row }">
+            <span class="status-badge" :class="row.isActive ? 'valid' : 'inactive'">
+              {{ row.isActive ? t('certificate.active') : t('certificate.inactive') }}
             </span>
-          </div>
-          <div class="td">
-            <span class="date-text">{{ formatDate(account.createdAt) }}</span>
-          </div>
-          <div class="td td-actions">
-            <button class="action-btn danger" @click="deleteAccount(account)" :title="t('common.delete')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
-          </div>
-        </div>
-      </div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('certificate.createdAt')" min-width="160">
+          <template #default="{ row }">
+            <span class="date-text">{{ formatDate(row.createdAt) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('common.actions')" width="100" align="center" fixed="right">
+          <template #default="{ row }">
+            <div class="actions-cell">
+              <el-button class="table-action-btn danger" :icon="Delete" :title="t('common.delete')" @click="deleteAccount(row)" />
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
 
       <!-- Empty State for Accounts -->
       <div v-if="!loading && accounts.length === 0" class="empty-state">
@@ -369,6 +376,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { View, Download, Refresh, Delete } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { useCertificateStore } from '@/stores/certificate'
 import { useSettingsStore } from '@/stores/settings'
@@ -883,43 +891,6 @@ onMounted(() => refreshAll())
   overflow: hidden;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: minmax(250px, 2fr) 100px 120px 150px 80px 150px;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg-glass-dark);
-  border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.table-header.accounts-header {
-  grid-template-columns: 1fr 120px 100px 150px 100px;
-}
-
-.table-row.accounts-row {
-  grid-template-columns: 1fr 120px 100px 150px 100px;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: minmax(250px, 2fr) 100px 120px 150px 80px 150px;
-  gap: 8px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color-light);
-  align-items: center;
-  transition: all 0.15s ease;
-}
-
-.table-row:last-child { border-bottom: none; }
-.table-row:hover { background: var(--bg-glass-dark); }
-.table-row.valid { border-left: 3px solid #22c55e; padding-left: 13px; }
-.table-row.expiring { border-left: 3px solid #f59e0b; padding-left: 13px; }
-.table-row.expired { border-left: 3px solid #ef4444; padding-left: 13px; }
-
 .td-domain { display: flex; align-items: center; gap: 12px; cursor: pointer; }
 .td-domain:hover .domain-tag { background: var(--primary-color); color: #fff; }
 .td-domain:hover .cert-icon { transform: scale(1.05); }
@@ -970,24 +941,43 @@ onMounted(() => refreshAll())
 .td-actions { display: flex; gap: 4px; justify-content: center; width: 100%; }
 .th-actions { text-align: center; }
 
-.action-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
+.actions-cell {
   display: flex;
-  align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--text-muted);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
-.action-btn svg { width: 14px; height: 14px; }
-.action-btn:hover { border-color: #f59e0b; color: #f59e0b; }
-.action-btn.warning:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
-.action-btn.danger:hover { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.actions-cell :deep(.table-action-btn) {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.actions-cell :deep(.table-action-btn:hover) {
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+.actions-cell :deep(.table-action-btn.detail:hover),
+.actions-cell :deep(.table-action-btn.download:hover),
+.actions-cell :deep(.table-action-btn.renew:hover) {
+  color: var(--color-primary);
+}
+
+.actions-cell :deep(.table-action-btn.danger:hover) {
+  color: var(--color-danger);
+}
+
+.actions-cell :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
 
 /* Account Email */
 .account-email {
@@ -1073,8 +1063,6 @@ onMounted(() => refreshAll())
 /* Responsive */
 @media (max-width: 1200px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
-  .th-provider, .td-provider, .th-autorenew, .td-autorenew { display: none; }
-  .table-header, .table-row { grid-template-columns: minmax(200px, 2fr) 90px 130px 120px; }
 }
 
 @media (max-width: 768px) {
@@ -1085,8 +1073,6 @@ onMounted(() => refreshAll())
   .toolbar { flex-wrap: wrap; }
   .search-box { max-width: none; width: 100%; }
   .filter-tabs { width: 100%; overflow-x: auto; }
-  .th-expires, .td-expires { display: none; }
-  .table-header, .table-row { grid-template-columns: 1fr 80px 100px; }
   .pagination { flex-direction: column; gap: 12px; }
   .tab-nav { flex-wrap: wrap; }
 }
@@ -1098,10 +1084,7 @@ onMounted(() => refreshAll())
 html.dark .stat-card, html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-input { color: #f1f5f9; }
-html.dark .table-header { background: #0f172a; color: #94a3b8; }
-html.dark .table-row { border-color: rgba(255, 255, 255, 0.05); }
-html.dark .table-row:hover { background: rgba(255, 255, 255, 0.03); }
 html.dark .stat-value { color: #f1f5f9; }
 html.dark .domain-tag { background: rgba(255, 255, 255, 0.1); color: #f1f5f9; }
-html.dark .action-btn, html.dark .page-btn, html.dark .tab-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
+html.dark .page-btn, html.dark .tab-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 </style>

@@ -70,188 +70,192 @@
 
     <!-- Data Table -->
     <div class="data-table" v-if="paginatedContainers.length > 0">
-      <!-- Table Header -->
-      <div class="table-header">
-        <div class="th th-checkbox">
-          <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected" />
-        </div>
-        <div class="th th-name">{{ t('container.table.nameId') }}</div>
-        <div class="th th-image">{{ t('container.image') }}</div>
-        <div class="th th-status">{{ t('common.status') }}</div>
-        <div class="th th-usage">{{ t('container.table.usage') }}</div>
-        <div class="th th-ports">{{ t('common.ports') }}</div>
-        <div class="th th-created">{{ t('common.created') }}</div>
-        <div class="th th-actions">{{ t('common.actions') }}</div>
-      </div>
-
-      <!-- Table Rows -->
-      <div 
-        v-for="container in paginatedContainers"
-        :key="container.id"
-        class="table-row"
-        :class="{ selected: isSelected(container), running: container.state === 'running' }"
+      <el-table
+        :data="paginatedContainers"
+        style="width: 100%"
+        v-loading="loading"
+        row-key="id"
+        @selection-change="handleSelectionChange"
       >
-        <div class="td td-checkbox">
-          <input type="checkbox" :checked="isSelected(container)" @change="toggleSelect(container)" />
-        </div>
-        
-        <div class="td td-name">
-          <div class="status-dot" :class="container.state"></div>
-          <div class="name-info">
-            <span class="name" @click="viewDetail(container)">
-              {{ container.name || 'unnamed' }}
-            </span>
-            <code class="id">{{ container.id?.substring(0, 12) }}</code>
-          </div>
-        </div>
+        <el-table-column type="selection" width="40" reserve-selection />
 
-        <div class="td td-image">
-          <span class="image-text">{{ container.image }}</span>
-          <span v-if="hasUpdateAvailable(container.id)" class="update-badge" :title="t('container.update.newVersionAvailable')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            {{ t('container.update.hasUpdate') }}
-          </span>
-        </div>
-
-        <div class="td td-status">
-          <span class="status-badge" :class="container.state">
-            {{ getStatusText(container.state) }}
-          </span>
-        </div>
-
-        <!-- Usage Column -->
-        <div class="td td-usage">
-          <div v-if="container.state === 'running'" class="usage-info-text">
-            <template v-if="getContainerStats(container.id)">
-              <span>CPU: {{ (getContainerStats(container.id)?.cpuStats?.percentCpu || 0).toFixed(1) }}%</span>
-              <span>MEM: {{ formatBytes(getContainerStats(container.id)?.memoryStats?.usage || 0) }}</span>
-            </template>
-            <span v-else class="usage-loading">{{ t('container.update.fetching') }}</span>
-          </div>
-          <span v-else class="usage-none">-</span>
-        </div>
-
-        <div class="td td-ports">
-          <el-popover
-            v-if="normalizePorts(container.ports).length"
-            placement="top"
-            :width="280"
-            trigger="hover"
-            :show-after="200"
-            popper-class="ports-popover"
-          >
-            <template #reference>
-              <div class="ports-trigger">
-                <span class="ports-trigger-count">{{ normalizePorts(container.ports).length }} {{ t('container.ports.portsCount') }}</span>
-                <svg class="ports-trigger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </div>
-            </template>
-            <div class="ports-popover-content">
-              <!-- 映射端口 -->
-              <div v-if="getMappedPorts(normalizePorts(container.ports)).length" class="ports-section">
-                <div class="ports-section-title">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                  </svg>
-                  {{ t('container.ports.mappedPorts') }} ({{ getMappedPorts(normalizePorts(container.ports)).length }})
-                </div>
-                <div class="ports-section-list">
-                  <div v-for="(port, idx) in getMappedPorts(normalizePorts(container.ports))" :key="'m-'+idx" class="port-item mapped">
-                    <span class="port-mapping">{{ port.publicPort }} → {{ port.privatePort }}</span>
-                    <span class="port-proto">{{ (port.type || port.protocol || 'tcp').toUpperCase() }}</span>
-                  </div>
-                </div>
-              </div>
-              <!-- 内部端口 -->
-              <div v-if="getInternalPorts(normalizePorts(container.ports)).length" class="ports-section">
-                <div class="ports-section-title">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="12" y1="8" x2="12" y2="16"></line>
-                    <line x1="8" y1="12" x2="16" y2="12"></line>
-                  </svg>
-                  {{ t('container.ports.internalPorts') }} ({{ getInternalPorts(normalizePorts(container.ports)).length }})
-                </div>
-                <div class="ports-section-list">
-                  <div v-for="(port, idx) in getInternalPorts(normalizePorts(container.ports))" :key="'i-'+idx" class="port-item internal">
-                    <span class="port-mapping">{{ port.privatePort }}</span>
-                    <span class="port-proto">{{ (port.type || port.protocol || 'tcp').toUpperCase() }}</span>
-                  </div>
-                </div>
-              </div>
-              <!-- 反向代理 -->
-              <div v-if="container.domainMappings && container.domainMappings.length" class="ports-section">
-                <div class="ports-section-title">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                  </svg>
-                  {{ t('container.ports.reverseProxy') }} ({{ container.domainMappings.length }})
-                </div>
-                <div class="ports-section-list">
-                  <div v-for="(mapping, idx) in container.domainMappings" :key="'p-'+idx" class="port-item proxy">
-                    <span class="port-mapping proxy-domain">{{ mapping.domain }}</span>
-                    <span class="port-proto" :class="{ ssl: mapping.enableSsl }">{{ mapping.enableSsl ? 'HTTPS' : 'HTTP' }}</span>
-                  </div>
-                </div>
+        <el-table-column :label="t('container.table.nameId')" min-width="200">
+          <template #default="{ row }">
+            <div class="td-name">
+              <div class="status-dot" :class="row.state"></div>
+              <div class="name-info">
+                <span class="name" @click="viewDetail(row)">
+                  {{ row.name || 'unnamed' }}
+                </span>
+                <code class="id">{{ row.id?.substring(0, 12) }}</code>
               </div>
             </div>
-          </el-popover>
-          <span v-else class="no-ports">-</span>
-        </div>
+          </template>
+        </el-table-column>
 
-        <div class="td td-created">
-          <span class="time">{{ formatDate(container.created) }}</span>
-        </div>
+        <el-table-column :label="t('container.image')" min-width="200">
+          <template #default="{ row }">
+            <div class="td-image">
+              <span class="image-text">{{ row.image }}</span>
+              <span v-if="hasUpdateAvailable(row.id)" class="update-badge" :title="t('container.update.newVersionAvailable')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                {{ t('container.update.hasUpdate') }}
+              </span>
+            </div>
+          </template>
+        </el-table-column>
 
-        <div class="td td-actions">
-          <button 
-            v-if="container.state !== 'running'"
-            class="action-btn success"
-            :class="{ loading: actionLoadingIds.has(container.id) }"
-            :disabled="actionLoadingIds.has(container.id)"
-            @click="action(container, 'start')"
-            :title="t('container.start')"
-          >
-            <svg v-if="!actionLoadingIds.has(container.id)" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-            <svg v-else class="spin" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10h-2a8 8 0 0 0-8-8V2z"/></svg>
-          </button>
-          <button 
-            v-if="container.state === 'running'"
-            class="action-btn warning"
-            :class="{ loading: actionLoadingIds.has(container.id) }"
-            :disabled="actionLoadingIds.has(container.id)"
-            @click="action(container, 'stop')"
-            :title="t('container.stop')"
-          >
-            <svg v-if="!actionLoadingIds.has(container.id)" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-            <svg v-else class="spin" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" opacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10h-2a8 8 0 0 0-8-8V2z"/></svg>
-          </button>
-          <button 
-            class="action-btn"
-            @click="router.push({ name: 'ContainerDetail', params: { id: container.id }, query: { tab: 'logs' } })"
-            :title="t('container.logs')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-          </button>
-          <button 
-            class="action-btn"
-            @click="router.push({ name: 'ContainerDetail', params: { id: container.id }, query: { tab: 'terminal' } })"
-            :title="t('container.terminal')"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-          </button>
-          <button class="action-btn danger" @click="handleDelete(container)" :title="t('container.remove')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
-        </div>
-      </div>
+        <el-table-column :label="t('common.status')" width="110" align="center">
+          <template #default="{ row }">
+            <span class="status-badge" :class="row.state">
+              {{ getStatusText(row.state) }}
+            </span>
+          </template>
+        </el-table-column>
+
+        <!-- Usage Column -->
+        <el-table-column :label="t('container.table.usage')" min-width="140">
+          <template #default="{ row }">
+            <div v-if="row.state === 'running'" class="usage-info-text">
+              <template v-if="getContainerStats(row.id)">
+                <span>CPU: {{ (getContainerStats(row.id)?.cpuStats?.percentCpu || 0).toFixed(1) }}%</span>
+                <span>MEM: {{ formatBytes(getContainerStats(row.id)?.memoryStats?.usage || 0) }}</span>
+              </template>
+              <span v-else class="usage-loading">{{ t('container.update.fetching') }}</span>
+            </div>
+            <span v-else class="usage-none">-</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column :label="t('common.ports')" min-width="120" align="center">
+          <template #default="{ row }">
+            <el-popover
+              v-if="normalizePorts(row.ports).length"
+              placement="top"
+              :width="280"
+              trigger="hover"
+              :show-after="200"
+              popper-class="ports-popover"
+            >
+              <template #reference>
+                <div class="ports-trigger">
+                  <span class="ports-trigger-count">{{ normalizePorts(row.ports).length }} {{ t('container.ports.portsCount') }}</span>
+                  <svg class="ports-trigger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </div>
+              </template>
+              <div class="ports-popover-content">
+                <!-- 映射端口 -->
+                <div v-if="getMappedPorts(normalizePorts(row.ports)).length" class="ports-section">
+                  <div class="ports-section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                    </svg>
+                    {{ t('container.ports.mappedPorts') }} ({{ getMappedPorts(normalizePorts(row.ports)).length }})
+                  </div>
+                  <div class="ports-section-list">
+                    <div v-for="(port, idx) in getMappedPorts(normalizePorts(row.ports))" :key="'m-'+idx" class="port-item mapped">
+                      <span class="port-mapping">{{ port.publicPort }} → {{ port.privatePort }}</span>
+                      <span class="port-proto">{{ (port.type || port.protocol || 'tcp').toUpperCase() }}</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- 内部端口 -->
+                <div v-if="getInternalPorts(normalizePorts(row.ports)).length" class="ports-section">
+                  <div class="ports-section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <line x1="12" y1="8" x2="12" y2="16"></line>
+                      <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    {{ t('container.ports.internalPorts') }} ({{ getInternalPorts(normalizePorts(row.ports)).length }})
+                  </div>
+                  <div class="ports-section-list">
+                    <div v-for="(port, idx) in getInternalPorts(normalizePorts(row.ports))" :key="'i-'+idx" class="port-item internal">
+                      <span class="port-mapping">{{ port.privatePort }}</span>
+                      <span class="port-proto">{{ (port.type || port.protocol || 'tcp').toUpperCase() }}</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- 反向代理 -->
+                <div v-if="row.domainMappings && row.domainMappings.length" class="ports-section">
+                  <div class="ports-section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg>
+                    {{ t('container.ports.reverseProxy') }} ({{ row.domainMappings.length }})
+                  </div>
+                  <div class="ports-section-list">
+                    <div v-for="(mapping, idx) in row.domainMappings" :key="'p-'+idx" class="port-item proxy">
+                      <span class="port-mapping proxy-domain">{{ mapping.domain }}</span>
+                      <span class="port-proto" :class="{ ssl: mapping.enableSsl }">{{ mapping.enableSsl ? 'HTTPS' : 'HTTP' }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-popover>
+            <span v-else class="no-ports">-</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column :label="t('common.created')" min-width="160">
+          <template #default="{ row }">
+            <span class="time">{{ formatDate(row.created) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column :label="t('common.actions')" width="260" align="center" fixed="right">
+          <template #default="{ row }">
+            <div class="actions-cell">
+              <el-button
+                v-if="row.state !== 'running'"
+                class="table-action-btn success"
+                :class="{ loading: actionLoadingIds.has(row.id) }"
+                :loading="actionLoadingIds.has(row.id)"
+                :disabled="actionLoadingIds.has(row.id)"
+                :icon="VideoPlay"
+                :title="t('container.start')"
+                @click="action(row, 'start')"
+              />
+              <el-button
+                v-if="row.state === 'running'"
+                class="table-action-btn warning"
+                :class="{ loading: actionLoadingIds.has(row.id) }"
+                :loading="actionLoadingIds.has(row.id)"
+                :disabled="actionLoadingIds.has(row.id)"
+                :icon="VideoPause"
+                :title="t('container.stop')"
+                @click="action(row, 'stop')"
+              />
+              <el-button
+                class="table-action-btn"
+                :icon="Document"
+                :title="t('container.logs')"
+                @click="router.push({ name: 'ContainerDetail', params: { id: row.id }, query: { tab: 'logs' } })"
+              />
+              <el-button
+                class="table-action-btn"
+                :title="t('container.terminal')"
+                @click="router.push({ name: 'ContainerDetail', params: { id: row.id }, query: { tab: 'terminal' } })"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+              </el-button>
+              <el-button
+                class="table-action-btn danger"
+                :icon="Delete"
+                :title="t('container.remove')"
+                @click="handleDelete(row)"
+              />
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
     </div>
 
     <!-- Pagination -->
@@ -318,6 +322,7 @@ import { useContainersStore } from '@/stores/containers'
 import { useSettingsStore } from '@/stores/settings'
 import type { ContainerState } from '@/types/container'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { VideoPlay, VideoPause, Document, Delete } from '@element-plus/icons-vue'
 import CreateContainerDialog from '@/components/container/CreateContainerDialog.vue'
 import { autoUpdateApi, AutoUpdateStatus } from '@/api/autoUpdate'
 import { formatLocalizedDate } from '@/utils/date'
@@ -486,6 +491,10 @@ const isSelected = (container: any) => selected.value.some(c => c.id === contain
 const isAllSelected = computed(() => 
   paginatedContainers.value.length > 0 && paginatedContainers.value.every(c => isSelected(c))
 )
+
+const handleSelectionChange = (selection: any[]) => {
+  selected.value = selection
+}
 
 const toggleSelect = (container: any) => {
   const idx = selected.value.findIndex(c => c.id === container.id)
@@ -863,47 +872,7 @@ onUnmounted(() => {
   border-radius: 12px;
   border: 1px solid var(--border-color);
   overflow: hidden;
-  overflow-x: auto;
 }
-
-.table-header {
-  display: grid;
-  grid-template-columns: 40px minmax(120px, 2fr) minmax(100px, 1.5fr) 85px minmax(140px, 1fr) minmax(80px, 0.8fr) minmax(100px, 1fr) minmax(140px, auto);
-  gap: 12px;
-  padding: 14px 16px;
-  background: var(--bg-glass-dark);
-  border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  min-width: 900px;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: 40px minmax(120px, 2fr) minmax(100px, 1.5fr) 85px minmax(140px, 1fr) minmax(80px, 0.8fr) minmax(100px, 1fr) minmax(140px, auto);
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color-light);
-  align-items: center;
-  transition: background 0.15s ease;
-  min-width: 900px;
-}
-
-.table-row:last-child { border-bottom: none; }
-.table-row:hover { background: var(--bg-glass-dark); }
-.table-row.selected { background: rgba(59, 130, 246, 0.05); }
-.table-row.running { border-left: 3px solid #22c55e; padding-left: 13px; }
-
-/* 关键修复：所有单元格添加溢出处理 */
-.th, .td { 
-  min-width: 0;  /* 允许单元格收缩 */
-  overflow: hidden;
-}
-
-.td { font-size: 13px; color: var(--text-secondary); }
 
 .td-name {
   display: flex;
@@ -1035,38 +1004,45 @@ onUnmounted(() => {
 }
 
 /* 操作列固定设计 */
-.td-actions { 
-  display: flex; 
-  gap: 6px; 
-  justify-content: center; 
-  flex-shrink: 0;
+.actions-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
-.th-actions { text-align: center; }
 
-.action-btn {
+.actions-cell :deep(.table-action-btn) {
   width: 30px;
   height: 30px;
+  min-width: 30px;
+  padding: 0;
   border-radius: 6px;
-  border: 1px solid var(--border-color);
   background: var(--bg-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--text-muted);
-  flex-shrink: 0;
+  border-color: var(--border-color);
+  color: var(--text-secondary);
 }
 
-.action-btn svg { width: 14px; height: 14px; }
-.action-btn:hover:not(:disabled) { border-color: #3b82f6; color: #3b82f6; }
-.action-btn.success:hover:not(:disabled) { border-color: #22c55e; color: #22c55e; background: rgba(34, 197, 94, 0.1); }
-.action-btn.warning:hover:not(:disabled) { border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
-.action-btn.danger:hover:not(:disabled) { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.1); }
-.action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.action-btn.loading { pointer-events: none; }
-.action-btn svg.spin { animation: spin 1s linear infinite; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.actions-cell :deep(.table-action-btn:hover) {
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+.actions-cell :deep(.table-action-btn.success:hover) {
+  color: #22c55e;
+}
+
+.actions-cell :deep(.table-action-btn.warning:hover) {
+  color: #f59e0b;
+}
+
+.actions-cell :deep(.table-action-btn.danger:hover) {
+  color: #ef4444;
+}
+
+.actions-cell :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
 
 /* === Pagination === */
 .pagination {
@@ -1160,29 +1136,6 @@ onUnmounted(() => {
 }
 
 /* === Responsive === */
-@media (max-width: 1400px) {
-  .table-header, .table-row {
-    grid-template-columns: 40px minmax(100px, 2fr) minmax(90px, 1.5fr) 80px minmax(120px, 1fr) minmax(70px, 0.8fr) minmax(90px, 1fr) minmax(130px, auto);
-    gap: 10px;
-  }
-}
-
-@media (max-width: 1200px) {
-  .table-header, .table-row {
-    grid-template-columns: 40px minmax(100px, 2fr) minmax(80px, 1.5fr) 75px minmax(100px, 1fr) 80px minmax(120px, auto);
-    min-width: 800px;
-  }
-  .th-created, .td-created { display: none; }
-}
-
-@media (max-width: 1024px) {
-  .table-header, .table-row {
-    grid-template-columns: 40px minmax(100px, 2fr) 75px minmax(90px, 1fr) 80px minmax(120px, auto);
-    min-width: 680px;
-  }
-  .th-ports, .td-ports { display: none; }
-}
-
 @media (max-width: 768px) {
   .containers-page { padding: 16px; }
   .page-header { flex-direction: column; gap: 12px; align-items: stretch; }
@@ -1190,41 +1143,6 @@ onUnmounted(() => {
   .toolbar { padding: 10px 12px; }
   .search-box { max-width: none; min-width: 0; width: 100%; }
   .filter-tabs { width: 100%; }
-  
-  .table-header, .table-row {
-    grid-template-columns: 36px minmax(80px, 2fr) 70px minmax(80px, 1fr) minmax(100px, auto);
-    min-width: 500px;
-    gap: 8px;
-    padding: 10px 12px;
-  }
-  .th-usage, .td-usage { display: none; }
-  
-  .action-btn {
-    width: 28px;
-    height: 28px;
-  }
-}
-
-@media (max-width: 540px) {
-  .table-header, .table-row {
-    grid-template-columns: 32px minmax(60px, 2fr) 65px minmax(90px, auto);
-    min-width: 380px;
-  }
-  .th-status, .td-status { display: none; }
-  
-  .td-actions {
-    gap: 4px;
-  }
-  
-  .action-btn {
-    width: 26px;
-    height: 26px;
-  }
-  
-  .action-btn svg {
-    width: 12px;
-    height: 12px;
-  }
 }
 
 </style>
@@ -1234,11 +1152,7 @@ onUnmounted(() => {
 html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-input { color: #f1f5f9; }
-html.dark .table-header { background: #0f172a; border-color: rgba(255, 255, 255, 0.05); color: #94a3b8; }
-html.dark .table-row { border-color: rgba(255, 255, 255, 0.05); }
-html.dark .table-row:hover { background: rgba(255, 255, 255, 0.03); }
 html.dark .name { color: #f1f5f9; }
-html.dark .td { color: #cbd5e1; }
-html.dark .action-btn, html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
+html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .port { background: rgba(255, 255, 255, 0.1); }
 </style>

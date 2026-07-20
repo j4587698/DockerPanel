@@ -34,88 +34,65 @@
     </div>
 
     <!-- Data Table -->
-    <div class="data-table" v-if="paginatedProjects.length > 0">
-      <div class="table-header">
-        <div class="th th-name">{{ t('compose.projectName') }}</div>
-        <div class="th th-services">{{ t('compose.services') }}</div>
-        <div class="th th-status">{{ t('common.status') }}</div>
-        <div class="th th-created">{{ t('common.created') }}</div>
-        <div class="th th-actions">{{ t('common.actions') }}</div>
-      </div>
-
-      <div v-for="project in paginatedProjects" :key="project.id || project.name" class="table-row" :class="project.status?.toLowerCase()">
-        <div class="td td-name">
-          <div class="project-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
+    <el-table
+      v-if="paginatedProjects.length > 0"
+      :data="paginatedProjects"
+      style="width: 100%"
+      v-loading="loading"
+    >
+      <el-table-column :label="t('compose.projectName')" min-width="280">
+        <template #default="{ row }">
+          <div class="td-name">
+            <div class="project-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            </div>
+            <div class="name-info">
+              <span class="name">{{ row.name }}</span>
+              <code class="path">{{ row.path || t('compose.notDeployed') }}</code>
+            </div>
           </div>
-          <div class="name-info">
-            <span class="name">{{ project.name }}</span>
-            <code class="path">{{ project.path || t('compose.notDeployed') }}</code>
-          </div>
-        </div>
+        </template>
+      </el-table-column>
 
-        <div class="td td-services">
-          <span class="service-count">{{ project.services?.length || 0 }}</span>
-        </div>
+      <el-table-column :label="t('compose.services')" width="110" align="center">
+        <template #default="{ row }">
+          <span class="service-count">{{ row.services?.length || 0 }}</span>
+        </template>
+      </el-table-column>
 
-        <div class="td td-status">
-          <span class="status-badge" :class="project.status?.toLowerCase() || 'unknown'">
+      <el-table-column :label="t('common.status')" width="140" align="center">
+        <template #default="{ row }">
+          <span class="status-badge" :class="row.status?.toLowerCase() || 'unknown'">
             <span class="status-dot"></span>
-            {{ getStatusText(project.status) }}
+            {{ getStatusText(row.status) }}
           </span>
-        </div>
+        </template>
+      </el-table-column>
 
-        <div class="td td-created">
-          <span class="time">{{ formatDate(project.createdAt) }}</span>
-        </div>
+      <el-table-column :label="t('common.created')" min-width="160">
+        <template #default="{ row }">
+          <span class="time">{{ formatDate(row.createdAt) }}</span>
+        </template>
+      </el-table-column>
 
-        <div class="td td-actions">
-          <!-- 启动按钮：已停止/已创建状态显示 -->
-          <button 
-            v-if="['Stopped', 'Created'].includes(project.status)" 
-            class="action-btn success" 
-            @click="startProject(project)" 
-            :title="t('compose.startProject')">
-            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          </button>
-          <!-- 停止按钮：运行中/部分运行状态显示 -->
-          <button 
-            v-if="['Running', 'PartiallyRunning'].includes(project.status)" 
-            class="action-btn warning" 
-            @click="stopProject(project)" 
-            :title="t('compose.stopProject')">
-            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-          </button>
-          <!-- 部署按钮：错误/未知状态显示 -->
-          <button 
-            v-if="['Error', 'Unknown'].includes(project.status)" 
-            class="action-btn success" 
-            @click="deployProject(project)" 
-            :title="t('compose.detail.deploy')">
-            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          </button>
-          <!-- 重启按钮：有容器运行时显示 -->
-          <button 
-            v-if="['Running', 'PartiallyRunning', 'Stopped'].includes(project.status)" 
-            class="action-btn info" 
-            @click="restartProject(project)" 
-            :title="t('compose.restartProject')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-          </button>
-          <button class="action-btn" @click="editProject(project)" :title="t('common.edit')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-          </button>
-          <button class="action-btn danger" @click="handleDelete(project)" :title="t('common.delete')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
-        </div>
-      </div>
-    </div>
+      <el-table-column :label="t('common.actions')" width="240" align="center" fixed="right">
+        <template #default="{ row }">
+          <div class="actions-cell">
+            <el-button v-if="['Stopped', 'Created'].includes(row.status)" class="table-action-btn success" :icon="VideoPlay" :title="t('compose.startProject')" @click="startProject(row)" />
+            <el-button v-if="['Running', 'PartiallyRunning'].includes(row.status)" class="table-action-btn warning" :icon="VideoPause" :title="t('compose.stopProject')" @click="stopProject(row)" />
+            <el-button v-if="['Error', 'Unknown'].includes(row.status)" class="table-action-btn success" :icon="VideoPlay" :title="t('compose.detail.deploy')" @click="deployProject(row)" />
+            <el-button v-if="['Running', 'PartiallyRunning', 'Stopped'].includes(row.status)" class="table-action-btn info" :icon="Refresh" :title="t('compose.restartProject')" @click="restartProject(row)" />
+            <el-button class="table-action-btn edit" :icon="Edit" :title="t('common.edit')" @click="editProject(row)" />
+            <el-button class="table-action-btn danger" :icon="Delete" :title="t('common.delete')" @click="handleDelete(row)" />
+          </div>
+        </template>
+      </el-table-column>
+    </el-table>
 
     <!-- Pagination -->
     <div class="pagination" v-if="totalPages > 1">
@@ -211,6 +188,7 @@ import { composeApi } from '@/api/compose'
 import { signalrService } from '@/services/signalr'
 import CreateComposeDialog from '@/components/compose/CreateComposeDialog.vue'
 import { useSettingsStore } from '@/stores/settings'
+import { VideoPlay, VideoPause, Refresh, Edit, Delete } from '@element-plus/icons-vue'
 import type { ComposeFile } from '@/types/compose'
 import { formatLocalizedDate, formatLocalizedTime } from '@/utils/date'
 
@@ -524,33 +502,6 @@ onUnmounted(() => {
   overflow-x: auto;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: minmax(280px, 2fr) 100px 120px 140px 160px;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--bg-glass-dark);
-  border-bottom: 1px solid var(--border-color);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: minmax(280px, 2fr) 100px 120px 140px 160px;
-  gap: 8px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color-light);
-  align-items: center;
-  transition: all 0.15s ease;
-}
-
-.table-row:last-child { border-bottom: none; }
-.table-row:hover { background: var(--bg-glass-dark); }
-.table-row.running { border-left: 3px solid #22c55e; padding-left: 13px; }
-
 .td-name { display: flex; align-items: center; gap: 12px; }
 
 .project-icon {
@@ -610,26 +561,47 @@ onUnmounted(() => {
 .td-actions { display: flex; gap: 4px; justify-content: center; width: 100%; }
 .th-actions { text-align: center; }
 
-.action-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
+.actions-cell {
   display: flex;
-  align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: var(--text-muted);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
-.action-btn svg { width: 14px; height: 14px; }
-.action-btn:hover { border-color: #3b82f6; color: #3b82f6; }
-.action-btn.success:hover { border-color: #22c55e; color: #22c55e; background: rgba(34, 197, 94, 0.1); }
-.action-btn.warning:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
-.action-btn.danger:hover { border-color: #ef4444; color: #ef4444; background: rgba(239, 68, 68, 0.1); }
-.action-btn.info:hover { border-color: #8b5cf6; color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
+.actions-cell :deep(.table-action-btn) {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.actions-cell :deep(.table-action-btn:hover) {
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+}
+
+.actions-cell :deep(.table-action-btn.success:hover),
+.actions-cell :deep(.table-action-btn.edit:hover),
+.actions-cell :deep(.table-action-btn.info:hover) {
+  color: var(--color-primary);
+}
+
+.actions-cell :deep(.table-action-btn.warning:hover) {
+  color: #f59e0b;
+}
+
+.actions-cell :deep(.table-action-btn.danger:hover) {
+  color: var(--color-danger);
+}
+
+.actions-cell :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
 
 .pagination {
   display: flex;
@@ -673,8 +645,6 @@ onUnmounted(() => {
 .empty-desc { font-size: 14px; color: var(--text-muted); margin: 0 0 24px 0; }
 
 @media (max-width: 1024px) {
-  .th-created, .td-created { display: none; }
-  .table-header, .table-row { grid-template-columns: minmax(200px, 2fr) 80px 100px 140px; }
 }
 
 @media (max-width: 768px) {
@@ -682,15 +652,10 @@ onUnmounted(() => {
   .page-header { flex-direction: column; gap: 12px; }
   .toolbar { flex-wrap: wrap; }
   .search-box { max-width: none; width: 100%; }
-  .th-services, .td-services { display: none; }
-  .table-header, .table-row { grid-template-columns: 1fr 100px 120px; }
 }
 
 @media (max-width: 480px) {
   .compose-page { padding: 12px; }
-  /* Only name + actions */
-  .th-services, .td-services, .th-created, .td-created, .th-status, .td-status { display: none; }
-  .table-header, .table-row { grid-template-columns: 1fr 110px; }
   .project-icon { width: 30px; height: 30px; }
   .empty-state { padding: 40px 20px; }
 }
@@ -791,13 +756,10 @@ onUnmounted(() => {
 html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-input { color: #f1f5f9; }
-html.dark .table-header { background: #0f172a; color: #94a3b8; }
-html.dark .table-row { border-color: rgba(255, 255, 255, 0.05); }
-html.dark .table-row:hover { background: rgba(255, 255, 255, 0.03); }
 html.dark .name { color: #f1f5f9; }
 html.dark .stats strong { color: #f1f5f9; }
 html.dark .service-count { background: rgba(255, 255, 255, 0.1); }
-html.dark .action-btn, html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
+html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .log-container { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .log-item { border-color: rgba(255, 255, 255, 0.05); }
 html.dark .progress-complete { background: rgba(255, 255, 255, 0.05); }

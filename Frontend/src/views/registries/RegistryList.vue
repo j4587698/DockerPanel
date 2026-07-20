@@ -55,15 +55,9 @@
         <el-table-column :label="t('common.actions')" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
-              <el-tooltip :content="t('registry.testConnection')">
-                <el-button circle size="small" :icon="Refresh" @click="testConnection(row)" />
-              </el-tooltip>
-              <el-tooltip :content="t('common.edit')">
-                <el-button circle size="small" type="primary" plain :icon="Edit" @click="editRegistry(row)" />
-              </el-tooltip>
-              <el-tooltip :content="t('common.delete')">
-                <el-button circle size="small" type="danger" plain :icon="Delete" @click="deleteRegistry(row)" />
-              </el-tooltip>
+              <el-button circle size="small" :icon="Refresh" :title="t('registry.testConnection')" @click="testConnection(row)" />
+              <el-button circle size="small" type="primary" plain :icon="Edit" :title="t('common.edit')" @click="editRegistry(row)" />
+              <el-button circle size="small" type="danger" plain :icon="Delete" :title="t('common.delete')" @click="deleteRegistry(row)" />
             </div>
           </template>
         </el-table-column>

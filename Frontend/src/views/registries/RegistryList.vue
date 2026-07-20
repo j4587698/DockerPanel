@@ -35,7 +35,14 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="registryType" :label="t('registry.registryType')" width="120" />
+        <el-table-column :label="t('registry.registryType')" width="120">
+          <template #default="{ row }">
+            <span v-if="row.type === RegistryType.Private">{{ t('registry.typePrivate') }}</span>
+            <span v-else-if="row.type === RegistryType.Mirror">{{ t('registry.typeMirror') }}</span>
+            <span v-else-if="row.type === RegistryType.DockerHub">{{ t('registry.typeDockerHub') }}</span>
+            <span v-else>{{ row.type }}</span>
+          </template>
+        </el-table-column>
 
         <el-table-column :label="t('common.status')" width="120">
           <template #default="{ row }">
@@ -70,7 +77,7 @@
           <el-input v-model.trim="form.name" :placeholder="t('registry.registryNamePlaceholder')" />
         </el-form-item>
         <el-form-item :label="t('registry.registryType')">
-          <el-select v-model="form.registryType" style="width: 100%">
+          <el-select v-model="form.type" style="width: 100%" filterable allow-create default-first-option>
             <el-option :label="t('registry.typePrivate')" :value="RegistryType.Private" />
             <el-option :label="t('registry.typeMirror')" :value="RegistryType.Mirror" />
             <el-option :label="t('registry.typeDockerHub')" :value="RegistryType.DockerHub" />
@@ -127,7 +134,7 @@ const form = ref({
   isPublic: true,
   isSecure: true,
   isDefault: false,
-  registryType: RegistryType.Private
+  type: RegistryType.Private as string
 })
 
 const dialogTitle = computed(() => editingId.value ? t('registry.editRegistry') : t('registry.addRegistry'))
@@ -187,7 +194,7 @@ const resetForm = () => {
     isPublic: true,
     isSecure: true,
     isDefault: false,
-    registryType: RegistryType.Private
+    type: RegistryType.Private as string
   }
 }
 
@@ -201,7 +208,7 @@ const editRegistry = (row: any) => {
     isPublic: Boolean(row.isPublic),
     isSecure: row.isSecure !== false,
     isDefault: Boolean(row.isDefault),
-    registryType: row.registryType ?? RegistryType.Private
+    type: row.type ?? RegistryType.Private
   }
   showCreateDialog.value = true
 }
@@ -214,7 +221,7 @@ const buildPayload = () => ({
   isPublic: form.value.isPublic,
   isSecure: form.value.isSecure,
   isDefault: form.value.isDefault,
-  registryType: form.value.registryType
+  type: form.value.type
 })
 
 const saveRegistry = async () => {

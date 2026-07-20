@@ -1,8 +1,8 @@
 // 仓库类型枚举
 export enum RegistryType {
-  Private = 0,  // 私有仓库
-  Mirror = 1,   // 镜像加速器
-  DockerHub = 2 // Docker Hub
+  Private = 'Private',  // 私有仓库
+  Mirror = 'Mirror',   // 镜像加速器
+  DockerHub = 'DockerHub' // Docker Hub
 }
 
 // 仓库状态枚举
@@ -74,8 +74,8 @@ export interface ImageRegistry {
   domain: string
   /** 完整 URL（自动根据 isSecure 生成） */
   url: string
-  /** 仓库类型：Private=私有仓库，Mirror=镜像加速器，DockerHub=Docker Hub */
-  registryType: RegistryType
+  /** 仓库类型：Mirror=镜像加速器，DockerHub=Docker Hub，Private=私有仓库，或厂商名(Harbor/Nexus/...) */
+  type: string
   isDefault: boolean
   isPublic: boolean
   /** 是否使用 HTTPS */
@@ -124,8 +124,8 @@ export interface CreateRegistryRequest {
   /** 是否使用 HTTPS，默认 true */
   isSecure?: boolean
   isDefault?: boolean
-  /** 仓库类型：Private=私有仓库，Mirror=镜像加速器 */
-  registryType?: RegistryType
+  /** 仓库类型：Mirror=镜像加速器，DockerHub=Docker Hub，Private=私有仓库，或厂商名(Harbor/Nexus/...) */
+  type?: string
 }
 
 // 更新仓库请求
@@ -140,7 +140,7 @@ export interface UpdateRegistryRequest {
   /** 是否使用 HTTPS */
   isSecure?: boolean
   isDefault?: boolean
-  registryType?: RegistryType
+  type?: string
 }
 
 // 仓库连接测试结果

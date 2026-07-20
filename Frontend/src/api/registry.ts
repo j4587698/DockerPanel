@@ -34,7 +34,7 @@ export const registryApi = {
     return api.get<ImageRegistry[]>("registries")
   },
 
-  getRegistriesByType(type: number) {
+  getRegistriesByType(type: string) {
     return api.get<ImageRegistry[]>(`registries/by-type/${type}`)
   },
 
@@ -107,10 +107,6 @@ export const registryApi = {
   // 增强功能
   pushImage(data: PushImageRequest) {
     return api.post<RegistryOperationResult>("registries/push", data)
-  },
-
-  pullImage(data: PullImageRequest) {
-    return api.post<RegistryOperationResult>("registries/pull", data)
   },
 
   searchRegistryImages(data: SearchRegistryRequest) {

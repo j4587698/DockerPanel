@@ -52,12 +52,12 @@ public class RegistryController : ControllerBase
     /// <param name="type">仓库类型：Private=私有仓库，Mirror=镜像加速器</param>
     /// <returns>镜像仓库列表</returns>
     [HttpGet("by-type/{type}")]
-    public async Task<ActionResult<IEnumerable<ImageRegistry>>> GetRegistriesByType(RegistryType type)
+    public async Task<ActionResult<IEnumerable<ImageRegistry>>> GetRegistriesByType(string type)
     {
         try
         {
             var registries = await _registryService.GetRegistriesAsync();
-            var filtered = registries.Where(r => r.RegistryType == type);
+            var filtered = registries.Where(r => r.Type == type);
             return Ok(filtered);
         }
         catch (Exception ex)
@@ -77,7 +77,7 @@ public class RegistryController : ControllerBase
         try
         {
             var registries = await _registryService.GetRegistriesAsync();
-            var mirrors = registries.Where(r => r.RegistryType == RegistryType.Mirror);
+            var mirrors = registries.Where(r => r.Type == "Mirror");
             return Ok(mirrors);
         }
         catch (Exception ex)
@@ -97,7 +97,7 @@ public class RegistryController : ControllerBase
         try
         {
             var registries = await _registryService.GetRegistriesAsync();
-            var privateRegistries = registries.Where(r => r.RegistryType == RegistryType.Private);
+            var privateRegistries = registries.Where(r => r.Type == "Private" || (r.Type != "Mirror" && r.Type != "DockerHub"));
             return Ok(privateRegistries);
         }
         catch (Exception ex)

@@ -458,7 +458,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
         {
             // 获取默认加速器
             var registries = await _registryService.GetRegistriesAsync();
-            var mirror = registries.FirstOrDefault(r => r.Type == RegistryType.Mirror.ToString() && r.IsDefault);
+            var mirror = registries.FirstOrDefault(r => r.Type == "Mirror" && r.IsDefault);
             
             if (mirror == null)
             {
@@ -557,7 +557,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             var registries = await _registryService.GetRegistriesAsync();
             var privateRegistry = registries.FirstOrDefault(r => 
                 r.Domain.Equals(registry, StringComparison.OrdinalIgnoreCase) &&
-                r.Type == RegistryType.Private.ToString());
+                r.Type == "Private");
             
             var manifestUrl = $"https://{registry}/v2/{name}/manifests/{tag}";
             var request = new HttpRequestMessage(HttpMethod.Head, manifestUrl);

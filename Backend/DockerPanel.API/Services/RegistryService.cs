@@ -114,8 +114,7 @@ public class RegistryService : IRegistryService
                 IsDefault = request.IsDefault,
                 IsSecure = request.IsSecure,
                 IsPublic = request.IsPublic,
-                RegistryType = request.RegistryType,
-                Type = DetermineRegistryType(domain),
+                Type = request.Type ?? DetermineRegistryType(domain),
                 Description = request.Description ?? string.Empty,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -194,7 +193,7 @@ public class RegistryService : IRegistryService
             // 密码只在非空时更新（避免前端传空字符串清空密码）
             if (!string.IsNullOrEmpty(request.Password)) registry.Password = request.Password;
             if (request.IsSecure.HasValue) registry.IsSecure = request.IsSecure.Value;
-            if (request.RegistryType.HasValue) registry.RegistryType = request.RegistryType.Value;
+            if (!string.IsNullOrEmpty(request.Type)) registry.Type = request.Type;
             if (request.IsDefault.HasValue && request.IsDefault.Value != registry.IsDefault)
             {
                 await SetDefaultRegistryAsync(registry.Id);

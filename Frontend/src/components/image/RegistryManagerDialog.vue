@@ -180,7 +180,7 @@
     <!-- 添加/编辑弹窗 -->
     <el-dialog
       v-model="showFormDialog"
-      :title="isEdit ? t('registry.editRegistry') : (form.registryType === 1 ? t('registry.addMirror') : t('registry.addPrivateRegistry'))"
+      :title="isEdit ? t('registry.editRegistry') : (form.type === RegistryType.Mirror ? t('registry.addMirror') : t('registry.addPrivateRegistry'))"
       width="550px"
       append-to-body
       :close-on-click-modal="false"
@@ -188,13 +188,13 @@
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px" label-position="left">
         <el-form-item :label="t('registry.name')" prop="name">
-          <el-input v-model="form.name" :placeholder="form.registryType === 1 ? t('registry.mirrorNamePlaceholder') : t('registry.registryNamePlaceholder')" />
+          <el-input v-model="form.name" :placeholder="form.type === RegistryType.Mirror ? t('registry.mirrorNamePlaceholder') : t('registry.registryNamePlaceholder')" />
         </el-form-item>
-        <el-form-item :label="form.registryType === 1 ? t('registry.mirrorAddress') : t('registry.domain')" prop="domain">
-          <el-input v-model="form.domain" :placeholder="form.registryType === 1 ? t('registry.mirrorDomainPlaceholder') : t('registry.domainPlaceholder')" />
-          <div class="form-tip">{{ form.registryType === 1 ? t('registry.mirrorDomainHint') : t('registry.domainHint') }}</div>
+        <el-form-item :label="form.type === RegistryType.Mirror ? t('registry.mirrorAddress') : t('registry.domain')" prop="domain">
+          <el-input v-model="form.domain" :placeholder="form.type === RegistryType.Mirror ? t('registry.mirrorDomainPlaceholder') : t('registry.domainPlaceholder')" />
+          <div class="form-tip">{{ form.type === RegistryType.Mirror ? t('registry.mirrorDomainHint') : t('registry.domainHint') }}</div>
         </el-form-item>
-        <template v-if="form.registryType === 0">
+        <template v-if="form.type === RegistryType.Private">
           <el-divider content-position="left">{{ t('registry.authInfo') }}</el-divider>
           <el-form-item :label="t('registry.username')" prop="username">
             <el-input v-model="form.username" :placeholder="t('registry.usernamePlaceholder')" />
@@ -205,7 +205,7 @@
         </template>
         <el-form-item :label="t('registry.setAsDefault')">
           <el-switch v-model="form.isDefault" />
-          <div class="form-tip">{{ form.registryType === 1 ? t('registry.defaultMirrorHint') : t('registry.defaultRegistryHint') }}</div>
+          <div class="form-tip">{{ form.type === RegistryType.Mirror ? t('registry.defaultMirrorHint') : t('registry.defaultRegistryHint') }}</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -264,7 +264,7 @@ const form = reactive({
   domain: '',
   username: '',
   password: '',
-  registryType: RegistryType.Private,
+  type: RegistryType.Private as string,
   isDefault: false
 })
 
@@ -275,11 +275,11 @@ const rules = computed(() => ({
 
 // 计算私有仓库和加速器列表
 const privateRegistries = computed(() => 
-  registries.value.filter(r => r.registryType === RegistryType.Private)
+  registries.value.filter(r => r.type === RegistryType.Private)
 )
 
 const mirrorRegistries = computed(() => 
-  registries.value.filter(r => r.registryType === RegistryType.Mirror)
+  registries.value.filter(r => r.type === RegistryType.Mirror)
 )
 
 const loadRegistries = async () => {
@@ -296,7 +296,7 @@ const loadRegistries = async () => {
 
 const openAddDialog = (type: 'private' | 'mirror') => {
   isEdit.value = false
-  form.registryType = type === 'mirror' ? RegistryType.Mirror : RegistryType.Private
+  form.type = type === 'mirror' ? RegistryType.Mirror : RegistryType.Private
   showFormDialog.value = true
 }
 
@@ -307,7 +307,7 @@ const handleEdit = (row: ImageRegistry) => {
   form.domain = row.domain || ''
   form.username = row.username || ''
   form.password = '' // 密码不回显
-  form.registryType = row.registryType
+  form.type = row.type
   form.isDefault = row.isDefault
   showFormDialog.value = true
 }
@@ -404,7 +404,7 @@ const handleSubmit = async () => {
         domain: form.domain,
         username: form.username || undefined,
         password: form.password || undefined,
-        registryType: form.registryType,
+        type: form.type,
         isDefault: form.isDefault
       })
       ElMessage.success(t('registry.updateSuccess'))
@@ -414,7 +414,7 @@ const handleSubmit = async () => {
         domain: form.domain,
         username: form.username || undefined,
         password: form.password || undefined,
-        registryType: form.registryType,
+        type: form.type,
         isDefault: form.isDefault
       })
       ElMessage.success(t('registry.addSuccess'))
@@ -435,7 +435,7 @@ const resetForm = () => {
   form.domain = ''
   form.username = ''
   form.password = ''
-  form.registryType = RegistryType.Private
+  form.type = RegistryType.Private
   form.isDefault = false
   isEdit.value = false
 }

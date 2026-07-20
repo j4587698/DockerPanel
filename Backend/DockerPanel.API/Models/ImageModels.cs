@@ -280,25 +280,6 @@ public class PruneResult
 }
 
 /// <summary>
-/// 仓库类型枚举
-/// </summary>
-public enum RegistryType
-{
-    /// <summary>
-    /// 私有仓库（如 Harbor、阿里云 ACR）
-    /// </summary>
-    Private = 0,
-    /// <summary>
-    /// 镜像加速器（如阿里云加速器、DaoCloud）
-    /// </summary>
-    Mirror = 1,
-    /// <summary>
-    /// Docker Hub（默认公共仓库）
-    /// </summary>
-    DockerHub = 2
-}
-
-/// <summary>
 /// 镜像仓库
 /// </summary>
 [Entity]
@@ -335,9 +316,7 @@ public class ImageRegistry
     /// 仓库类型：Private=私有仓库，Mirror=镜像加速器，DockerHub=Docker Hub
     /// </summary>
     [Index]
-    public RegistryType RegistryType { get; set; } = RegistryType.Private;
-    [Index]
-    public string Type { get; set; } = "DockerHub"; // DockerHub, Private, Custom (保留兼容)
+    public string Type { get; set; } = "DockerHub"; // DockerHub, Mirror, Private, 或厂商名(Harbor/Nexus/Aliyun/...)
     [Index]
     public string Status { get; set; } = "Active"; // Active, Inactive, Error
     public string Description { get; set; } = string.Empty;
@@ -395,9 +374,10 @@ public class CreateRegistryRequest
     public bool IsPublic { get; set; } = false;
     
     /// <summary>
-    /// 仓库类型：Private=私有仓库，Mirror=镜像加速器
+    /// 仓库类型：Mirror=镜像加速器，DockerHub=Docker Hub，Private=私有仓库，或厂商名(Harbor/Nexus/...)
+    /// 为空时由域名推断
     /// </summary>
-    public RegistryType RegistryType { get; set; } = RegistryType.Private;
+    public string? Type { get; set; }
 }
 
 /// <summary>
@@ -411,7 +391,7 @@ public class UpdateRegistryRequest
     public string? Password { get; set; }
     public bool? IsSecure { get; set; }
     public bool? IsDefault { get; set; }
-    public RegistryType? RegistryType { get; set; }
+    public string? Type { get; set; }
 }
 
 /// <summary>

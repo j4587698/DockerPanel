@@ -970,7 +970,7 @@ public class DockerEngine : IContainerEngine, IDisposable
             }
 
             var registry = await registryService.GetRegistryByIdAsync(registryId);
-            if (registry != null && registry.RegistryType == RegistryType.Mirror)
+            if (registry != null && registry.Type == "Mirror")
             {
                 return registry;
             }

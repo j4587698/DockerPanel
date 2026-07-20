@@ -12,10 +12,12 @@ namespace DockerPanel.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly ILocalizationService _localization;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, ILocalizationService localization)
     {
         _authService = authService;
+        _localization = localization;
     }
 
     /// <summary>
@@ -38,7 +40,7 @@ public class AuthController : ControllerBase
         var result = await _authService.SetupAdminAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString());
         if (!result.Success || result.Data == null)
         {
-            return StatusCode(result.StatusCode, new { message = result.Message });
+            return StatusCode(result.StatusCode, new { code = result.Code, message = result.Message });
         }
 
         SetAuthCookies(result.Data);
@@ -60,7 +62,7 @@ public class AuthController : ControllerBase
 
         if (!result.Success || result.Data == null)
         {
-            return StatusCode(result.StatusCode, new { message = result.Message });
+            return StatusCode(result.StatusCode, new { code = result.Code, message = result.Message });
         }
 
         SetAuthCookies(result.Data);
@@ -73,7 +75,7 @@ public class AuthController : ControllerBase
     {
         if (!Request.Cookies.TryGetValue("refresh_token", out var refreshToken))
         {
-            return Unauthorized(new { message = "未找到刷新凭证。" });
+            return Unauthorized(new { code = "REFRESH_INVALID", message = _localization.GetMessage("error.refreshNotFound", "未找到刷新凭证。") });
         }
 
         var result = await _authService.RefreshTokenAsync(
@@ -83,7 +85,7 @@ public class AuthController : ControllerBase
 
         if (!result.Success || result.Data == null)
         {
-            return StatusCode(result.StatusCode, new { message = result.Message });
+            return StatusCode(result.StatusCode, new { code = result.Code, message = result.Message });
         }
 
         SetAuthCookies(result.Data);
@@ -128,7 +130,7 @@ public class AuthController : ControllerBase
         var result = await _authService.ChangePasswordAsync(User, request);
         if (!result.Success || result.Data == null)
         {
-            return StatusCode(result.StatusCode, new { message = result.Message });
+            return StatusCode(result.StatusCode, new { code = result.Code, message = result.Message });
         }
 
         return Ok(result.Data);
@@ -154,7 +156,7 @@ public class AuthController : ControllerBase
         var result = await _authService.CreateUserAsync(request);
         if (!result.Success || result.Data == null)
         {
-            return StatusCode(result.StatusCode, new { message = result.Message });
+            return StatusCode(result.StatusCode, new { code = result.Code, message = result.Message });
         }
 
         return CreatedAtAction(nameof(GetUsers), new { id = result.Data.Id }, result.Data);
@@ -170,7 +172,7 @@ public class AuthController : ControllerBase
         var result = await _authService.UpdateUserAsync(id, request, User);
         if (!result.Success || result.Data == null)
         {
-            return StatusCode(result.StatusCode, new { message = result.Message });
+            return StatusCode(result.StatusCode, new { code = result.Code, message = result.Message });
         }
 
         return Ok(result.Data);
@@ -186,7 +188,7 @@ public class AuthController : ControllerBase
         var result = await _authService.ResetUserPasswordAsync(id, request);
         if (!result.Success || result.Data == null)
         {
-            return StatusCode(result.StatusCode, new { message = result.Message });
+            return StatusCode(result.StatusCode, new { code = result.Code, message = result.Message });
         }
 
         return Ok(result.Data);
@@ -202,7 +204,7 @@ public class AuthController : ControllerBase
         var result = await _authService.DeleteUserAsync(id, User);
         if (!result.Success)
         {
-            return StatusCode(result.StatusCode, new { message = result.Message });
+            return StatusCode(result.StatusCode, new { code = result.Code, message = result.Message });
         }
 
         return NoContent();

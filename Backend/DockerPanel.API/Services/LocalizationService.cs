@@ -60,6 +60,16 @@ public class LocalizationService : ILocalizationService
             ["error.timeout"] = "请求超时",
             ["error.networkError"] = "网络连接失败",
             
+            // 认证错误
+            ["error.loginFailed"] = "登录失败",
+            ["error.invalidCredentials"] = "用户名或密码错误",
+            ["error.tokenExpired"] = "登录已过期，请重新登录",
+            ["error.accountDisabled"] = "账户已禁用或锁定",
+            ["error.refreshExpired"] = "登录已过期，请重新登录",
+            ["error.refreshInvalid"] = "登录凭证无效，请重新登录",
+            ["error.refreshNotFound"] = "未找到刷新凭证，请重新登录",
+            ["error.csrfInvalid"] = "请求被安全策略拒绝",
+            
             // 容器相关
             ["container.listFailed"] = "获取容器列表失败",
             ["container.notFound"] = "容器未找到",
@@ -795,6 +805,10 @@ public class LocalizationService : ILocalizationService
             ["error.invalidCredentials"] = "Invalid username or password",
             ["error.tokenExpired"] = "Session expired, please login again",
             ["error.accountDisabled"] = "Account is disabled",
+            ["error.refreshExpired"] = "Session expired, please login again",
+            ["error.refreshInvalid"] = "Invalid session, please login again",
+            ["error.refreshNotFound"] = "No refresh credential found, please login again",
+            ["error.csrfInvalid"] = "Request blocked by security policy",
             
             // SSH messages
             ["ssh.testConnectionFailed"] = "Failed to test SSH connection",

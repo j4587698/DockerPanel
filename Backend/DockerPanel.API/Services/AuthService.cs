@@ -110,17 +110,20 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly JwtSecretProvider _jwtSecretProvider;
     private readonly ILogger<AuthService> _logger;
+    private readonly ILocalizationService _localization;
 
     public AuthService(
         TinyDbContext dbContext,
         IConfiguration configuration,
         JwtSecretProvider jwtSecretProvider,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        ILocalizationService localization)
     {
         _dbContext = dbContext;
         _configuration = configuration;
         _jwtSecretProvider = jwtSecretProvider;
         _logger = logger;
+        _localization = localization;
     }
 
     public async Task<AuthStatusResponse> GetStatusAsync()
@@ -198,14 +201,14 @@ public class AuthService : IAuthService
         if (user == null)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(250));
-            return AuthServiceResult<LoginResponse>.Fail("用户名或密码错误。", StatusCodes.Status401Unauthorized);
+            return AuthServiceResult<LoginResponse>.Fail(_localization.GetMessage("error.invalidCredentials", "用户名或密码错误。"), StatusCodes.Status401Unauthorized, "INVALID_CREDENTIALS");
         }
 
         NormalizeStoredRole(users, user);
 
         if (!user.IsActive)
         {
-            return AuthServiceResult<LoginResponse>.Fail("账户已禁用。", StatusCodes.Status403Forbidden);
+            return AuthServiceResult<LoginResponse>.Fail(_localization.GetMessage("error.accountDisabled", "账户已禁用。"), StatusCodes.Status403Forbidden, "ACCOUNT_DISABLED");
         }
 
         var now = DateTime.UtcNow;
@@ -227,7 +230,7 @@ public class AuthService : IAuthService
             user.UpdatedAt = now;
             users.Update(user);
 
-            return AuthServiceResult<LoginResponse>.Fail("用户名或密码错误。", StatusCodes.Status401Unauthorized);
+            return AuthServiceResult<LoginResponse>.Fail(_localization.GetMessage("error.invalidCredentials", "用户名或密码错误。"), StatusCodes.Status401Unauthorized, "INVALID_CREDENTIALS");
         }
 
         user.FailedLoginAttempts = 0;
@@ -245,7 +248,7 @@ public class AuthService : IAuthService
     {
         if (string.IsNullOrWhiteSpace(oldToken))
         {
-            return Task.FromResult(AuthServiceResult<LoginResponse>.Fail("无效的 Refresh Token。", StatusCodes.Status401Unauthorized));
+            return Task.FromResult(AuthServiceResult<LoginResponse>.Fail(_localization.GetMessage("error.refreshInvalid", "无效的 Refresh Token。"), StatusCodes.Status401Unauthorized, "REFRESH_INVALID"));
         }
 
         var users = GetUsers();
@@ -253,12 +256,12 @@ public class AuthService : IAuthService
 
         if (user == null || user.RefreshTokenExpiry < DateTime.UtcNow)
         {
-            return Task.FromResult(AuthServiceResult<LoginResponse>.Fail("Refresh Token 已失效或过期，请重新登录。", StatusCodes.Status401Unauthorized));
+            return Task.FromResult(AuthServiceResult<LoginResponse>.Fail(_localization.GetMessage("error.refreshExpired", "Refresh Token 已失效或过期，请重新登录。"), StatusCodes.Status401Unauthorized, "REFRESH_EXPIRED"));
         }
 
         if (!user.IsActive || (user.LockedUntil.HasValue && user.LockedUntil.Value > DateTime.UtcNow))
         {
-            return Task.FromResult(AuthServiceResult<LoginResponse>.Fail("账户已被禁用或锁定。", StatusCodes.Status401Unauthorized));
+            return Task.FromResult(AuthServiceResult<LoginResponse>.Fail(_localization.GetMessage("error.accountDisabled", "账户已被禁用或锁定。"), StatusCodes.Status401Unauthorized, "ACCOUNT_DISABLED"));
         }
 
         user.LastLoginAt = DateTime.UtcNow;

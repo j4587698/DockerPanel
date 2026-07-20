@@ -174,6 +174,7 @@ public class AuthServiceResult<T>
     public bool Success { get; set; }
     public T? Data { get; set; }
     public string Message { get; set; } = string.Empty;
+    public string? Code { get; set; }
     public int StatusCode { get; set; } = StatusCodes.Status400BadRequest;
 
     public static AuthServiceResult<T> Ok(T data) => new()
@@ -183,10 +184,11 @@ public class AuthServiceResult<T>
         StatusCode = StatusCodes.Status200OK
     };
 
-    public static AuthServiceResult<T> Fail(string message, int statusCode = StatusCodes.Status400BadRequest) => new()
+    public static AuthServiceResult<T> Fail(string message, int statusCode = StatusCodes.Status400BadRequest, string? code = null) => new()
     {
         Success = false,
         Message = message,
-        StatusCode = statusCode
+        StatusCode = statusCode,
+        Code = code
     };
 }

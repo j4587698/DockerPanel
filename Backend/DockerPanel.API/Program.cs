@@ -513,15 +513,18 @@ app.Use(async (context, next) =>
     if (!isYarp && context.Request.Path.StartsWithSegments("/api"))
     {
         var method = context.Request.Method;
-        if (!HttpMethods.IsGet(method) && 
-            !HttpMethods.IsHead(method) && 
+        if (!HttpMethods.IsGet(method) &&
+            !HttpMethods.IsHead(method) &&
             !HttpMethods.IsOptions(method))
         {
             if (!context.Request.Headers.ContainsKey("X-DockerPanel-Api"))
             {
+                var csrfLocalization = context.RequestServices.GetService<ILocalizationService>();
+                var csrfMessage = csrfLocalization?.GetMessage("error.csrfInvalid", "CSRF Protection: Missing X-DockerPanel-Api header")
+                    ?? "CSRF Protection: Missing X-DockerPanel-Api header";
                 context.Response.StatusCode = 403;
                 context.Response.ContentType = "application/json";
-                await context.Response.WriteAsJsonAsync(new { message = "CSRF Protection: Missing X-DockerPanel-Api header" });
+                await context.Response.WriteAsJsonAsync(new { code = "CSRF_INVALID", message = csrfMessage });
                 return;
             }
         }

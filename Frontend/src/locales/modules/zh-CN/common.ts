@@ -103,6 +103,8 @@ export default {
   custom: '自定义',
   basic: '基本',
   advanced: '高级',
+  showAdvanced: '显示高级设置',
+  hideAdvanced: '隐藏高级设置',
   details: '详情',
   yes: '是',
   no: '否',

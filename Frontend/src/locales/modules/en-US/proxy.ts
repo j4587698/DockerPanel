@@ -90,6 +90,13 @@ export default {
     deleteConfirm: 'Are you sure you want to delete the mapping for "{domain}"?',
     deleted: 'Domain mapping deleted successfully',
     toggleSuccess: 'Status updated',
-    toggleFailed: 'Failed to toggle status'
+    toggleFailed: 'Failed to toggle status',
+
+    // Advanced settings
+    forceHttps: 'Force HTTPS Redirect',
+    forceHttpsHelp: 'When enabled, all HTTP requests will be 301 redirected to HTTPS',
+    activityTimeout: 'Idle Timeout (s)',
+    timeoutHelp: 'Connection will be closed after this period of inactivity',
+    httpVersion: 'HTTP Version'
   }
 }

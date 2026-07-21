@@ -97,6 +97,13 @@ export default {
     deleteConfirm: '确定要删除 "{domain}" 的映射吗？',
     deleted: '域名映射已删除',
     toggleSuccess: '状态已更新',
-    toggleFailed: '切换状态失败'
+    toggleFailed: '切换状态失败',
+
+    // 高级设置
+    forceHttps: '强制 HTTPS 跳转',
+    forceHttpsHelp: '开启后所有 HTTP 请求将自动 301 重定向到 HTTPS',
+    activityTimeout: '空闲超时（秒）',
+    timeoutHelp: '超过此时间无活动请求将自动断开连接',
+    httpVersion: 'HTTP 版本'
   }
 }

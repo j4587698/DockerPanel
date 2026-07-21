@@ -173,6 +173,9 @@ export default {
   downloadCertificate: '下载证书',
   renewCertificate: '续期证书',
   cancelApplication: '取消申请',
+  refresh: '刷新',
+  httpValidationConfig: 'HTTP 验证配置',
+  webRoot: '网站根目录',
   // 基本信息
   basicInfo: '基本信息',
   certificateName: '证书名称',

@@ -1,5 +1,5 @@
 # 前端构建阶段
-FROM node:20-alpine AS frontend-build
+FROM --platform=$BUILDPLATFORM node:20-alpine AS frontend-build
 
 WORKDIR /src
 
@@ -11,17 +11,25 @@ COPY Frontend/ ./
 RUN npm run build
 
 # 后端发布阶段
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS backend-build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS backend-build
+ARG TARGETARCH
 
 WORKDIR /src
 
+# 将 Docker 的 TARGETARCH (amd64, arm64等) 转换为 .NET 识别的架构标识 (x64, arm64等)
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+      echo "x64" > /tmp/arch; \
+    else \
+      echo "$TARGETARCH" > /tmp/arch; \
+    fi
+
 COPY Backend/DockerPanel.API/DockerPanel.API.csproj ./Backend/DockerPanel.API/
-RUN dotnet restore ./Backend/DockerPanel.API/DockerPanel.API.csproj
+RUN dotnet restore ./Backend/DockerPanel.API/DockerPanel.API.csproj -a $(cat /tmp/arch)
 
 COPY Backend/DockerPanel.API/ ./Backend/DockerPanel.API/
 COPY --from=frontend-build /src/Backend/DockerPanel.API/wwwroot ./Backend/DockerPanel.API/wwwroot
 
-RUN dotnet publish ./Backend/DockerPanel.API/DockerPanel.API.csproj -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish ./Backend/DockerPanel.API/DockerPanel.API.csproj -c Release -o /app/publish -a $(cat /tmp/arch) /p:UseAppHost=false
 
 # 后端运行阶段
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS backend-runtime

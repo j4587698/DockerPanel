@@ -103,6 +103,8 @@ export default {
   custom: 'Custom',
   basic: 'Basic',
   advanced: 'Advanced',
+  showAdvanced: 'Show Advanced Settings',
+  hideAdvanced: 'Hide Advanced Settings',
   details: 'Details',
   yes: 'Yes',
   no: 'No',

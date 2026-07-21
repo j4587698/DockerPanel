@@ -171,6 +171,9 @@ export default {
   downloadCertificate: 'Download Certificate',
   renewCertificate: 'Renew Certificate',
   cancelApplication: 'Cancel Application',
+  refresh: 'Refresh',
+  httpValidationConfig: 'HTTP Validation Config',
+  webRoot: 'Web Root',
   // Basic Info
   basicInfo: 'Basic Information',
   certificateName: 'Certificate Name',

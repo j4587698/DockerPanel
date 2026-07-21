@@ -119,5 +119,18 @@ export default {
   empty: {
     noNetworks: '暂无自定义网络',
     createFirst: '创建网络来隔离和连接您的容器'
-  }
+  },
+  searchContainer: 'Search Container',
+  selectContainer: '选择容器',
+  noAvailableContainers: 'No Available Containers',
+  ipConfig: 'IP Config',
+  ipConfigHint: 'IP Config Hint',
+  ipv4Address: 'IPv4 Address',
+  ipv4Placeholder: 'IPv4 Placeholder',
+  ipv6Address: 'IPv6 Address',
+  aliases: 'Aliases',
+  aliasesHint: 'Aliases Hint',
+  connect: 'Connect',
+  loadContainersFailed: '加载容器失败',
+  connectFailed: 'Connect Failed'
 }

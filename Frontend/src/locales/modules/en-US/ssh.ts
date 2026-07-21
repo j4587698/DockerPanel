@@ -145,5 +145,8 @@ export default {
     connectionTimeoutRange: 'Connection timeout must be between 1 and 300 seconds',
     commandTimeoutRequired: 'Command timeout is required',
     commandTimeoutRange: 'Command timeout must be between 1 and 3600 seconds'
-  }
+  },
+  description: 'Description',
+  cancel: 'Cancel',
+  editConnection: 'Edit Connection'
 }

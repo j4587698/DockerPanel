@@ -191,41 +191,5 @@ export default {
   taskStepCompleted: '已完成',
   taskStepFailed: '失败',
 
-  // Compose 部署进度
-  'compose.deploy.start': '开始部署',
-  'compose.deploy.network': '创建网络',
-  'compose.deploy.volume': '创建存储卷',
-  'compose.deploy.pull': '拉取镜像',
-  'compose.deploy.container': '创建容器',
-  'compose.deploy.completed': '部署完成',
-  'compose.deploy.failed': '部署失败',
 
-  // Compose 操作进度
-  'compose.operation.start': '开始操作',
-  'compose.operation.stopping': '正在停止',
-  'compose.operation.starting': '正在启动',
-  'compose.operation.completed': '操作完成',
-  'compose.operation.failed': '操作失败',
-
-  // Volume 打包进度
-  'volume.archive.preparing': '准备中',
-  'volume.archive.packing': '打包中',
-  'volume.archive.compressing': '压缩中',
-  'volume.archive.cleaning': '清理中',
-  'volume.archive.completed': '打包完成',
-  'volume.archive.failed': '打包失败',
-
-  // Volume 恢复进度
-  'volume.restore.preparing': '准备中',
-  'volume.restore.extracting': '解压中',
-  'volume.restore.restoring': '恢复中',
-  'volume.restore.cleaning': '清理中',
-  'volume.restore.completed': '恢复完成',
-  'volume.restore.failed': '恢复失败',
-
-  // 镜像构建进度
-  'image.build.preparing': '准备构建',
-  'image.build.building': '构建中',
-  'image.build.completed': '构建完成',
-  'image.build.failed': '构建失败'
 }

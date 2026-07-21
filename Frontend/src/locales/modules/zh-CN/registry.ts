@@ -78,5 +78,8 @@ export default {
   updateSuccess: '更新成功',
   addSuccess: '添加成功',
   saveFailed: '保存失败',
-  pullImageStart: '开始拉取镜像: {name}'
+  pullImageStart: '开始拉取镜像: {name}',
+  searchImages: '搜索镜像',
+  searching: '搜索中',
+  noResults: '无结果'
 }

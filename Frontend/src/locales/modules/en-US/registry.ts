@@ -77,5 +77,8 @@ export default {
   updateSuccess: 'Updated successfully',
   addSuccess: 'Added successfully',
   saveFailed: 'Failed to save',
-  pullImageStart: 'Start pulling image: {name}'
+  pullImageStart: 'Start pulling image: {name}',
+  searchImages: 'Search Images',
+  searching: 'Searching',
+  noResults: 'No Results'
 }

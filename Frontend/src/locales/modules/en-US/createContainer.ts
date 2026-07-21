@@ -81,6 +81,7 @@ export default {
   extraHostsPlaceholder: 'host:ip, host2:ip2',
   // Storage
   volumeMapping: 'Volume Mapping',
+  volumeTypeLabel: 'Volume',
   volumeType: 'Type',
   hostPath: 'Host Path',
   hostPathType: 'Host Path',
@@ -214,5 +215,7 @@ export default {
   editFailed: 'Failed to update container',
   imageRequired: 'Please select an image',
   nameRequired: 'Please enter container name',
-  domainRequired: 'Please enter domain'
+  domainRequired: 'Please enter domain',
+  imageMissingPulling: 'Image Missing Pulling',
+  templateDescription: 'Template Description'
 }

@@ -215,5 +215,7 @@ export default {
   editFailed: '容器编辑失败',
   imageRequired: '请选择镜像',
   nameRequired: '请输入容器名称',
-  domainRequired: '请输入域名'
+  domainRequired: '请输入域名',
+  imageMissingPulling: '镜像缺失，正在拉取',
+  templateDescription: '模板描述'
 }

@@ -191,41 +191,5 @@ export default {
   taskStepCompleted: 'Completed',
   taskStepFailed: 'Failed',
 
-  // Compose deploy progress
-  'compose.deploy.start': 'Starting deployment',
-  'compose.deploy.network': 'Creating networks',
-  'compose.deploy.volume': 'Creating volumes',
-  'compose.deploy.pull': 'Pulling images',
-  'compose.deploy.container': 'Creating containers',
-  'compose.deploy.completed': 'Deployment completed',
-  'compose.deploy.failed': 'Deployment failed',
 
-  // Compose operation progress
-  'compose.operation.start': 'Starting operation',
-  'compose.operation.stopping': 'Stopping',
-  'compose.operation.starting': 'Starting',
-  'compose.operation.completed': 'Operation completed',
-  'compose.operation.failed': 'Operation failed',
-
-  // Volume archive progress
-  'volume.archive.preparing': 'Preparing',
-  'volume.archive.packing': 'Packing',
-  'volume.archive.compressing': 'Compressing',
-  'volume.archive.cleaning': 'Cleaning up',
-  'volume.archive.completed': 'Archive completed',
-  'volume.archive.failed': 'Archive failed',
-
-  // Volume restore progress
-  'volume.restore.preparing': 'Preparing',
-  'volume.restore.extracting': 'Extracting',
-  'volume.restore.restoring': 'Restoring',
-  'volume.restore.cleaning': 'Cleaning up',
-  'volume.restore.completed': 'Restore completed',
-  'volume.restore.failed': 'Restore failed',
-
-  // Image build progress
-  'image.build.preparing': 'Preparing build',
-  'image.build.building': 'Building',
-  'image.build.completed': 'Build completed',
-  'image.build.failed': 'Build failed'
 }

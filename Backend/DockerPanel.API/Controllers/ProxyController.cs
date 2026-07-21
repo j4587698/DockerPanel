@@ -361,7 +361,56 @@ public class ProxyController : ControllerBase
                 existingMapping.Priority = request.Priority.Value;
             if (request.Enabled.HasValue)
                 existingMapping.Enabled = request.Enabled.Value;
-            
+
+            // 启用SSL且无证书时，自动触发证书申请
+            if (request.EnableSsl == true && string.IsNullOrEmpty(existingMapping.CertificateId) && request.AutoRequestCertificate == true)
+            {
+                try
+                {
+                    AcmeAccount? account = null;
+                    if (!string.IsNullOrEmpty(existingMapping.AccountId))
+                    {
+                        var allAccounts = await _acmeService.GetAccountsAsync();
+                        account = allAccounts.FirstOrDefault(a => a.Id == existingMapping.AccountId);
+                    }
+                    account ??= (await _acmeService.GetAccountsAsync()).FirstOrDefault();
+
+                    if (account != null)
+                    {
+                        var certRequest = new AcmeCertificateRequest
+                        {
+                            AccountId = account.Id,
+                            Domains = new List<string> { existingMapping.Domain },
+                            KeyType = "ECDSA256",
+                            UseWildcard = false,
+                            ChallengeTypes = new List<string> { "http-01" },
+                            AcmeProvider = account.Provider == "letsencrypt" ? "letsencrypt" : account.Provider,
+                            AccountKey = account.AccountKey,
+                            Metadata = new Dictionary<string, object>
+                            {
+                                ["autoRequested"] = true,
+                                ["autoRenew"] = true,
+                                ["challengeType"] = "http-01"
+                            }
+                        };
+
+                        existingMapping.AccountId = account.Id;
+                        var order = await _acmeService.OrderCertificateAsync(certRequest);
+                        if (order != null)
+                        {
+                            existingMapping.CertificateId = order.Id;
+                            existingMapping.EnableSsl = true;
+                            _logger.LogInformation("已自动申请证书: OrderId={OrderId}, Domain={Domain}",
+                                order.Id, existingMapping.Domain);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "自动申请证书失败: {Domain}", existingMapping.Domain);
+                }
+            }
+
             // 如果显式要求更新高级设置，则直接赋值（允许设为null来清除）
             if (request.UpdateAdvancedSettings == true)
             {

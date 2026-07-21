@@ -894,6 +894,8 @@ import { acmeApi } from '@/api/acme'
 import type { AcmeAccount } from '@/api/certificate'
 import templateApi from '@/api/templates'
 import PullProgressDisplay from '../image/PullProgressDisplay.vue'
+import signalrService from '@/services/signalr'
+import { useTasksStore } from '@/stores/tasks'
 import ContainerTemplateDialog from './ContainerTemplateDialog.vue'
 import * as signalR from '@microsoft/signalr'
 
@@ -912,6 +914,7 @@ const creating = ref(false)
 const pulling = ref(false)
 const manualPulling = ref(false)
 const progressMap = ref<Record<string, any>>({})
+const tasksStore = useTasksStore()
 const showPullDialog = ref(false)
 const pullTab = ref('direct')
 const pullImageName = ref('')
@@ -1253,25 +1256,7 @@ const rules = {
   image: [{ required: true, message: '请选择镜像', trigger: ['blur', 'change'] }]
 }
 
-let hubConnection: signalR.HubConnection | null = null
-
-const startSignalR = async () => {
-  hubConnection = new signalR.HubConnectionBuilder()
-    .withUrl('/dockerpanelHub', {
-      accessTokenFactory: () => localStorage.getItem('token') || ''
-    })
-    .withAutomaticReconnect()
-    .build()
-  hubConnection.on('ImagePullUpdate', (update) => {
-    // 手动拉取时不设置 pulling（那是创建时自动拉取的标志）
-    if (!manualPulling.value) {
-      pulling.value = true
-    }
-    progressMap.value[update.id] = update
-  })
-  await hubConnection.start()
-  return hubConnection.connectionId
-}
+// 不再需要本地维护 hubConnection，改用全局 signalrService
 
 const handleSubmit = async () => {
   if (!formRef.value) return
@@ -1562,7 +1547,6 @@ const resetSaveTemplateForm = () => {
 }
 
 const handleClose = () => {
-  if (hubConnection) hubConnection.stop()
   visible.value = false
   pulling.value = false
   manualPulling.value = false
@@ -1657,8 +1641,52 @@ const handlePullImage = async () => {
   progressMap.value = {}
 
   try {
-    const connectionId = await startSignalR()
-    await imageApi.pullImage({ imageName, tag, connectionId })
+    const res = await imageApi.pullImage({ imageName, tag })
+    const data = res as any
+    const pullId = data.pullId
+    
+    // 等待拉取完成
+    await new Promise<void>((resolve, reject) => {
+      const targetPullId = pullId?.startsWith('pull-') ? pullId : `pull-${pullId}`
+      
+      const unsubscribe = tasksStore.$subscribe((mutation, state) => {
+        const task = state.tasks.find(t => t.id === targetPullId)
+        if (!task) return
+        
+        // 将 task.layers 转换为 PullProgressDisplay 需要的 progressMap 格式
+        const newProgressMap: Record<string, any> = {}
+        
+        // 加上系统总体进度/状态
+        newProgressMap['system'] = {
+          id: 'system',
+          status: task.detail || task.status,
+          current: 0,
+          total: 0
+        }
+        
+        // 加上所有分层进度
+        if (task.layers) {
+          task.layers.forEach((layer: any) => {
+            newProgressMap[layer.layerId] = {
+              id: layer.layerId,
+              status: layer.status,
+              current: layer.current,
+              total: layer.total
+            }
+          })
+        }
+        
+        progressMap.value = newProgressMap
+
+        if (task.status === 'completed') {
+          unsubscribe()
+          resolve()
+        } else if (task.status === 'failed') {
+          unsubscribe()
+          reject(new Error(task.detail || '拉取失败'))
+        }
+      })
+    })
 
     // 拉取成功后刷新镜像列表
     await imagesStore.fetchImages()
@@ -1678,10 +1706,6 @@ const handlePullImage = async () => {
   } finally {
     manualPulling.value = false
     progressMap.value = {}
-    if (hubConnection) {
-      hubConnection.stop()
-      hubConnection = null
-    }
   }
 }
 
@@ -1734,7 +1758,6 @@ const pullFromRegistry = async () => {
   progressMap.value = {}
 
   try {
-    const connectionId = await startSignalR()
     let parsedName = imageName
     let tag = 'latest'
     const colonIdx = imageName.lastIndexOf(':')
@@ -1743,11 +1766,54 @@ const pullFromRegistry = async () => {
       tag = imageName.substring(colonIdx + 1)
     }
 
-    await imageApi.pullImage({
+    const res = await imageApi.pullImage({
       registry: selectedRegistryId.value,
       imageName: parsedName,
-      tag: tag,
-      connectionId
+      tag: tag
+    })
+    
+    const data = res as any
+    const pullId = data.pullId
+    
+    // 等待拉取完成
+    await new Promise<void>((resolve, reject) => {
+      const targetPullId = pullId?.startsWith('pull-') ? pullId : `pull-${pullId}`
+      
+      const unsubscribe = tasksStore.$subscribe((mutation, state) => {
+        const task = state.tasks.find(t => t.id === targetPullId)
+        if (!task) return
+        
+        // 将 task.layers 转换为 PullProgressDisplay 需要的 progressMap 格式
+        const newProgressMap: Record<string, any> = {}
+        
+        newProgressMap['system'] = {
+          id: 'system',
+          status: task.detail || task.status,
+          current: 0,
+          total: 0
+        }
+        
+        if (task.layers) {
+          task.layers.forEach((layer: any) => {
+            newProgressMap[layer.layerId] = {
+              id: layer.layerId,
+              status: layer.status,
+              current: layer.current,
+              total: layer.total
+            }
+          })
+        }
+        
+        progressMap.value = newProgressMap
+
+        if (task.status === 'completed') {
+          unsubscribe()
+          resolve()
+        } else if (task.status === 'failed') {
+          unsubscribe()
+          reject(new Error(task.detail || '拉取失败'))
+        }
+      })
     })
 
     await imagesStore.fetchImages()
@@ -1771,10 +1837,6 @@ const pullFromRegistry = async () => {
   } finally {
     manualPulling.value = false
     progressMap.value = {}
-    if (hubConnection) {
-      hubConnection.stop()
-      hubConnection = null
-    }
   }
 }
 
@@ -2073,7 +2135,7 @@ const autoDetectVolumes = async () => {
   }
 }
 
-onBeforeUnmount(() => { if (hubConnection) hubConnection.stop() })
+// no-op
 </script>
 
 <style scoped>

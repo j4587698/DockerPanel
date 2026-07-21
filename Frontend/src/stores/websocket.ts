@@ -14,6 +14,7 @@ import type { ContainerUpdate } from '@/services/signalr'
 import type { SystemStatusUpdate } from '@/services/signalr'
 import type { LogEntry } from '@/services/signalr'
 import type { NotificationMessage } from '@/services/signalr'
+import { useTasksStore } from '@/stores/tasks'
 
 const debugLog = (...args: unknown[]) => {
   if (import.meta.env.DEV) {
@@ -138,6 +139,9 @@ export const useWebSocketStore = defineStore('websocket', () => {
 
     // 订阅错误消息
     signalrService.subscribe('error', handleError)
+
+    // 订阅证书进度更新
+    signalrService.subscribe('certificate-progress', handleCertificateProgress)
   }
 
   // 处理SignalR连接成功
@@ -273,6 +277,38 @@ export const useWebSocketStore = defineStore('websocket', () => {
   const handleError = (message: SignalRMessage) => {
     console.error('SignalR错误:', message)
     ElMessage.error(message.data?.message || '发生未知错误')
+  }
+
+  // 处理证书进度更新
+  const handleCertificateProgress = (message: SignalRMessage) => {
+    const data = message.data
+    const tasksStore = useTasksStore()
+    const taskId = `cert-${data.certificateId || data.progressId}`
+    const status = data.status
+    const progress = data.progressPercentage || 0
+
+    if (status === 2 || status === 3) {
+      tasksStore.updateTask(taskId, {
+        status: status === 2 ? 'completed' : 'failed',
+        progress: status === 2 ? 100 : progress,
+        detail: status === 3 ? (data.errors?.[0] || '申请失败') : '申请完成'
+      })
+    } else if (status === 0 || progress === 0) {
+      tasksStore.addTask({
+        id: taskId,
+        type: 'certificate',
+        title: `证书申请 - ${data.certificateId || data.progressId}`,
+        status: 'running',
+        progress: 0,
+        detail: data.currentStepDescription || data.message || '准备中...'
+      })
+    } else {
+      tasksStore.updateTask(taskId, {
+        status: 'running',
+        progress,
+        detail: data.currentStepDescription || data.message
+      })
+    }
   }
 
   // 显示容器状态变更通知

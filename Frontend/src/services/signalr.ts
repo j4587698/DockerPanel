@@ -56,6 +56,7 @@ class SignalRService {
   private maxReconnectAttempts = 10
   private isManualClose = false
   private messageQueue: SignalRMessage[] = []
+  private connectPromise: Promise<void> | null = null
 
   // 手动重连相关
   private manualReconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -99,6 +100,21 @@ class SignalRService {
    * 连接SignalR Hub
    */
   async connect(url?: string): Promise<void> {
+    if (this.isConnected()) return
+    
+    if (this.connectPromise) {
+      return this.connectPromise
+    }
+
+    this.connectPromise = this._doConnect(url)
+    try {
+      await this.connectPromise
+    } finally {
+      this.connectPromise = null
+    }
+  }
+
+  private async _doConnect(url?: string): Promise<void> {
     try {
       this.isManualClose = false
       this.url = url || this.getDefaultUrl()
@@ -467,6 +483,11 @@ class SignalRService {
     // 监听镜像推送进度
     this.connection.on('ImagePushProgress', (data) => {
       this.emit('image-push-progress', { type: 'image-push-progress', data, timestamp: new Date().toISOString() })
+    })
+
+    // 监听证书进度更新
+    this.connection.on('CertificateProgressUpdate', (data) => {
+      this.emit('certificate-progress', { type: 'certificate-progress', data, timestamp: new Date().toISOString() })
     })
 
     // 监听错误消息

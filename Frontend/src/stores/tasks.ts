@@ -16,7 +16,7 @@ const debugLog = (...args: unknown[]) => {
 
 export interface BackgroundTask {
   id: string
-  type: 'image-build' | 'image-pull' | 'image-push' | 'image-import' | 'compose-deploy' | 'volume-archive' | 'volume-restore' | 'other'
+  type: 'image-build' | 'image-pull' | 'image-push' | 'image-import' | 'compose-deploy' | 'volume-archive' | 'volume-restore' | 'certificate' | 'other'
   title: string
   status: 'pending' | 'running' | 'completed' | 'failed'
   progress: number

@@ -14,26 +14,28 @@
     <div v-else-if="certificate" class="certificate-detail">
       <!-- 操作按钮 -->
       <div class="action-bar">
-        <el-button size="small" @click="refreshCertificate" :icon="Refresh">{{ t('certificate.refresh') }}</el-button>
-        <el-button
-          v-if="certificate?.status === 'valid' || certificate?.status === 'expiring'"
-          type="primary"
-          size="small"
-          @click="downloadCertificate"
-         :icon="Download">{{ t('certificate.downloadCertificate') }}</el-button>
+        <div class="action-bar-group">
+          <el-button size="small" plain @click="refreshCertificate" :icon="Refresh">{{ t('certificate.refresh') }}</el-button>
+          <el-button
+            v-if="certificate?.status === 'valid' || certificate?.status === 'expiring'"
+            size="small"
+            plain
+            @click="downloadCertificate"
+           :icon="Download">{{ t('certificate.downloadCertificate') }}</el-button>
+          <el-button
+            v-if="shouldShowCancelButton()"
+            size="small"
+            plain
+            @click="cancelCertificateOrder"
+           :icon="CircleClose">{{ t('certificate.cancelApplication') }}</el-button>
+        </div>
         <el-button
           v-if="shouldShowRenewButton()"
           type="warning"
-          size="small"
+          size="default"
           @click="renewCertificate"
           :loading="renewing"
          :icon="Refresh">{{ t('certificate.renewCertificate') }}</el-button>
-        <el-button
-          v-if="shouldShowCancelButton()"
-          type="danger"
-          size="small"
-          @click="cancelCertificateOrder"
-         :icon="CircleClose">{{ t('certificate.cancelApplication') }}</el-button>
       </div>
 
       <!-- 基本信息 -->
@@ -732,38 +734,25 @@ const getProgressStatus = (status: number) => {
 
 .action-bar {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 12px;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
+  padding: 14px 20px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   margin-bottom: 8px;
 }
 
-.action-bar .el-button {
-  border-color: rgba(255, 255, 255, 0.3);
-  color: white;
-  background: rgba(255, 255, 255, 0.1);
-  min-width: 104px;
-}
-
-.action-bar .el-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-.action-bar .el-button--primary {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.4);
+.action-bar-group {
+  display: flex;
+  gap: 8px;
 }
 
 .action-bar .el-button--warning {
-  background: rgba(245, 158, 11, 0.3);
-  border-color: rgba(245, 158, 11, 0.5);
-}
-
-.action-bar .el-button--danger {
-  background: rgba(239, 68, 68, 0.3);
-  border-color: rgba(239, 68, 68, 0.5);
+  font-weight: 600;
+  padding: 8px 24px;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
 }
 
 .detail-card {

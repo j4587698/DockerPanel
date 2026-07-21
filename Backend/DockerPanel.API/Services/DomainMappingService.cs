@@ -255,6 +255,7 @@ public class DomainMappingService
             Metadata = new Dictionary<string, object>
             {
                 ["autoRequested"] = true,
+                ["autoRenew"] = true,
                 ["challengeType"] = "http-01"
             },
             AccountKey = account.AccountKey

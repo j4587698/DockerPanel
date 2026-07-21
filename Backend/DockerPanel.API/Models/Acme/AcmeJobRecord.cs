@@ -1,7 +1,8 @@
-using System;
+using TinyDb.Attributes;
 
 namespace DockerPanel.API.Models.Acme
 {
+    [Entity]
     public class AcmeJobRecord
     {
         public string Id { get; set; } = Guid.NewGuid().ToString("N");

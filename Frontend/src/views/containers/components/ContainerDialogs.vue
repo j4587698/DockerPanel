@@ -222,6 +222,7 @@ const handleConnectNetwork = () => {
 </script>
 
 <style>
+
 .recreate-dialog-content {
   padding: 0 4px;
 }
@@ -279,4 +280,5 @@ const handleConnectNetwork = () => {
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
 }
+
 </style>

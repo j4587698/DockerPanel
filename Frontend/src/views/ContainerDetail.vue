@@ -958,6 +958,7 @@ watch(activeTab, async (val, oldVal) => {
 </script>
 
 <style scoped>
+
 .container-detail-page {
   display: flex;
   flex-direction: column;
@@ -1046,4 +1047,5 @@ watch(activeTab, async (val, oldVal) => {
 .fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s ease; }
 .fade-slide-enter-from { opacity: 0; transform: translateY(10px); }
 .fade-slide-leave-to { opacity: 0; transform: translateY(-10px); }
+
 </style>

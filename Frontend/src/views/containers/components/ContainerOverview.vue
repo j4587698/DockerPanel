@@ -359,6 +359,7 @@ const getUptime = (c: Container | null) => {
 </script>
 
 <style>
+
 /* 使用非scoped样式，继承父组件全局样式 */
 
 /* 反向代理样式 */
@@ -413,4 +414,5 @@ const getUptime = (c: Container | null) => {
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
   font-size: 12px;
 }
+
 </style>

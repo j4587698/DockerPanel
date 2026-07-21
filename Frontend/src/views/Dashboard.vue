@@ -659,6 +659,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
 .dashboard-page {
   padding: var(--space-xl);
   max-width: 1440px;
@@ -1243,4 +1244,5 @@ onUnmounted(() => {
     height: 190px;
   }
 }
+
 </style>

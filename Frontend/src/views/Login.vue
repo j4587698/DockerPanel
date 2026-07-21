@@ -190,6 +190,7 @@ const handleSubmit = async () => {
 </script>
 
 <style scoped>
+
 .login-page {
   position: relative;
   min-height: 100vh;
@@ -583,4 +584,5 @@ html.dark .form-icon {
     grid-template-columns: 1fr;
   }
 }
+
 </style>

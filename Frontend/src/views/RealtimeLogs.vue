@@ -379,6 +379,7 @@ const escapeRegExp = (value: string) => {
 </script>
 
 <style scoped>
+
 .realtime-logs {
   padding: 20px;
 }
@@ -645,4 +646,5 @@ const escapeRegExp = (value: string) => {
     gap: 8px;
   }
 }
+
 </style>

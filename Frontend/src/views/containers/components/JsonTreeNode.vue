@@ -156,6 +156,7 @@ watch(() => props.search, (search) => {
 </script>
 
 <style scoped>
+
 .json-tree-node {
   padding-left: 0;
   line-height: 1.8;
@@ -259,4 +260,5 @@ watch(() => props.search, (search) => {
   margin-left: 8px;
   padding-left: 12px;
 }
+
 </style>

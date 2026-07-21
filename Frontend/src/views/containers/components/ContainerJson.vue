@@ -152,6 +152,7 @@ const downloadJson = () => {
 </script>
 
 <style scoped>
+
 .json-view-container {
   display: flex;
   flex-direction: column;
@@ -227,4 +228,5 @@ const downloadJson = () => {
 .json-code code {
   color: inherit;
 }
+
 </style>

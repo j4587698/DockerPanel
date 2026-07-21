@@ -543,6 +543,7 @@ onMounted(() => { void loadSettings() })
 </script>
 
 <style scoped>
+
 .settings-page {
   padding: 24px 32px;
   max-width: 1400px;
@@ -872,4 +873,5 @@ onMounted(() => { void loadSettings() })
   .header-actions { width: 100%; }
   .btn { flex: 1; justify-content: center; }
 }
+
 </style>

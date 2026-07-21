@@ -142,9 +142,11 @@
         <el-table-column prop="durationMs" :label="t('audit.duration')" width="100">
           <template #default="{ row }">{{ row.durationMs.toFixed(0) }}ms</template>
         </el-table-column>
-        <el-table-column :label="t('common.actions')" width="100" fixed="right">
+        <el-table-column :label="t('common.actions')" width="80" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row)">{{ t('common.details') }}</el-button>
+            <div class="actions-cell">
+              <el-button class="table-action-btn" :icon="Document" :title="t('common.details')" @click="openDetail(row)" />
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -199,7 +201,7 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { Download, Refresh, Search } from '@element-plus/icons-vue'
+import { Download, Refresh, Search, Document } from '@element-plus/icons-vue'
 import { auditApi, type OperationAuditLog, type OperationAuditLogFilter } from '@/api/audit'
 import { useSettingsStore } from '@/stores/settings'
 import { formatLocalizedDateTime } from '@/utils/date'
@@ -366,6 +368,7 @@ const exportCsv = () => {
 </script>
 
 <style scoped>
+
 .audit-page {
   padding: 24px;
 }
@@ -484,4 +487,5 @@ code {
     max-width: none;
   }
 }
+
 </style>

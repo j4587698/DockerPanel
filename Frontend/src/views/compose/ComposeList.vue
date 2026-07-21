@@ -80,7 +80,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column :label="t('common.actions')" width="240" align="center" fixed="right">
+      <el-table-column :label="t('common.actions')" width="214" align="center" fixed="right">
         <template #default="{ row }">
           <div class="actions-cell">
             <el-button v-if="['Stopped', 'Created'].includes(row.status)" class="table-action-btn success" :icon="VideoPlay" :title="t('compose.startProject')" @click="startProject(row)" />
@@ -447,6 +447,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
 .compose-page {
   padding: 24px 32px;
   max-width: 1600px;
@@ -561,47 +562,12 @@ onUnmounted(() => {
 .td-actions { display: flex; gap: 4px; justify-content: center; width: 100%; }
 .th-actions { text-align: center; }
 
-.actions-cell {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
 
-.actions-cell :deep(.table-action-btn) {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  padding: 0;
-  border-radius: 6px;
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-  color: var(--text-secondary);
-}
 
-.actions-cell :deep(.table-action-btn:hover) {
-  background: var(--bg-subtle);
-  border-color: var(--border-color);
-}
 
-.actions-cell :deep(.table-action-btn.success:hover),
-.actions-cell :deep(.table-action-btn.edit:hover),
-.actions-cell :deep(.table-action-btn.info:hover) {
-  color: var(--color-primary);
-}
 
-.actions-cell :deep(.table-action-btn.warning:hover) {
-  color: #f59e0b;
-}
 
-.actions-cell :deep(.table-action-btn.danger:hover) {
-  color: var(--color-danger);
-}
 
-.actions-cell :deep(.el-button + .el-button) {
-  margin-left: 0;
-}
 
 .pagination {
   display: flex;
@@ -749,9 +715,11 @@ onUnmounted(() => {
   margin-top: 20px;
 }
 
+
 </style>
 
 <style>
+
 /* === Dark Mode === */
 html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
@@ -764,4 +732,5 @@ html.dark .log-container { background: #0f172a; border-color: rgba(255, 255, 255
 html.dark .log-item { border-color: rgba(255, 255, 255, 0.05); }
 html.dark .progress-complete { background: rgba(255, 255, 255, 0.05); }
 html.dark .complete-text { color: #f1f5f9; }
+
 </style>

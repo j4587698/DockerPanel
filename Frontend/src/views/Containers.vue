@@ -210,7 +210,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('common.actions')" width="260" align="center" fixed="right">
+        <el-table-column :label="t('common.actions')" width="184" align="center" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button
@@ -711,6 +711,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
 /* === Usage Column === */
 .usage-info-text { 
   display: flex; 
@@ -1004,45 +1005,12 @@ onUnmounted(() => {
 }
 
 /* 操作列固定设计 */
-.actions-cell {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
 
-.actions-cell :deep(.table-action-btn) {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  padding: 0;
-  border-radius: 6px;
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-  color: var(--text-secondary);
-}
 
-.actions-cell :deep(.table-action-btn:hover) {
-  background: var(--bg-subtle);
-  border-color: var(--border-color);
-}
 
-.actions-cell :deep(.table-action-btn.success:hover) {
-  color: #22c55e;
-}
 
-.actions-cell :deep(.table-action-btn.warning:hover) {
-  color: #f59e0b;
-}
 
-.actions-cell :deep(.table-action-btn.danger:hover) {
-  color: #ef4444;
-}
 
-.actions-cell :deep(.el-button + .el-button) {
-  margin-left: 0;
-}
 
 /* === Pagination === */
 .pagination {
@@ -1145,9 +1113,11 @@ onUnmounted(() => {
   .filter-tabs { width: 100%; }
 }
 
+
 </style>
 
 <style>
+
 /* === Dark Mode === */
 html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
@@ -1155,4 +1125,5 @@ html.dark .search-input { color: #f1f5f9; }
 html.dark .name { color: #f1f5f9; }
 html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .port { background: rgba(255, 255, 255, 0.1); }
+
 </style>

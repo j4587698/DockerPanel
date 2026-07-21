@@ -147,7 +147,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('container.filesModule.action')" width="200" fixed="right" align="center">
+        <el-table-column :label="t('container.filesModule.action')" width="184" fixed="right" align="center">
           <template #default="{ row }">
             <el-button-group size="small">
               <el-button
@@ -945,6 +945,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
 .container-files {
   display: flex;
   flex-direction: column;
@@ -1245,4 +1246,5 @@ onMounted(() => {
 .text-muted {
   color: var(--text-muted);
 }
+
 </style>

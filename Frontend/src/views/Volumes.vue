@@ -90,7 +90,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column :label="t('common.actions')" width="200" align="center" fixed="right">
+      <el-table-column :label="t('common.actions')" width="154" align="center" fixed="right">
         <template #default="{ row }">
           <div class="actions-cell">
               <el-button class="table-action-btn browse" :icon="Folder" :title="t('volume.browseFiles')" @click="openFileManager(row)" />
@@ -581,6 +581,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
 .volumes-page {
   padding: 24px 32px;
   max-width: 1600px;
@@ -700,43 +701,11 @@ onMounted(() => {
 .td-actions { display: flex; gap: 4px; justify-content: center; width: 100%; }
 .th-actions { text-align: center; }
 
-.actions-cell {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
 
-.actions-cell :deep(.table-action-btn) {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  padding: 0;
-  border-radius: 6px;
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-  color: var(--text-secondary);
-}
 
-.actions-cell :deep(.table-action-btn:hover) {
-  background: var(--bg-subtle);
-  border-color: var(--border-color);
-}
 
-.actions-cell :deep(.table-action-btn.browse:hover),
-.actions-cell :deep(.table-action-btn.download:hover),
-.actions-cell :deep(.table-action-btn.detail:hover) {
-  color: var(--color-primary);
-}
 
-.actions-cell :deep(.table-action-btn.danger:hover) {
-  color: var(--color-danger);
-}
 
-.actions-cell :deep(.el-button + .el-button) {
-  margin-left: 0;
-}
 
 .pagination {
   display: flex;
@@ -947,9 +916,11 @@ onMounted(() => {
   .search-box { max-width: none; width: 100%; }
 }
 
+
 </style>
 
 <style>
+
 /* === Dark Mode === */
 html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
@@ -958,4 +929,5 @@ html.dark .name { color: #f1f5f9; }
 html.dark .stats strong { color: #f1f5f9; }
 html.dark .driver-badge { background: rgba(255, 255, 255, 0.1); }
 html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
+
 </style>

@@ -52,7 +52,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('common.actions')" width="180" align="center" fixed="right">
+        <el-table-column :label="t('common.actions')" width="124" align="center" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button circle size="small" :icon="Refresh" :title="t('registry.testConnection')" @click="testConnection(row)" />
@@ -272,6 +272,7 @@ onMounted(() => refreshData())
 </script>
 
 <style scoped>
+
 .page-container { padding: 32px; max-width: 1600px; margin: 0 auto; }
 .toolbar { padding: 16px 24px; border-bottom: 1px solid var(--border-color); }
 .toolbar-search { width: 300px; }
@@ -280,7 +281,6 @@ onMounted(() => refreshData())
 .name-cell .text { display: flex; align-items: center; gap: 8px; }
 .name-cell .main { font-weight: 600; color: var(--text-main); }
 .font-mono { font-family: monospace; }
-.actions-cell { display: flex; justify-content: center !important; gap: 8px; width: 100%; }
 .form-hint { margin-top: 6px; font-size: 12px; color: var(--text-muted); }
 
 @media (max-width: 768px) {
@@ -288,4 +288,5 @@ onMounted(() => refreshData())
   .toolbar-search { width: 100%; }
   .toolbar { padding: 12px 16px; }
 }
+
 </style>

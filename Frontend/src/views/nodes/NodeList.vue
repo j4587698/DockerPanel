@@ -118,7 +118,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('common.actions')" width="200" align="center" fixed="right">
+        <el-table-column :label="t('common.actions')" width="154" align="center" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button circle size="small" :icon="Connection" :title="t('node.testConnection')" @click="testConnection(row)" />
@@ -607,6 +607,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
 .page-container { padding: 32px; max-width: 1600px; margin: 0 auto; }
 
 /* 统计卡片 */
@@ -685,7 +686,6 @@ onMounted(() => {
 .status-pill .dot.online { background: var(--color-success); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); }
 .status-pill .dot.offline { background: var(--color-danger); }
 
-.actions-cell { display: flex; justify-content: center !important; gap: 8px; width: 100%; }
 
 /* 测试结果 */
 .test-result {
@@ -709,4 +709,5 @@ onMounted(() => {
   .toolbar-filters { margin-left: 0; flex-wrap: wrap; }
   .toolbar { padding: 12px 16px; }
 }
+
 </style>

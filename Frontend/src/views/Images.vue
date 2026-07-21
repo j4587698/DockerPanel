@@ -131,7 +131,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('common.actions')" width="260" align="center" fixed="right">
+        <el-table-column :label="t('common.actions')" width="214" align="center" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button class="table-action-btn" :icon="Document" :title="t('image.viewDetails')" @click="handleDetail(row)" />
@@ -757,6 +757,7 @@ watch(() => settingsStore.defaultPageSize, (size) => {
 </script>
 
 <style scoped>
+
 .images-page {
   padding: 24px 32px;
   max-width: 1600px;
@@ -975,37 +976,10 @@ watch(() => settingsStore.defaultPageSize, (size) => {
   width: 100%;
 }
 
-.actions-cell {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
 
-.actions-cell :deep(.table-action-btn) {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  padding: 0;
-  border-radius: 6px;
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-  color: var(--text-secondary);
-}
 
-.actions-cell :deep(.table-action-btn:hover) {
-  background: var(--bg-subtle);
-  border-color: var(--border-color);
-}
 
-.actions-cell :deep(.table-action-btn.danger:hover) {
-  color: #ef4444;
-}
 
-.actions-cell :deep(.el-button + .el-button) {
-  margin-left: 0;
-}
 
 /* === Pagination === */
 .pagination { 
@@ -1217,9 +1191,11 @@ watch(() => settingsStore.defaultPageSize, (size) => {
   text-align: left;
 }
 
+
 </style>
 
 <style>
+
 /* === Dark Mode === */
 html.dark .toolbar, html.dark .data-table { 
   background: rgba(30, 41, 59, 0.8); 
@@ -1263,11 +1239,6 @@ html.dark .action-btn, html.dark .page-btn, html.dark .page-size {
   color: #cbd5e1;
 }
 
-html.dark .actions-cell :deep(.table-action-btn) {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
-}
 
 html.dark .tag { 
   background: rgba(59, 130, 246, 0.2); 
@@ -1402,4 +1373,5 @@ html.dark .task-badge {
   justify-content: space-between;
   width: 100%;
 }
+
 </style>

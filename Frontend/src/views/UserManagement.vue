@@ -107,7 +107,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('common.actions')" width="190" align="center" fixed="right">
+        <el-table-column :label="t('common.actions')" width="124" align="center" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
               <el-button class="table-action-btn edit" circle size="small" :icon="Edit" :title="t('common.edit')" @click="openEditDialog(row)" />
@@ -523,6 +523,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
 .user-management-page {
   max-width: 1480px;
 }
@@ -643,52 +644,13 @@ onMounted(() => {
   color: var(--text-muted);
 }
 
-.actions-cell {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-}
 
-.actions-cell :deep(.table-action-btn) {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  padding: 0;
-  border-radius: 50%;
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-  color: var(--text-secondary);
-}
 
-.actions-cell :deep(.table-action-btn:hover) {
-  background: var(--bg-subtle);
-  border-color: var(--border-color);
-}
 
-.actions-cell :deep(.table-action-btn.edit:hover) {
-  color: var(--color-primary);
-}
 
-.actions-cell :deep(.table-action-btn.reset:hover) {
-  color: var(--color-warning);
-}
 
-.actions-cell :deep(.table-action-btn.delete:hover) {
-  color: var(--color-danger);
-}
 
-.actions-cell :deep(.table-action-btn.is-disabled),
-.actions-cell :deep(.table-action-btn.is-disabled:hover) {
-  background: var(--bg-subtle);
-  border-color: var(--border-color-light);
-  color: var(--text-muted);
-  opacity: 0.55;
-}
 
-.actions-cell :deep(.el-button + .el-button) {
-  margin-left: 0;
-}
 
 .form-alert {
   margin-bottom: 16px;
@@ -733,4 +695,5 @@ onMounted(() => {
     max-width: none;
   }
 }
+
 </style>

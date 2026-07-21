@@ -162,6 +162,9 @@
       :container-image="container?.image"
       :container-state="container?.state"
       :auto-start="container?.state === 'running'"
+      :recreate-phase="recreatePhase"
+      :recreate-progress="recreateProgress"
+      :recreate-detail="recreateDetail"
       @save-edit="saveEdit"
       @confirm-recreate="confirmRecreate"
       @connect-network="connectToNetworkById"
@@ -654,31 +657,67 @@ const saveEdit = async (payload: { name: string; pullLatest: boolean }) => {
 
 // 重建容器
 const recreateLoading = ref(false)
+const recreatePhase = ref<'idle' | 'running' | 'completed' | 'failed'>('idle')
+const recreateProgress = ref(0)
+const recreateDetail = ref('')
+let recreateUnsubscribe: (() => void) | null = null
+
 const recreateContainer = () => {
+  recreatePhase.value = 'idle'
+  recreateProgress.value = 0
+  recreateDetail.value = ''
   recreateDialogVisible.value = true
 }
 
 const confirmRecreate = async (options: { pullLatest: boolean; autoStart: boolean; keepVolumes: boolean }) => {
   if (!container.value) return
 
+  recreatePhase.value = 'running'
+  recreateProgress.value = 0
+  recreateDetail.value = t('container.dialogs.recreatePreparing')
+  recreateLoading.value = true
+
+  const containerId = container.value.id
+  recreateUnsubscribe = signalrService.subscribe('image-pull-progress', (message: any) => {
+    const data = message.data
+    if (!data.pullId?.includes(containerId)) return
+    if (data.progress != null) recreateProgress.value = data.progress
+    if (data.detail || data.step) recreateDetail.value = data.detail || data.step
+  })
+
   try {
-    recreateLoading.value = true
-    const result = await containerApi.recreateContainer(container.value.id, {
+    const result = await containerApi.recreateContainer(containerId, {
       pullLatest: options.pullLatest,
       autoStart: options.autoStart
     })
 
-    recreateDialogVisible.value = false
-    ElMessage.success(t('container.containerDetail.recreateSuccess'))
+    recreatePhase.value = 'completed'
+    recreateProgress.value = 100
+    recreateDetail.value = t('container.containerDetail.recreateSuccess')
 
-    // 跳转到新容器
-    if (result.newId) {
-      router.push(`/containers/${result.newId}`)
-    } else {
-      await loadContainerDetail()
-    }
+    setTimeout(() => {
+      recreateDialogVisible.value = false
+      recreatePhase.value = 'idle'
+      recreateProgress.value = 0
+      recreateDetail.value = ''
+
+      if (result.newId) {
+        router.push(`/containers/${result.newId}`)
+      } else {
+        loadContainerDetail()
+      }
+    }, 800)
   } catch (e: any) {
+    recreatePhase.value = 'failed'
+    recreateDetail.value = e.message || t('container.containerDetail.recreateFailed')
     ElMessage.error(e.message || t('container.containerDetail.recreateFailed'))
+
+    setTimeout(() => {
+      recreateDialogVisible.value = false
+      recreatePhase.value = 'idle'
+      recreateProgress.value = 0
+      recreateDetail.value = ''
+    }, 3000)
   } finally {
     recreateLoading.value = false
   }
@@ -935,6 +974,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  recreateUnsubscribe?.()
   stopSignalRSubscriptions()
   stopLogStream()
   terminalResizeObserver?.disconnect()

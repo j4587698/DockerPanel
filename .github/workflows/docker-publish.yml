@@ -5,10 +5,14 @@ on:
     branches:
       - main
       - master
+    paths:
+      - 'Backend/DockerPanel.API/DockerPanel.API.csproj'
   pull_request:
     branches:
       - main
       - master
+    paths:
+      - 'Backend/DockerPanel.API/DockerPanel.API.csproj'
   workflow_dispatch:
     inputs:
       force_publish:

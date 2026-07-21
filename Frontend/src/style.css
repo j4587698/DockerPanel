@@ -1123,7 +1123,7 @@ html.dark .el-button--primary:hover {
    Popover & Tooltip - Enhanced
    ============================================ */
 
-.el-popper:not(.el-tooltip__popper) {
+.el-popper:not(.is-dark) {
   border-radius: var(--border-radius-lg) !important;
   border: 1px solid var(--border-color) !important;
   box-shadow: 
@@ -1197,29 +1197,22 @@ html.dark .el-button--primary:hover {
   margin: 0 !important;
 }
 
-.el-tooltip__popper {
+.el-popper.is-dark {
   border-radius: var(--border-radius-sm) !important;
   background: var(--color-primary) !important;
+  border: 1px solid var(--color-primary) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
   font-size: 12px !important;
   padding: 8px 12px !important;
+  color: var(--text-inverse) !important;
 }
 
-.el-tooltip__popper[data-side^="top"] .el-popper__arrow::before {
-  border-top-color: var(--color-primary) !important;
+.el-popper.is-dark .el-popper__arrow::before {
+  border-color: var(--color-primary) !important;
+  background: var(--color-primary) !important;
 }
 
-.el-tooltip__popper[data-side^="bottom"] .el-popper__arrow::before {
-  border-bottom-color: var(--color-primary) !important;
-}
 
-.el-tooltip__popper[data-side^="left"] .el-popper__arrow::before {
-  border-left-color: var(--color-primary) !important;
-}
-
-.el-tooltip__popper[data-side^="right"] .el-popper__arrow::before {
-  border-right-color: var(--color-primary) !important;
-}
 
 /* ============================================
    Dropdown - Modern Menu Style
@@ -2491,4 +2484,79 @@ html.dark .el-divider__text {
 .el-scrollbar:focus > .el-scrollbar__bar {
   opacity: 0.8 !important;
   display: block !important;
+}
+
+
+/* ============================================
+   Table Action Cell - Button Group Style
+   ============================================ */
+.actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+}
+
+.actions-cell .table-action-btn {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  padding: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 0;
+  margin-left: -1px;
+  position: relative;
+  z-index: 1;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.actions-cell .table-action-btn:first-child {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+  margin-left: 0;
+}
+
+.actions-cell .table-action-btn:last-child {
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.actions-cell .table-action-btn:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border-color);
+  z-index: 2;
+}
+
+.actions-cell .table-action-btn.primary:hover { color: var(--color-secondary); }
+.actions-cell .table-action-btn.success:hover { color: #22c55e; }
+.actions-cell .table-action-btn.warning:hover { color: #f59e0b; }
+.actions-cell .table-action-btn.danger:hover { color: #ef4444; z-index: 3; }
+.actions-cell .table-action-btn.info:hover { color: #0ea5e9; }
+.actions-cell .table-action-btn.test:hover { color: #22c55e; }
+.actions-cell .table-action-btn.edit:hover { color: var(--color-secondary); }
+.actions-cell .table-action-btn.sessions:hover { color: #0ea5e9; }
+.actions-cell .table-action-btn.delete:hover { color: #ef4444; z-index: 3; }
+.actions-cell .table-action-btn.browse:hover { color: var(--color-secondary); }
+.actions-cell .table-action-btn.reset:hover { color: #f59e0b; }
+
+.actions-cell .table-action-btn.is-disabled,
+.actions-cell .table-action-btn.is-disabled:hover {
+  opacity: 0.5;
+  color: var(--text-muted) !important;
+  cursor: not-allowed;
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  z-index: 0;
+}
+
+html.dark .actions-cell .table-action-btn {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.1);
 }

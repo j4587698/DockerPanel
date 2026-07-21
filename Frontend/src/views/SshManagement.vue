@@ -170,7 +170,7 @@
                   </template>
                 </el-table-column>
 
-                <el-table-column :label="t('common.actions')" width="200" align="center" fixed="right">
+                <el-table-column :label="t('common.actions')" width="154" align="center" fixed="right">
                   <template #default="{ row }">
                     <div class="actions-cell">
                       <el-button class="table-action-btn test" :icon="Monitor" :title="t('ssh.testConnection')" @click="testConnection(row)" />
@@ -614,6 +614,7 @@ const formatTime = (time: string) => {
 </script>
 
 <style scoped>
+
 .ssh-management {
   padding: 20px;
   background-color: var(--bg-glass-dark);
@@ -812,49 +813,13 @@ const formatTime = (time: string) => {
 .time { font-size: 12px; color: var(--text-muted); }
 
 /* === Actions Cell (matching UserManagement.vue) === */
-.actions-cell {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
 
-.actions-cell :deep(.table-action-btn) {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  padding: 0;
-  border-radius: 6px;
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-  color: var(--text-secondary);
-}
 
-.actions-cell :deep(.table-action-btn:hover) {
-  background: var(--bg-subtle);
-  border-color: var(--border-color);
-}
 
-.actions-cell :deep(.table-action-btn.test:hover) {
-  color: var(--color-primary);
-}
 
-.actions-cell :deep(.table-action-btn.edit:hover) {
-  color: var(--color-primary);
-}
 
-.actions-cell :deep(.table-action-btn.sessions:hover) {
-  color: var(--color-info, #409eff);
-}
 
-.actions-cell :deep(.table-action-btn.delete:hover) {
-  color: var(--color-danger);
-}
 
-.actions-cell :deep(.el-button + .el-button) {
-  margin-left: 0;
-}
 
 /* === Empty State === */
 .empty-state {
@@ -963,9 +928,11 @@ const formatTime = (time: string) => {
   .stats-icon { width: 40px; height: 40px; font-size: 20px; }
   .stats-value { font-size: 20px; }
 }
+
 </style>
 
 <style>
+
 /* Dark mode support */
 html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .table-header { background: #0f172a; border-color: rgba(255, 255, 255, 0.05); color: #94a3b8; }
@@ -976,4 +943,5 @@ html.dark .td { color: #cbd5e1; }
 html.dark .action-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 html.dark .port-code { background: rgba(255, 255, 255, 0.1); }
 html.dark .empty-state { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
+
 </style>

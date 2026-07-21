@@ -40,7 +40,7 @@
   </el-dialog>
 
   <!-- Recreate Dialog -->
-  <el-dialog v-model="recreateVisible" :title="t('container.recreate')" width="450px" class="glass-dialog">
+  <el-dialog v-model="recreateVisible" :title="t('container.recreate')" width="450px" class="glass-dialog" :close-on-click-modal="recreatePhase === 'idle'">
     <div class="recreate-dialog-content">
       <el-alert type="warning" :closable="false" style="margin-bottom: 16px">
         {{ t('container.dialogs.recreateWarning') }}
@@ -55,9 +55,10 @@
         <span class="value font-mono">{{ containerImage }}</span>
       </div>
       
-      <el-divider />
+      <el-divider v-if="recreatePhase === 'idle'" />
       
-      <el-form label-position="top" size="small">
+      <!-- 选项区域（idle 时显示） -->
+      <el-form v-if="recreatePhase === 'idle'" label-position="top" size="small">
         <el-form-item>
           <el-checkbox v-model="recreateOptions.pullLatest">
             {{ t('container.pullLatest') }}
@@ -79,17 +80,30 @@
           <div class="option-hint">{{ t('container.dialogs.keepVolumesHint') }}</div>
         </el-form-item>
       </el-form>
+      
+      <!-- 进度区域（running 时显示） -->
+      <div v-if="recreatePhase === 'running'" class="recreate-progress-area">
+        <el-progress 
+          :percentage="recreateProgress" 
+          :stroke-width="8"
+          :status="recreateProgress >= 100 ? 'success' : ''"
+          style="margin: 16px 0"
+        />
+        <div class="recreate-progress-detail">{{ recreateDetail }}</div>
+      </div>
     </div>
     
     <template #footer>
-      <el-button @click="recreateVisible = false">{{ t('common.cancel') }}</el-button>
+      <el-button v-if="recreatePhase === 'idle'" @click="recreateVisible = false">{{ t('common.cancel') }}</el-button>
       <el-button 
+        v-if="recreatePhase === 'idle'"
         type="primary" 
         @click="handleConfirmRecreate" 
         :loading="loading"
       >
         {{ t('container.dialogs.confirmRecreate') }}
       </el-button>
+      <span v-if="recreatePhase === 'running'" class="text-muted text-sm">{{ t('container.dialogs.recreateInProgress') }}</span>
     </template>
   </el-dialog>
 
@@ -149,6 +163,9 @@ const props = defineProps<{
   containerImage?: string
   containerState?: string
   autoStart?: boolean
+  recreatePhase?: 'idle' | 'running' | 'completed' | 'failed'
+  recreateProgress?: number
+  recreateDetail?: string
 }>()
 
 const emit = defineEmits<{
@@ -279,6 +296,21 @@ const handleConnectNetwork = () => {
 
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
+}
+
+.recreate-progress-area {
+  padding: 8px 4px;
+}
+
+.recreate-progress-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  word-break: break-all;
+}
+
+.text-sm {
+  font-size: 13px;
 }
 
 </style>

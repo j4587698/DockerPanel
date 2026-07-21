@@ -18,6 +18,8 @@ import registry from './registry'
 import settings from './settings'
 import validation from './validation'
 import layout from './layout'
+import users from './users'
+import template from './template'
 
 export default {
   common,
@@ -39,5 +41,7 @@ export default {
   registry,
   settings,
   validation,
-  layout
+  layout,
+  users,
+  template
 }

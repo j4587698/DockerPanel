@@ -30,6 +30,7 @@ export default {
   rootDirectory: 'Root Directory',
   inputPath: 'Enter Path',
   goTo: 'Go',
+  downloadAll: 'Download All',
   download: 'Download',
   downloadSelected: 'Download Selected',
   enter: 'Enter',

@@ -145,5 +145,8 @@ export default {
     connectionTimeoutRange: '连接超时时间必须在 1 到 300 秒之间',
     commandTimeoutRequired: '请输入命令超时时间',
     commandTimeoutRange: '命令超时时间必须在 1 到 3600 秒之间'
-  }
+  },
+  description: '描述',
+  cancel: 'Cancel',
+  editConnection: 'Edit Connection'
 }

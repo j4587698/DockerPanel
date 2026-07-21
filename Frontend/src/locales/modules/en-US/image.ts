@@ -76,6 +76,7 @@ export default {
   buildArchive: 'Archive File',
   buildArchiveTip: 'Upload a tar/zip archive containing Dockerfile and source code',
   buildArchiveRequired: 'Please select an archive file',
+  buildDockerfileContent: 'Dockerfile Content',
   buildDockerfilePath: 'Dockerfile Path',
   buildDockerfilePathTip: 'Dockerfile path in archive, e.g. ./Dockerfile or ./app/Dockerfile',
   buildDockerfilePathNote: 'If not specified, defaults to ./Dockerfile in archive root',
@@ -164,5 +165,7 @@ export default {
   empty: {
     noImages: 'No images',
     pullFirst: 'Pull your first image to get started'
-  }
+  },
+  pullSubmitting: 'Pull Submitting',
+  deleteFailed: 'Delete failed'
 }

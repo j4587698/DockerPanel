@@ -115,7 +115,13 @@ export default {
     environment: 'Environment Variables',
     environmentPlaceholder: 'KEY=value',
     volumes: 'Volumes',
-    volumesPlaceholder: 'e.g., ./data:/app/data'
+    volumesPlaceholder: 'e.g., ./data:/app/data',
+    parseSuccess: 'Parse Success',
+    parseFailed: 'Parse Failed',
+    validateSuccess: 'Validate Success',
+    validateFailed: 'Validate Failed',
+    formatError: 'Format Error',
+    validateFailedMsg: 'Validate Failed Msg'
   },
   // Progress dialog
   progress: {

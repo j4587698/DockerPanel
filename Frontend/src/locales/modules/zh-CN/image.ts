@@ -83,6 +83,7 @@ export default {
   buildArchiveRequired: '请选择压缩包文件',
   buildDockerfilePath: 'Dockerfile 路径',
   buildDockerfilePathTip: 'Dockerfile 在压缩包中的路径，如 ./Dockerfile 或 ./app/Dockerfile',
+  buildDockerfilePathNote: '如不指定，默认为压缩包根目录下的 ./Dockerfile',
   // 通用
   buildRepository: '镜像名称',
   buildRepositoryTip: '如 myapp 或 registry.example.com/myapp',
@@ -169,5 +170,7 @@ export default {
   empty: {
     noImages: '暂无镜像',
     pullFirst: '拉取您的第一个镜像来开始使用'
-  }
+  },
+  pullSubmitting: 'Pull Submitting',
+  deleteFailed: '删除失败'
 }

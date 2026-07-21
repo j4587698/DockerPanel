@@ -120,7 +120,13 @@ export default {
     environment: '环境变量',
     environmentPlaceholder: 'KEY=value',
     volumes: '数据卷',
-    volumesPlaceholder: '例如：./data:/app/data'
+    volumesPlaceholder: '例如：./data:/app/data',
+    parseSuccess: '解析成功',
+    parseFailed: '解析失败',
+    validateSuccess: '验证成功',
+    validateFailed: '验证失败',
+    formatError: '格式错误',
+    validateFailedMsg: '验证失败信息'
   },
   // 进度弹窗
   progress: {

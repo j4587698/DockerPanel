@@ -114,5 +114,18 @@ export default {
   empty: {
     noNetworks: 'No custom networks',
     createFirst: 'Create a network to isolate and connect your containers'
-  }
+  },
+  searchContainer: 'Search Container',
+  selectContainer: 'Select Container',
+  noAvailableContainers: 'No Available Containers',
+  ipConfig: 'Ip Config',
+  ipConfigHint: 'Ip Config Hint',
+  ipv4Address: 'Ipv4 Address',
+  ipv4Placeholder: 'Ipv4 Placeholder',
+  ipv6Address: 'Ipv6 Address',
+  aliases: 'Aliases',
+  aliasesHint: 'Aliases Hint',
+  connect: 'Connect',
+  loadContainersFailed: 'Failed to load containers',
+  connectFailed: 'Connect Failed'
 }

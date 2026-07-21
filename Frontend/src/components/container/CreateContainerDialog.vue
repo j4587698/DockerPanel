@@ -894,10 +894,10 @@ import { acmeApi } from '@/api/acme'
 import type { AcmeAccount } from '@/api/certificate'
 import templateApi from '@/api/templates'
 import PullProgressDisplay from '../image/PullProgressDisplay.vue'
-import signalrService from '@/services/signalr'
+import { signalrService } from '@/services/signalr'
 import { useTasksStore } from '@/stores/tasks'
 import ContainerTemplateDialog from './ContainerTemplateDialog.vue'
-import * as signalR from '@microsoft/signalr'
+
 
 const props = defineProps<{ 
   modelValue: boolean,
@@ -1289,7 +1289,8 @@ const handleSubmit = async () => {
       }
     }
 
-    const connectionId = await startSignalR()
+    await signalrService.connect()
+    const connectionId = signalrService.getConnectionId()
     
     const allNetIds = form.network.networkIds || []
     const defaultNet = availableNetworks.value.find(n => n.name === 'dockerpanel-network')

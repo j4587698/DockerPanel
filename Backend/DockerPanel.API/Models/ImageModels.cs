@@ -21,6 +21,7 @@ public class ImageInfo
     public DateTime Created { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
     public string[] RepoTags { get; set; } = Array.Empty<string>();
+    public string[] RepoDigests { get; set; } = Array.Empty<string>();
     [Index]
     public string[] Tags { get; set; } = Array.Empty<string>();
     public Dictionary<string, string> Labels { get; set; } = new();

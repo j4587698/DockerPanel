@@ -1176,6 +1176,8 @@ public class DockerEngine : IContainerEngine, IDisposable
                 Created = i.Created,
                 CreatedAt = i.Created,
                 RepoTags = i.RepoTags?.ToArray() ?? Array.Empty<string>(),
+                RepoDigests = i.RepoDigests?.ToArray() ?? Array.Empty<string>(),
+                Digest = i.RepoDigests?.FirstOrDefault()?.Split('@').LastOrDefault() ?? string.Empty,
                 ContainersCount = imageUsageCount.TryGetValue(imageId, out var count) ? count : 0
             };
         });
@@ -1201,7 +1203,7 @@ public class DockerEngine : IContainerEngine, IDisposable
             catch (DockerApiException ex)
             {
                 // 如果通过名称找不到，尝试从列表中模糊匹配
-                _logger.LogDebug("通过名称 {Id} 查找镜像失败，尝试模糊匹配: {Message}", id, ex.Message);
+                _logger.LogDebug(ex, "通过名称 {Id} 查找镜像失败，尝试模糊匹配", id);
                 var images = await client.Images.ListImagesAsync(new ImagesListParameters());
                 
                 // 构建匹配条件：支持 ID、名称、名称:tag 格式
@@ -1217,7 +1219,7 @@ public class DockerEngine : IContainerEngine, IDisposable
                 
                 if (matchingImage != null)
                 {
-                    _logger.LogDebug("模糊匹配到镜像: {Id}", matchingImage.ID);
+                    _logger.LogDebug(ex, "模糊匹配到镜像: {Id}", matchingImage.ID);
                     inspectResult = await client.Images.InspectImageAsync(matchingImage.ID);
                 }
             }
@@ -1240,6 +1242,8 @@ public class DockerEngine : IContainerEngine, IDisposable
                 Parent = "", // ImageInspectResponse 没有 Parent
                 Labels = inspectResult.Config?.Labels?.ToDictionary(kv => kv.Key, kv => kv.Value) ?? new(),
                 RepoTags = inspectResult.RepoTags?.ToArray() ?? Array.Empty<string>(),
+                RepoDigests = inspectResult.RepoDigests?.ToArray() ?? Array.Empty<string>(),
+                Digest = inspectResult.RepoDigests?.FirstOrDefault()?.Split('@').LastOrDefault() ?? string.Empty,
                 
                 // 从 Config 中提取镜像配置信息
                 ExposedPorts = inspectResult.Config?.ExposedPorts?.Keys?.ToList() ?? new(),

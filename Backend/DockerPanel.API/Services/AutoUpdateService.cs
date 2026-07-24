@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -209,7 +210,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 return result;
             }
             
-            result.CurrentDigest = localImage.Id;
+            result.CurrentDigest = GetComparableLocalDigest(localImage, container.Image ?? string.Empty) ?? localImage.Id;
             
             // 获取远程镜像摘要
             var imageName = container.Image ?? string.Empty;
@@ -217,35 +218,33 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 ? await GetRemoteImageDigestAsync(imageName) 
                 : null;
             result.RemoteDigest = remoteDigest;
+
+            if (string.IsNullOrEmpty(remoteDigest))
+            {
+                result.ErrorMessage = "无法获取远程镜像摘要，请检查仓库地址或认证配置";
+                await UpdateCheckConfigAsync(containerId, result, AutoUpdateStatus.UpdateFailed, result.ErrorMessage);
+                return result;
+            }
             
             // 比较摘要
-            if (!string.IsNullOrEmpty(remoteDigest) && !string.IsNullOrEmpty(localImage.Id))
+            var localDigest = GetComparableLocalDigest(localImage, imageName);
+            if (!string.IsNullOrEmpty(localDigest))
             {
-                // 提取摘要部分（去掉 sha256: 前缀进行比较）
-                var localDigestPart = localImage.Id.Contains("sha256:") 
-                    ? localImage.Id.Substring(localImage.Id.IndexOf("sha256:")) 
-                    : localImage.Id;
-                var remoteDigestPart = remoteDigest.Contains("sha256:") 
-                    ? remoteDigest 
-                    : $"sha256:{remoteDigest}";
-                
-                result.HasUpdate = !localDigestPart.Equals(remoteDigestPart, StringComparison.OrdinalIgnoreCase) &&
-                                   !localDigestPart.Contains(remoteDigest.Substring(Math.Min(8, remoteDigest.Length)));
+                result.HasUpdate = !NormalizeDigest(localDigest).Equals(NormalizeDigest(remoteDigest), StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                result.ErrorMessage = "本地镜像缺少仓库摘要，无法可靠比较远程版本";
+                await UpdateCheckConfigAsync(containerId, result, AutoUpdateStatus.UpdateFailed, result.ErrorMessage);
+                return result;
             }
             
             // 更新配置
-            var config = await GetConfigAsync(containerId);
-            if (config != null)
-            {
-                config.LastCheckTime = DateTime.UtcNow;
-                config.LastRemoteDigest = result.RemoteDigest;
-                config.CurrentLocalDigest = result.CurrentDigest;
-                config.HasUpdateAvailable = result.HasUpdate;
-                config.Status = result.HasUpdate ? AutoUpdateStatus.UpdateAvailable : AutoUpdateStatus.UpToDate;
-                config.StatusMessage = result.HasUpdate ? "有新版本可用" : "已是最新版本";
-                config.UpdatedAt = DateTime.UtcNow;
-                _db.AutoUpdateConfigs.Update(config);
-            }
+            await UpdateCheckConfigAsync(
+                containerId,
+                result,
+                result.HasUpdate ? AutoUpdateStatus.UpdateAvailable : AutoUpdateStatus.UpToDate,
+                result.HasUpdate ? "有新版本可用" : "已是最新版本");
             
             return result;
         }
@@ -273,14 +272,13 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                     continue; // 还没到检测时间
                 }
             }
-            
-            var result = await CheckUpdateAsync(config.ContainerId);
-            results.Add(result);
-            
-            // 更新状态为检测中
+
             config.Status = AutoUpdateStatus.Checking;
             config.UpdatedAt = DateTime.UtcNow;
             _db.AutoUpdateConfigs.Update(config);
+            
+            var result = await CheckUpdateAsync(config.ContainerId);
+            results.Add(result);
         }
         
         return results;
@@ -412,6 +410,24 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
     public async Task<List<ContainerAutoUpdateConfig>> GetAllConfigsAsync()
     {
         return _db.AutoUpdateConfigs.FindAll().ToList();
+    }
+
+    private async Task UpdateCheckConfigAsync(string containerId, ImageUpdateCheckResult result, AutoUpdateStatus status, string? statusMessage)
+    {
+        var config = await GetConfigAsync(containerId);
+        if (config == null)
+        {
+            return;
+        }
+
+        config.LastCheckTime = DateTime.UtcNow;
+        config.LastRemoteDigest = result.RemoteDigest;
+        config.CurrentLocalDigest = result.CurrentDigest;
+        config.HasUpdateAvailable = result.HasUpdate;
+        config.Status = status;
+        config.StatusMessage = statusMessage;
+        config.UpdatedAt = DateTime.UtcNow;
+        _db.AutoUpdateConfigs.Update(config);
     }
 
     /// <summary>
@@ -557,34 +573,8 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
         try
         {
             // 尝试从配置的私有仓库获取认证信息
-            var registries = await _registryService.GetRegistriesAsync();
-            var privateRegistry = registries.FirstOrDefault(r => 
-                r.Domain.Equals(registry, StringComparison.OrdinalIgnoreCase) &&
-                r.Type == "Private");
-            
-            var manifestUrl = $"https://{registry}/v2/{name}/manifests/{tag}";
-            var request = new HttpRequestMessage(HttpMethod.Head, manifestUrl);
-            request.Headers.Add("Accept", "application/vnd.docker.distribution.manifest.v2+json");
-            
-            // 如果配置了认证
-            if (privateRegistry != null && 
-                !string.IsNullOrEmpty(privateRegistry.Username) && 
-                !string.IsNullOrEmpty(privateRegistry.Password))
-            {
-                var authBytes = Encoding.UTF8.GetBytes($"{privateRegistry.Username}:{privateRegistry.Password}");
-                request.Headers.Add("Authorization", $"Basic {Convert.ToBase64String(authBytes)}");
-            }
-            
-            var response = await _httpClient.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-            {
-                if (response.Headers.TryGetValues("Docker-Content-Digest", out var digests))
-                {
-                    return digests.FirstOrDefault();
-                }
-            }
-            
-            return null;
+            var privateRegistry = await FindRegistryByDomainAsync(registry);
+            return await GetRegistryContentDigestAsync(privateRegistry, registry, name, tag);
         }
         catch (Exception ex)
         {
@@ -664,10 +654,8 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             else
             {
                 // 私有仓库
-                var tagsUrl = $"https://{registry}/v2/{name}/tags/list";
-                var request = new HttpRequestMessage(HttpMethod.Get, tagsUrl);
-                
-                var response = await _httpClient.SendAsync(request);
+                var privateRegistry = await FindRegistryByDomainAsync(registry);
+                var response = await SendRegistryRequestAsync(privateRegistry, HttpMethod.Get, registry, $"/v2/{name}/tags/list", name);
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
@@ -686,6 +674,186 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             _logger.LogWarning(ex, "获取镜像标签失败: {Image}", imageName);
             return new List<string>();
         }
+    }
+
+    private async Task<ImageRegistry?> FindRegistryByDomainAsync(string registry)
+    {
+        var registries = await _registryService.GetRegistriesAsync();
+        return registries.FirstOrDefault(r =>
+            NormalizeRegistryDomain(r.Domain).Equals(NormalizeRegistryDomain(registry), StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(r.Type, "Mirror", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task<string?> GetRegistryContentDigestAsync(ImageRegistry? registryConfig, string registry, string name, string tag)
+    {
+        var path = $"/v2/{name}/manifests/{tag}";
+        var response = await SendRegistryRequestAsync(registryConfig, HttpMethod.Head, registry, path, name, addManifestAccept: true);
+        if (!response.IsSuccessStatusCode || !response.Headers.TryGetValues("Docker-Content-Digest", out var digests))
+        {
+            response.Dispose();
+            response = await SendRegistryRequestAsync(registryConfig, HttpMethod.Get, registry, path, name, addManifestAccept: true);
+        }
+
+        return response.IsSuccessStatusCode && response.Headers.TryGetValues("Docker-Content-Digest", out digests)
+            ? digests.FirstOrDefault()
+            : null;
+    }
+
+    private async Task<HttpResponseMessage> SendRegistryRequestAsync(
+        ImageRegistry? registryConfig,
+        HttpMethod method,
+        string registry,
+        string path,
+        string repository,
+        bool addManifestAccept = false)
+    {
+        var request = CreateRegistryRequest(registryConfig, method, registry, path, addManifestAccept);
+        var response = await _httpClient.SendAsync(request);
+
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            return response;
+        }
+
+        var challenge = response.Headers.WwwAuthenticate.FirstOrDefault(h =>
+            h.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase));
+        if (challenge == null)
+        {
+            return response;
+        }
+
+        var token = await GetRegistryBearerTokenAsync(challenge, registryConfig, repository);
+        if (string.IsNullOrEmpty(token))
+        {
+            return response;
+        }
+
+        response.Dispose();
+        request = CreateRegistryRequest(registryConfig, method, registry, path, addManifestAccept);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return await _httpClient.SendAsync(request);
+    }
+
+    private HttpRequestMessage CreateRegistryRequest(ImageRegistry? registryConfig, HttpMethod method, string registry, string path, bool addManifestAccept)
+    {
+        var scheme = registryConfig?.IsSecure == false ? "http" : "https";
+        var request = new HttpRequestMessage(method, $"{scheme}://{NormalizeRegistryDomain(registry)}{path}");
+
+        if (addManifestAccept)
+        {
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.index.v1+json"));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.list.v2+json"));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.oci.image.manifest.v1+json"));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.docker.distribution.manifest.v2+json"));
+        }
+
+        if (registryConfig != null && !string.IsNullOrEmpty(registryConfig.Username) && !string.IsNullOrEmpty(registryConfig.Password))
+        {
+            var authBytes = Encoding.UTF8.GetBytes($"{registryConfig.Username}:{registryConfig.Password}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
+        }
+
+        return request;
+    }
+
+    private async Task<string?> GetRegistryBearerTokenAsync(AuthenticationHeaderValue challenge, ImageRegistry? registryConfig, string repository)
+    {
+        var parameters = ParseAuthenticateParameters(challenge.Parameter);
+        if (!parameters.TryGetValue("realm", out var realm) || string.IsNullOrWhiteSpace(realm))
+        {
+            return null;
+        }
+
+        var query = new List<string>();
+        if (parameters.TryGetValue("service", out var service) && !string.IsNullOrWhiteSpace(service))
+        {
+            query.Add($"service={Uri.EscapeDataString(service)}");
+        }
+
+        var scope = parameters.TryGetValue("scope", out var parsedScope) && !string.IsNullOrWhiteSpace(parsedScope)
+            ? parsedScope
+            : $"repository:{repository}:pull";
+        query.Add($"scope={Uri.EscapeDataString(scope)}");
+
+        var tokenUrl = query.Count > 0 ? $"{realm}?{string.Join("&", query)}" : realm;
+        using var request = new HttpRequestMessage(HttpMethod.Get, tokenUrl);
+        if (registryConfig != null && !string.IsNullOrEmpty(registryConfig.Username) && !string.IsNullOrEmpty(registryConfig.Password))
+        {
+            var authBytes = Encoding.UTF8.GetBytes($"{registryConfig.Username}:{registryConfig.Password}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
+        }
+
+        using var response = await _httpClient.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var content = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(content);
+        if (json.RootElement.TryGetProperty("token", out var tokenElement))
+        {
+            return tokenElement.GetString();
+        }
+
+        return json.RootElement.TryGetProperty("access_token", out var accessTokenElement)
+            ? accessTokenElement.GetString()
+            : null;
+    }
+
+    private static Dictionary<string, string> ParseAuthenticateParameters(string? parameter)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(parameter))
+        {
+            return result;
+        }
+
+        foreach (var part in parameter.Split(','))
+        {
+            var keyValue = part.Split('=', 2);
+            if (keyValue.Length == 2)
+            {
+                result[keyValue[0].Trim()] = keyValue[1].Trim().Trim('"');
+            }
+        }
+
+        return result;
+    }
+
+    private static string NormalizeRegistryDomain(string registry)
+    {
+        return registry
+            .Replace("https://", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("http://", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .TrimEnd('/');
+    }
+
+    private static string NormalizeDigest(string digest)
+    {
+        var atIndex = digest.LastIndexOf('@');
+        if (atIndex >= 0 && atIndex < digest.Length - 1)
+        {
+            digest = digest.Substring(atIndex + 1);
+        }
+
+        return digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+            ? digest
+            : $"sha256:{digest}";
+    }
+
+    private static string? GetComparableLocalDigest(ImageInfo image, string imageName)
+    {
+        var repository = imageName.Contains(':') ? imageName.Substring(0, imageName.LastIndexOf(':')) : imageName;
+        var digest = image.RepoDigests.FirstOrDefault(d => d.StartsWith(repository + "@", StringComparison.OrdinalIgnoreCase))
+            ?? image.RepoDigests.FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(digest))
+        {
+            return NormalizeDigest(digest);
+        }
+
+        return string.IsNullOrWhiteSpace(image.Digest) ? null : NormalizeDigest(image.Digest);
     }
 
     /// <summary>

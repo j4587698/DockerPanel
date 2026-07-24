@@ -29,6 +29,7 @@ export default {
   statusLocked: 'Locked',
   statusMustChange: 'Must Change Password',
   resetPassword: 'Reset Password',
+  resetPasswordHint: 'Set a new password for user "{username}"',
   cannotDeleteSelf: 'Cannot delete the current user',
   selfEditHint: 'You are editing your own account',
   mustChangePassword: 'Must Change Password',
@@ -46,4 +47,5 @@ export default {
   resetFailed: 'Password reset failed',
   deleteSuccess: 'User deleted successfully',
   deleteFailed: 'Delete failed',
+  deleteConfirm: 'Delete user "{username}"?'
 }

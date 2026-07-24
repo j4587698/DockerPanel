@@ -40,7 +40,7 @@
             <span v-if="row.type === RegistryType.Private">{{ t('registry.typePrivate') }}</span>
             <span v-else-if="row.type === RegistryType.Mirror">{{ t('registry.typeMirror') }}</span>
             <span v-else-if="row.type === RegistryType.DockerHub">{{ t('registry.typeDockerHub') }}</span>
-            <span v-else>{{ row.type }}</span>
+            <span v-else>{{ t('registry.typePrivate') }}</span>
           </template>
         </el-table-column>
 
@@ -71,7 +71,7 @@
           <el-input v-model.trim="form.name" :placeholder="t('registry.registryNamePlaceholder')" />
         </el-form-item>
         <el-form-item :label="t('registry.registryType')">
-          <el-select v-model="form.type" style="width: 100%" filterable allow-create default-first-option>
+          <el-select v-model="form.type" style="width: 100%" filterable default-first-option>
             <el-option :label="t('registry.typePrivate')" :value="RegistryType.Private" />
             <el-option :label="t('registry.typeMirror')" :value="RegistryType.Mirror" />
             <el-option :label="t('registry.typeDockerHub')" :value="RegistryType.DockerHub" />
@@ -202,7 +202,7 @@ const editRegistry = (row: any) => {
     isPublic: Boolean(row.isPublic),
     isSecure: row.isSecure !== false,
     isDefault: Boolean(row.isDefault),
-    type: row.type ?? RegistryType.Private
+    type: row.type === RegistryType.Mirror || row.type === RegistryType.DockerHub ? row.type : RegistryType.Private
   }
   showCreateDialog.value = true
 }

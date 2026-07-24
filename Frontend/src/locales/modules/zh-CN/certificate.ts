@@ -55,6 +55,8 @@ export default {
   status: '状态',
   failed: '失败',
   expiresInDays: '剩余 {days} 天',
+  expiredDaysAgo: '已过期 {days} 天',
+  duration: '耗时 {seconds} 秒',
   // 证书描述
   description: '描述',
   // 创建对话框
@@ -245,6 +247,7 @@ export default {
   progressDataCleaned: '进度数据已清除',
   renewButton: '续期',
   renewConfirmTitle: '确认续期',
+  renewConfirmMessage: '确定要续期证书 "{name}" 吗？',
   renewalFailed: '续期失败',
   renewalStarted: '续期已开始',
   secretId: 'Secret ID',
@@ -257,6 +260,5 @@ export default {
   statusUnknown: '未知',
   statusWaiting: '等待中',
   subscriptionId: '订阅 ID',
-  tenantId: '租户 ID',
-  webRoot: '网站根目录'
+  tenantId: '租户 ID'
 }

@@ -33,6 +33,7 @@ export default {
   downloadAll: 'Download All',
   download: 'Download',
   downloadSelected: 'Download Selected',
+  delete: 'Delete',
   enter: 'Enter',
   modifyPermissions: 'Modify Permissions',
   copyPath: 'Copy Path',

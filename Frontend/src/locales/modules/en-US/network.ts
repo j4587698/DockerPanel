@@ -126,6 +126,7 @@ export default {
   aliases: 'Aliases',
   aliasesHint: 'Aliases Hint',
   connect: 'Connect',
+  connectSuccess: 'Connected {count} container(s)',
   loadContainersFailed: 'Failed to load containers',
   connectFailed: 'Connect Failed'
 }

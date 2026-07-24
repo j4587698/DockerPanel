@@ -33,6 +33,7 @@ export default {
   download: '下载',
   downloadSelected: '下载选中',
   downloadAll: '打包下载',
+  delete: '删除',
   enter: '进入',
   modifyPermissions: '修改权限',
   copyPath: '复制路径',

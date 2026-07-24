@@ -114,7 +114,7 @@ public class RegistryService : IRegistryService
                 IsDefault = request.IsDefault,
                 IsSecure = request.IsSecure,
                 IsPublic = request.IsPublic,
-                Type = request.Type ?? DetermineRegistryType(domain),
+                Type = NormalizeRegistryType(request.Type, domain),
                 Description = request.Description ?? string.Empty,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
@@ -193,7 +193,7 @@ public class RegistryService : IRegistryService
             // 密码只在非空时更新（避免前端传空字符串清空密码）
             if (!string.IsNullOrEmpty(request.Password)) registry.Password = request.Password;
             if (request.IsSecure.HasValue) registry.IsSecure = request.IsSecure.Value;
-            if (!string.IsNullOrEmpty(request.Type)) registry.Type = request.Type;
+            registry.Type = NormalizeRegistryType(request.Type ?? registry.Type, registry.Domain);
             if (request.IsDefault.HasValue && request.IsDefault.Value != registry.IsDefault)
             {
                 await SetDefaultRegistryAsync(registry.Id);
@@ -1248,40 +1248,21 @@ public class RegistryService : IRegistryService
         return response.IsSuccessStatusCode;
     }
 
-    private string DetermineRegistryType(string domain)
+    private static string NormalizeRegistryType(string? type, string domain)
     {
-        if (domain.Contains("docker.io") || domain.Contains("registry-1.docker.io"))
+        if (string.Equals(type, "Mirror", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Mirror";
+        }
+
+        if (string.Equals(type, "DockerHub", StringComparison.OrdinalIgnoreCase) ||
+            domain.Contains("docker.io", StringComparison.OrdinalIgnoreCase) ||
+            domain.Contains("registry-1.docker.io", StringComparison.OrdinalIgnoreCase))
         {
             return "DockerHub";
         }
-        else if (domain.Contains("harbor"))
-        {
-            return "Harbor";
-        }
-        else if (domain.Contains("nexus"))
-        {
-            return "Nexus";
-        }
-        else if (domain.Contains("gcr.io"))
-        {
-            return "GCR";
-        }
-        else if (domain.Contains("quay.io"))
-        {
-            return "Quay";
-        }
-        else if (domain.Contains("aliyuncs.com"))
-        {
-            return "Aliyun";
-        }
-        else if (domain.Contains("tencentyun.com") || domain.Contains("ccr.ccs.tencentyun.com"))
-        {
-            return "Tencent";
-        }
-        else
-        {
-            return "Custom";
-        }
+
+        return "Private";
     }
 
     #endregion

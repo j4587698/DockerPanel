@@ -21,7 +21,6 @@ export default {
   inspectVolume: '查看详情',
   backupVolume: '备份卷',
   restoreVolume: '恢复卷',
-  duplicateVolume: '复制卷',
   // 清理
   pruneTitle: '清理未使用卷',
   pruneDescription: '将删除所有未被容器使用的存储卷',
@@ -136,10 +135,12 @@ export default {
     backupFileName: '备份文件名',
     estimatedSize: '预估大小',
     compressedSize: '压缩后大小',
+    aboutSize: '约 {size}',
     noCompress: '不压缩',
     startBackup: '开始备份',
     progressTitle: '备份进度',
     cancelBackup: '取消备份',
+    duration: '耗时：{time}',
     presetDaily: '每日备份',
     presetMigration: '迁移备份',
     presetPreUpgrade: '升级前备份',
@@ -152,6 +153,7 @@ export default {
     progress: {
       preparing: '准备中',
       starting: '开始备份',
+      backupFile: '备份文件：{path}',
       complete: '备份完成',
       failed: '备份失败'
     },
@@ -165,6 +167,7 @@ export default {
 
   // detail
   detail: {
+    title: '卷详情',
     notFound: '未找到',
     basicInfo: '基本信息',
     volumeId: '卷 ID',
@@ -201,6 +204,7 @@ export default {
     refreshDetail: '刷新详情',
     loadFailed: '加载失败',
     loadUsageFailed: '加载使用情况失败',
+    deleteConfirm: '确定要删除存储卷 "{name}" 吗？',
     deleteSuccess: '删除成功',
     deleteFailed: '删除失败',
     statusInUse: '使用中',
@@ -238,8 +242,10 @@ export default {
     validationTargetNodeRequired: '请选择目标节点',
     loadNodesFailed: '加载节点列表失败',
     confirmDuplicateTitle: '确认复制',
+    confirmDuplicateMessage: '确定将卷 "{source}" 复制为 "{target}" 吗？',
     progressPreparing: '准备中',
     progressPreparingTransfer: '准备传输',
+    progressFailed: '复制失败：{error}',
     duplicateFailed: '复制失败',
     progressCopyingData: '正在复制数据',
     progressComplete: '复制完成',

@@ -18,7 +18,6 @@ export default {
   inspectVolume: 'View Details',
   backupVolume: 'Backup Volume',
   restoreVolume: 'Restore Volume',
-  duplicateVolume: 'Duplicate Volume',
   pruneTitle: 'Prune Unused Volumes',
   pruneDescription: 'This will delete all volumes not used by any container',
   pruneWarning: 'Warning: This will permanently delete data',
@@ -132,10 +131,12 @@ export default {
     backupFileName: 'Backup File Name',
     estimatedSize: 'Estimated Size',
     compressedSize: 'Compressed Size',
+    aboutSize: 'About {size}',
     noCompress: 'No Compress',
     startBackup: 'Start Backup',
     progressTitle: 'Progress Title',
     cancelBackup: 'Cancel Backup',
+    duration: 'Duration: {time}',
     presetDaily: 'Preset Daily',
     presetMigration: 'Preset Migration',
     presetPreUpgrade: 'Preset Pre Upgrade',
@@ -148,6 +149,7 @@ export default {
     progress: {
       preparing: 'Preparing',
       starting: 'Starting backup',
+      backupFile: 'Backup file: {path}',
       complete: 'Backup complete',
       failed: 'Backup failed'
     },
@@ -161,6 +163,7 @@ export default {
 
   // detail
   detail: {
+    title: 'Volume Details',
     notFound: 'Not Found',
     basicInfo: 'Basic Info',
     volumeId: 'Volume Id',
@@ -197,6 +200,7 @@ export default {
     refreshDetail: 'Refresh Detail',
     loadFailed: 'Load Failed',
     loadUsageFailed: 'Load Usage Failed',
+    deleteConfirm: 'Are you sure you want to delete volume "{name}"?',
     deleteSuccess: 'Delete Success',
     deleteFailed: 'Delete failed',
     statusInUse: 'Status In Use',
@@ -234,8 +238,10 @@ export default {
     validationTargetNodeRequired: 'Validation Target Node Required',
     loadNodesFailed: 'Load Nodes Failed',
     confirmDuplicateTitle: 'Confirm Duplicate Title',
+    confirmDuplicateMessage: 'Duplicate volume "{source}" to "{target}"?',
     progressPreparing: 'Progress Preparing',
     progressPreparingTransfer: 'Progress Preparing Transfer',
+    progressFailed: 'Duplicate failed: {error}',
     duplicateFailed: 'Duplicate Failed',
     progressCopyingData: 'Progress Copying Data',
     progressComplete: 'Progress Complete',

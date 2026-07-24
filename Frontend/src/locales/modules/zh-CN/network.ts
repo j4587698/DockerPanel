@@ -131,6 +131,7 @@ export default {
   aliases: 'Aliases',
   aliasesHint: 'Aliases Hint',
   connect: 'Connect',
+  connectSuccess: '已连接 {count} 个容器',
   loadContainersFailed: '加载容器失败',
   connectFailed: 'Connect Failed'
 }

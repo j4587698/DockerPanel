@@ -226,15 +226,6 @@ export default {
     actionRestart: 'Restart',
     actionFullUpdate: 'Full Update'
   },
-  // Container Detail
-  containerDetail: {
-    autoUpdate: 'Auto Update',
-    editContainer: 'Edit Container',
-    terminalConnected: 'Connected to terminal of container {name}',
-    terminalDisconnected: 'Terminal connection disconnected',
-    terminalError: 'Terminal error: {error}',
-    terminalConnectFailed: 'Terminal connection failed: {error}'
-  },
   // Dialogs
   dialogs: {
     renameContainer: 'Rename Container',
@@ -296,6 +287,12 @@ export default {
   },
   // Files Module
   filesModule: {
+    fileManager: 'File Manager',
+    refresh: 'Refresh',
+    name: 'Name',
+    download: 'Download',
+    rename: 'Rename',
+    delete: 'Delete',
     mountPointsCount: 'Mount Points ({count})',
     readOnly: 'Read Only',
     persistentStorage: 'Persistent Storage',
@@ -334,6 +331,9 @@ export default {
     editFileDialogTitle: 'Edit File - {name}',
     lines: 'Lines',
     size: 'Size',
+    fileCount: 'Files',
+    folderCount: 'Folders',
+    totalSize: 'Total Size',
     fileContent: 'File Content',
     saveShortcut: 'Ctrl+S to Save',
     permissionsDialogTitle: 'Modify Permissions',
@@ -385,7 +385,11 @@ export default {
     permissionModifyFailed: 'Failed to modify permissions',
     bindMount: 'Bind Mount',
     temporaryStorage: 'Temporary Storage',
-    containerInternal: 'Container Internal'
+    containerInternal: 'Container Internal',
+    folderNameInvalid: 'Invalid folder name',
+    fileNameInvalid: 'Invalid file name',
+    folderType: 'Folder',
+    fileType: 'File'
   },
 
   // execDialog
@@ -423,23 +427,6 @@ export default {
     copyFailed: 'Copy failed'
   },
 
-  // filesModule
-  filesModule: {
-    fileManager: 'File Manager',
-    refresh: 'Refresh',
-    name: 'Name',
-    download: 'Download',
-    rename: 'Rename',
-    delete: 'Delete',
-    fileCount: 'Files',
-    folderCount: 'Folders',
-    totalSize: 'Total Size',
-    folderNameInvalid: 'Invalid folder name',
-    fileNameInvalid: 'Invalid file name',
-    folderType: 'Folder Type',
-    fileType: 'File Type'
-  },
-
   // healthCheck
   healthCheck: {
     title: 'Title',
@@ -458,6 +445,7 @@ export default {
     lastCheck: 'Last Check',
     editConfig: 'Edit Config',
     removeHealthCheck: 'Remove Health Check',
+    removeConfirm: 'Remove health check from container "{name}"?',
     logs: 'Logs',
     timeRange: 'Time Range',
     to: 'To',
@@ -474,6 +462,7 @@ export default {
     checkIntervalSec: 'Check Interval (sec)',
     timeoutSec: 'Timeout (sec)',
     startPeriodSec: 'Start Period (sec)',
+    secondsFormat: '{seconds} seconds',
     validation: {
       checkCommandRequired: 'Check Command Required',
       intervalRequired: 'Interval Required',
@@ -545,10 +534,17 @@ export default {
 
   // containerDetail
   containerDetail: {
+    autoUpdate: 'Auto Update',
+    editContainer: 'Edit Container',
+    terminalConnected: 'Connected to terminal of container {name}',
+    terminalDisconnected: 'Terminal connection disconnected',
+    terminalError: 'Terminal error: {error}',
+    terminalConnectFailed: 'Terminal connection failed: {error}',
     getNetworksFailed: 'Failed to get networks',
     networkConnected: 'Network connected',
     connectNetworkFailed: 'Failed to connect network',
     disconnectNetworkTitle: 'Disconnect Network',
+    disconnectNetworkConfirm: 'Disconnect from network {network}?',
     networkDisconnected: 'Network disconnected',
     disconnectNetworkFailed: 'Failed to disconnect network',
     startSuccess: 'Started successfully',

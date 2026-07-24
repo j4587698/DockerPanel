@@ -275,7 +275,7 @@ const rules = computed(() => ({
 
 // 计算私有仓库和加速器列表
 const privateRegistries = computed(() => 
-  registries.value.filter(r => r.type === RegistryType.Private)
+  registries.value.filter(r => r.type !== RegistryType.Mirror && r.type !== RegistryType.DockerHub)
 )
 
 const mirrorRegistries = computed(() => 
@@ -307,7 +307,7 @@ const handleEdit = (row: ImageRegistry) => {
   form.domain = row.domain || ''
   form.username = row.username || ''
   form.password = '' // 密码不回显
-  form.type = row.type
+  form.type = row.type === RegistryType.Mirror ? RegistryType.Mirror : RegistryType.Private
   form.isDefault = row.isDefault
   showFormDialog.value = true
 }

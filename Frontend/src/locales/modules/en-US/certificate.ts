@@ -54,6 +54,8 @@ export default {
   status: 'Status',
   failed: 'Failed',
   expiresInDays: '{days} days left',
+  expiredDaysAgo: 'Expired {days} days ago',
+  duration: 'Duration: {seconds}s',
   // Certificate description
   description: 'Description',
   // Create dialog
@@ -241,6 +243,7 @@ export default {
   progressDataCleaned: 'Progress data cleared',
   renewButton: 'Renew',
   renewConfirmTitle: 'Confirm Renewal',
+  renewConfirmMessage: 'Renew certificate "{name}"?',
   renewalFailed: 'Renewal failed',
   renewalStarted: 'Renewal started',
   secretId: 'Secret ID',
@@ -253,6 +256,5 @@ export default {
   statusUnknown: 'Unknown',
   statusWaiting: 'Waiting',
   subscriptionId: 'Subscription ID',
-  tenantId: 'Tenant ID',
-  webRoot: 'Web Root'
+  tenantId: 'Tenant ID'
 }

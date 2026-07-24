@@ -29,6 +29,7 @@ export default {
   statusLocked: '已锁定',
   statusMustChange: '需修改密码',
   resetPassword: '重置密码',
+  resetPasswordHint: '将为用户 "{username}" 设置新密码',
   cannotDeleteSelf: '不能删除当前登录用户',
   selfEditHint: '您正在编辑自己的账户',
   mustChangePassword: '需要修改密码',
@@ -46,4 +47,5 @@ export default {
   resetFailed: '密码重置失败',
   deleteSuccess: '用户删除成功',
   deleteFailed: '删除失败',
+  deleteConfirm: '确定删除用户 "{username}" 吗？'
 }

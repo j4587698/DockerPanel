@@ -226,15 +226,6 @@ export default {
     actionRestart: '重启',
     actionFullUpdate: '完整升级'
   },
-  // 容器详情页
-  containerDetail: {
-    autoUpdate: '自动升级',
-    editContainer: '编辑容器',
-    terminalConnected: '已连接到容器 {name} 的终端',
-    terminalDisconnected: '终端连接已断开',
-    terminalError: '终端错误: {error}',
-    terminalConnectFailed: '终端连接失败: {error}'
-  },
   // 对话框
   dialogs: {
     renameContainer: '重命名容器',
@@ -296,6 +287,12 @@ export default {
   },
   // 文件模块
   filesModule: {
+    fileManager: '文件管理',
+    refresh: '刷新',
+    name: '名称',
+    download: '下载',
+    rename: '重命名',
+    delete: '删除',
     mountPointsCount: '挂载点 ({count})',
     readOnly: '只读',
     persistentStorage: '持久存储',
@@ -334,6 +331,9 @@ export default {
     editFileDialogTitle: '编辑文件 - {name}',
     lines: '行数',
     size: '大小',
+    fileCount: '文件数量',
+    folderCount: '文件夹数量',
+    totalSize: '总大小',
     fileContent: '文件内容',
     saveShortcut: 'Ctrl+S 保存',
     permissionsDialogTitle: '修改权限',
@@ -385,7 +385,11 @@ export default {
     permissionModifyFailed: '权限修改失败',
     bindMount: '绑定挂载',
     temporaryStorage: '临时存储',
-    containerInternal: '容器内部'
+    containerInternal: '容器内部',
+    folderNameInvalid: '文件夹名不合法',
+    fileNameInvalid: '文件名不合法',
+    folderType: '文件夹',
+    fileType: '文件'
   },
 
   // execDialog
@@ -423,23 +427,6 @@ export default {
     copyFailed: '复制失败'
   },
 
-  // filesModule
-  filesModule: {
-    fileManager: '文件管理',
-    refresh: '刷新',
-    name: '名称',
-    download: '下载',
-    rename: '重命名',
-    delete: '删除',
-    fileCount: '文件数量',
-    folderCount: '文件夹数量',
-    totalSize: '总大小',
-    folderNameInvalid: '文件夹名不合法',
-    fileNameInvalid: '文件名不合法',
-    folderType: '文件夹类型',
-    fileType: '文件类型'
-  },
-
   // healthCheck
   healthCheck: {
     title: '健康检查',
@@ -458,6 +445,7 @@ export default {
     lastCheck: '上次检查',
     editConfig: '编辑配置',
     removeHealthCheck: '移除健康检查',
+    removeConfirm: '确定要移除容器 "{name}" 的健康检查吗？',
     logs: '日志',
     timeRange: '时间范围',
     to: '至',
@@ -474,6 +462,7 @@ export default {
     checkIntervalSec: '检查间隔（秒）',
     timeoutSec: '超时（秒）',
     startPeriodSec: '启动等待（秒）',
+    secondsFormat: '{seconds} 秒',
     validation: {
       checkCommandRequired: '请输入检查命令',
       intervalRequired: '请输入检查间隔',
@@ -545,10 +534,17 @@ export default {
 
   // containerDetail
   containerDetail: {
+    autoUpdate: '自动升级',
+    editContainer: '编辑容器',
+    terminalConnected: '已连接到容器 {name} 的终端',
+    terminalDisconnected: '终端连接已断开',
+    terminalError: '终端错误: {error}',
+    terminalConnectFailed: '终端连接失败: {error}',
     getNetworksFailed: '获取网络列表失败',
     networkConnected: '网络已连接',
     connectNetworkFailed: '连接网络失败',
     disconnectNetworkTitle: '断开网络',
+    disconnectNetworkConfirm: '确定要断开网络 {network} 吗？',
     networkDisconnected: '网络已断开',
     disconnectNetworkFailed: '断开网络失败',
     startSuccess: '启动成功',

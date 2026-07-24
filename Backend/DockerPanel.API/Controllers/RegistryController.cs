@@ -57,7 +57,9 @@ public class RegistryController : ControllerBase
         try
         {
             var registries = await _registryService.GetRegistriesAsync();
-            var filtered = registries.Where(r => r.Type == type);
+            var filtered = string.Equals(type, "Private", StringComparison.OrdinalIgnoreCase)
+                ? registries.Where(r => r.Type != "Mirror" && r.Type != "DockerHub")
+                : registries.Where(r => string.Equals(r.Type, type, StringComparison.OrdinalIgnoreCase));
             return Ok(filtered);
         }
         catch (Exception ex)

@@ -18,6 +18,7 @@ logs/
 *.db
 *.db-shm
 *.db-wal
+*.db.writer.lock
 
 # Build outputs
 **/bin/

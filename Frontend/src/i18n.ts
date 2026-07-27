@@ -301,6 +301,7 @@ export function isSupportedLocale(locale: string): locale is SupportedLocale {
 /**
  * 根据后端错误代码获取前端翻译
  * 后端返回格式: { code: 'ERROR_CODE', message: '原始消息' }
+ * 若既无匹配翻译也无原始消息，返回空字符串，由调用方决定兜底文案
  */
 export function getLocalizedErrorMessage(error: { code?: string; message?: string }): string {
   const { code, message } = error
@@ -317,7 +318,7 @@ export function getLocalizedErrorMessage(error: { code?: string; message?: strin
   }
   
   // 返回原始消息
-  return message || t('common.operationFailed')
+  return message || ''
 }
 
 // 初始化时设置 HTML lang 属性

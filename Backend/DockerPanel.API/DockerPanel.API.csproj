@@ -6,7 +6,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Version>0.8.0</Version>
     <InformationalVersion>$(Version)</InformationalVersion>
+    <!-- 本地化由自研 JSON 语言包实现，不依赖 ICU；可为镜像省去 icu-libs(约 30MB) -->
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 语言包：同时内嵌进程序集(兜底)并复制到输出目录(供用户挂载覆盖) -->
+    <None Remove="Locales\*.json" />
+    <EmbeddedResource Include="Locales\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Asp.Versioning.Mvc" Version="10.0.0" />
@@ -14,8 +24,7 @@
     <PackageReference Include="Certes" Version="3.0.4" />
     <PackageReference Include="DnsClient" Version="1.8.0" />
     <PackageReference Include="Docker.DotNet.Enhanced" Version="4.3.3" />
-    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
-    <PackageReference Include="TinyDb" Version="0.6.0" />
+    <PackageReference Include="TinyDb" Version="0.6.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />

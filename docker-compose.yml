@@ -21,6 +21,9 @@ services:
       - dockerpanel_data:/app/Data
       # 日志文件
       - dockerpanel_logs:/app/Logs
+      # 可选：自定义或新增语言包（文件名即语言代码，如 zh-CN.json）
+      # 只需写想覆盖的条目，其余自动沿用内置翻译
+      # - ./locales:/app/Locales
     networks:
       - dockerpanel-network
     # 支持 host.docker.internal（Linux 需要）
@@ -28,7 +31,7 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health/live"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -36,12 +36,6 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS backend-runtime
 
 WORKDIR /app
 
-# 安装必要的运行时依赖
-RUN apk add --no-cache \
-    icu-libs \
-    curl \
-    && rm -rf /var/cache/apk/*
-
 COPY --from=backend-build /app/publish ./
 
 # 设置环境变量
@@ -53,7 +47,7 @@ ENV ENABLE_HTTPS=true
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/health/live || exit 1
+    CMD wget -q -O /dev/null http://localhost/health/live || exit 1
 
 # 暴露端口
 EXPOSE 80

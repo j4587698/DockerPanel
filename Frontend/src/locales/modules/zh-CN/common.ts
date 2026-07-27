@@ -77,6 +77,7 @@ export default {
     REFRESH_INVALID: '登录凭证无效，请重新登录',
     CSRF_INVALID: '请求被安全策略拒绝',
     TOKEN_EXPIRED: '登录已过期，请重新登录',
+    TOO_MANY_REQUESTS: '尝试过于频繁，请稍后重试',
   },
   deleteConfirm: '确认删除',
   deleteSuccess: '删除成功',

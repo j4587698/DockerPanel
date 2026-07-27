@@ -676,6 +676,18 @@ const batchUpgrade = async () => {
   }
 }
 
+// 载入已知的更新状态（不触发远程仓库查询）
+const loadUpdateStatuses = async () => {
+  try {
+    const configs: any = await autoUpdateApi.getAllConfigs()
+    ;(configs || []).forEach((c: any) => {
+      updateStatusMap.value.set(c.containerId, c.hasUpdateAvailable ? AutoUpdateStatus.UpdateAvailable : AutoUpdateStatus.UpToDate)
+    })
+  } catch (err) {
+    console.error(t('container.upgrade.checkFailed'), err)
+  }
+}
+
 // 检查所有容器的更新状态
 const checkAllUpdates = async () => {
   try {
@@ -701,7 +713,7 @@ const hasUpdateAvailable = (containerId: string): boolean => {
 onMounted(() => {
   refreshData()
   store.startStatsMonitoring()
-  checkAllUpdates()
+  loadUpdateStatuses().then(() => checkAllUpdates())
 })
 
 import { onUnmounted } from 'vue'

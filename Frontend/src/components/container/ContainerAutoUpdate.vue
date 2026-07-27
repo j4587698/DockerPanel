@@ -37,11 +37,11 @@
               @click="handleCheckUpdate"
              :icon="Search">{{ t('container.checkUpdate') }}</el-button>
             <el-button 
-              v-if="config?.hasUpdateAvailable"
               type="warning"
               :loading="updating"
-              @click="handleUpdate(false)"
-             :icon="Download">{{ t('container.pullAndRestart') }}</el-button>
+              :disabled="!config?.hasUpdateAvailable"
+              @click="handleOneClickUpdate"
+             :icon="Download">{{ t('container.upgrade.oneClick') }}</el-button>
             <el-button 
               v-if="config?.hasUpdateAvailable"
               type="success"
@@ -324,6 +324,20 @@ const handleUpdate = async (pullOnly: boolean) => {
   } finally {
     updating.value = false
   }
+}
+
+// 一键更新（拉取最新镜像并按原配置重建容器）
+const handleOneClickUpdate = async () => {
+  try {
+    await ElMessageBox.confirm(
+      t('container.upgrade.singleConfirmMessage', { name: props.containerName || props.containerId.substring(0, 12) }),
+      t('container.upgrade.singleConfirmTitle'),
+      { confirmButtonText: t('container.upgrade.confirmButton'), cancelButtonText: t('common.cancel'), type: 'warning' }
+    )
+  } catch {
+    return // 用户取消
+  }
+  await handleUpdate(false)
 }
 
 // 保存配置

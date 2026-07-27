@@ -169,8 +169,13 @@ export default {
   upgrade: {
     upgrading: '升级中...',
     batchUpgrade: '批量升级',
+    oneClick: '一键更新',
     confirmTitle: '批量升级确认',
     confirmMessage: '确定升级选中的 {count} 个有更新的容器？\n升级会拉取最新镜像并重启容器。',
+    singleConfirmTitle: '升级确认',
+    singleConfirmMessage: '确定升级容器 {name}？\n升级会拉取最新镜像并使用原配置重建容器。',
+    singleSuccess: '容器 {name} 升级成功',
+    singleFailed: '容器升级失败',
     confirmButton: '确定升级',
     noUpdatesAvailable: '所选容器中没有需要更新的，请先检查更新',
     successCount: '成功升级 {count} 个容器',

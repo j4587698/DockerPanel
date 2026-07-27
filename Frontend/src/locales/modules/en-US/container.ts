@@ -169,8 +169,13 @@ export default {
   upgrade: {
     upgrading: 'Upgrading...',
     batchUpgrade: 'Batch Upgrade',
+    oneClick: 'Upgrade Now',
     confirmTitle: 'Batch Upgrade Confirmation',
     confirmMessage: 'Are you sure to upgrade {count} selected containers with updates?\nUpgrade will pull the latest image and restart containers.',
+    singleConfirmTitle: 'Upgrade Confirmation',
+    singleConfirmMessage: 'Are you sure to upgrade container {name}?\nUpgrade will pull the latest image and recreate the container with its current configuration.',
+    singleSuccess: 'Container {name} upgraded successfully',
+    singleFailed: 'Container upgrade failed',
     confirmButton: 'Confirm Upgrade',
     noUpdatesAvailable: 'No containers need updating, please check for updates first',
     successCount: 'Successfully upgraded {count} containers',

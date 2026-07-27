@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using DockerPanel.API.Services;
 using DockerPanel.API.Services.Acme;
 using DockerPanel.API.Models;
 using DockerPanel.API.Models.Acme;
@@ -16,13 +17,16 @@ namespace DockerPanel.API.Controllers.Acme
     {
         private readonly IWildcardCertificateService _wildcardCertificateService;
         private readonly ILogger<WildcardCertificateController> _logger;
+        private readonly ILocalizationService _localization;
 
         public WildcardCertificateController(
             IWildcardCertificateService wildcardCertificateService,
-            ILogger<WildcardCertificateController> logger)
+            ILogger<WildcardCertificateController> logger,
+            ILocalizationService localization)
         {
             _wildcardCertificateService = wildcardCertificateService;
             _logger = logger;
+            _localization = localization;
         }
 
         /// <summary>
@@ -59,7 +63,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     RequestedAt = DateTime.UtcNow
                 });
@@ -100,7 +104,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     CertificateId = certificateId,
                     RequestedAt = DateTime.UtcNow
@@ -134,7 +138,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateValidationResult
                 {
                     Passed = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     ValidatedAt = DateTime.UtcNow
                 });
@@ -175,7 +179,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new DnsChallengeConfigurationResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     Domain = request.Domain,
                     ConfiguredAt = DateTime.UtcNow
@@ -217,7 +221,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new DnsChallengeCleanupResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     Domain = request.Domain,
                     CleanedAt = DateTime.UtcNow
@@ -249,13 +253,13 @@ namespace DockerPanel.API.Controllers.Acme
                 else
                 {
                     _logger.LogWarning("未找到通配符证书: {CertificateId}", certificateId);
-                    return NotFound(new { Message = "未找到指定的通配符证书" });
+                    return NotFound(new { Message = _localization.GetMessage("wildcard.notFound") });
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "获取通配符证书详情时发生异常: {CertificateId}", certificateId);
-                return StatusCode(500, new { Message = "服务器内部错误", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("error.serverError"), Error = ex.Message });
             }
         }
 
@@ -279,7 +283,7 @@ namespace DockerPanel.API.Controllers.Acme
             catch (Exception ex)
             {
                 _logger.LogError(ex, "获取通配符证书列表时发生异常");
-                return StatusCode(500, new { Message = "服务器内部错误", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("error.serverError"), Error = ex.Message });
             }
         }
 
@@ -317,7 +321,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateDeletionResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     CertificateId = certificateId,
                     DeletedAt = DateTime.UtcNow,
                     Errors = new List<string> { ex.Message }
@@ -359,7 +363,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateDeletionResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     CertificateId = certificateId,
                     DeletedAt = DateTime.UtcNow,
                     Errors = new List<string> { ex.Message }
@@ -401,7 +405,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateImportResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     ImportedAt = DateTime.UtcNow
                 });
@@ -444,7 +448,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateExportResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     ExportedAt = DateTime.UtcNow
                 });
@@ -477,7 +481,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateValidationResult
                 {
                     IsValid = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     ValidatedAt = DateTime.UtcNow
                 });
@@ -510,7 +514,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateTestResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     TestStartedAt = DateTime.UtcNow,
                     TestCompletedAt = DateTime.UtcNow
@@ -536,7 +540,7 @@ namespace DockerPanel.API.Controllers.Acme
             catch (Exception ex)
             {
                 _logger.LogError(ex, "获取DNS提供商列表时发生异常");
-                return StatusCode(500, new { Message = "服务器内部错误", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("error.serverError"), Error = ex.Message });
             }
         }
 
@@ -560,7 +564,7 @@ namespace DockerPanel.API.Controllers.Acme
             catch (Exception ex)
             {
                 _logger.LogError(ex, "获取通配符证书统计信息时发生异常");
-                return StatusCode(500, new { Message = "服务器内部错误", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("error.serverError"), Error = ex.Message });
             }
         }
 
@@ -591,7 +595,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardCertificateBatchResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     BatchStartedAt = DateTime.UtcNow,
                     BatchCompletedAt = DateTime.UtcNow
@@ -623,13 +627,13 @@ namespace DockerPanel.API.Controllers.Acme
                 else
                 {
                     _logger.LogWarning("未找到通配符证书状态: {CertificateId}", certificateId);
-                    return NotFound(new { Message = "未找到指定的通配符证书" });
+                    return NotFound(new { Message = _localization.GetMessage("wildcard.notFound") });
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "检查通配符证书状态时发生异常: {CertificateId}", certificateId);
-                return StatusCode(500, new { Message = "服务器内部错误", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("error.serverError"), Error = ex.Message });
             }
         }
 
@@ -667,7 +671,7 @@ namespace DockerPanel.API.Controllers.Acme
                 return StatusCode(500, new WildcardAutoChallengeResult
                 {
                     Success = false,
-                    Message = "服务器内部错误",
+                    Message = _localization.GetMessage("error.serverError"),
                     Errors = new List<string> { ex.Message },
                     ConfiguredAt = DateTime.UtcNow
                 });

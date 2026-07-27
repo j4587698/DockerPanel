@@ -13,11 +13,13 @@ public class AutoUpdateController : ControllerBase
 {
     private readonly IAutoUpdateService _autoUpdateService;
     private readonly ILogger<AutoUpdateController> _logger;
+    private readonly ILocalizationService _localization;
 
-    public AutoUpdateController(IAutoUpdateService autoUpdateService, ILogger<AutoUpdateController> logger)
+    public AutoUpdateController(IAutoUpdateService autoUpdateService, ILogger<AutoUpdateController> logger, ILocalizationService localization)
     {
         _autoUpdateService = autoUpdateService;
         _logger = logger;
+        _localization = localization;
     }
 
     /// <summary>
@@ -34,7 +36,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取自动升级配置失败");
-            return StatusCode(500, new { error = "获取自动升级配置失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.getConfigFailed"), message = ex.Message });
         }
     }
 
@@ -64,7 +66,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取容器 {ContainerId} 的自动升级配置失败", containerId);
-            return StatusCode(500, new { error = "获取配置失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.getContainerConfigFailed"), message = ex.Message });
         }
     }
 
@@ -82,7 +84,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "设置容器 {ContainerId} 的自动升级配置失败", containerId);
-            return StatusCode(500, new { error = "设置配置失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.setContainerConfigFailed"), message = ex.Message });
         }
     }
 
@@ -100,7 +102,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "删除容器 {ContainerId} 的自动升级配置失败", containerId);
-            return StatusCode(500, new { error = "删除配置失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.deleteContainerConfigFailed"), message = ex.Message });
         }
     }
 
@@ -118,7 +120,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "检查容器 {ContainerId} 的镜像更新失败", containerId);
-            return StatusCode(500, new { error = "检查更新失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.checkFailed"), message = ex.Message });
         }
     }
 
@@ -136,7 +138,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "检查所有容器更新失败");
-            return StatusCode(500, new { error = "检查更新失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.checkAllFailed"), message = ex.Message });
         }
     }
 
@@ -154,7 +156,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取可用更新列表失败");
-            return StatusCode(500, new { error = "获取可用更新失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.availableUpdatesFailed"), message = ex.Message });
         }
     }
 
@@ -172,7 +174,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "更新容器 {ContainerId} 失败", containerId);
-            return StatusCode(500, new { error = "更新容器失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.updateFailed"), message = ex.Message });
         }
     }
 
@@ -190,7 +192,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取全局设置失败");
-            return StatusCode(500, new { error = "获取全局设置失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.getGlobalSettingsFailed"), message = ex.Message });
         }
     }
 
@@ -208,7 +210,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "设置全局设置失败");
-            return StatusCode(500, new { error = "设置全局设置失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.setGlobalSettingsFailed"), message = ex.Message });
         }
     }
 
@@ -226,7 +228,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "获取镜像标签失败: {ImageName}", imageName);
-            return StatusCode(500, new { error = "获取镜像标签失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.imageTagsFailed"), message = ex.Message });
         }
     }
 
@@ -240,7 +242,7 @@ public class AutoUpdateController : ControllerBase
         {
             if (string.IsNullOrEmpty(targetTag))
             {
-                return BadRequest(new { error = "目标标签不能为空" });
+                return BadRequest(new { error = _localization.GetMessage("autoUpdate.targetTagRequired") });
             }
             
             var result = await _autoUpdateService.RollbackContainerAsync(containerId, targetTag);
@@ -249,7 +251,7 @@ public class AutoUpdateController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "回滚容器 {ContainerId} 失败", containerId);
-            return StatusCode(500, new { error = "回滚容器失败", message = ex.Message });
+            return StatusCode(500, new { error = _localization.GetMessage("autoUpdate.rollbackFailed"), message = ex.Message });
         }
     }
 }

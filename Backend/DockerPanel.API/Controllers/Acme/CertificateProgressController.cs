@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using DockerPanel.API.Models.Acme;
+using DockerPanel.API.Services;
 using DockerPanel.API.Services.Acme;
 using Microsoft.Extensions.Logging;
 
@@ -15,13 +16,16 @@ namespace DockerPanel.API.Controllers.Acme
     {
         private readonly ICertificateProgressService _progressService;
         private readonly ILogger<CertificateProgressController> _logger;
+        private readonly ILocalizationService _localization;
 
         public CertificateProgressController(
             ICertificateProgressService progressService,
-            ILogger<CertificateProgressController> logger)
+            ILogger<CertificateProgressController> logger,
+            ILocalizationService localization)
         {
             _progressService = progressService;
             _logger = logger;
+            _localization = localization;
         }
 
         /// <summary>
@@ -43,7 +47,7 @@ namespace DockerPanel.API.Controllers.Acme
             catch (Exception ex)
             {
                 _logger.LogError(ex, "创建进度跟踪失败");
-                return StatusCode(500, new { Message = "创建进度跟踪失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.createFailed"), Error = ex.Message });
             }
         }
 
@@ -67,7 +71,7 @@ namespace DockerPanel.API.Controllers.Acme
             catch (Exception ex)
             {
                 _logger.LogError(ex, "获取进度信息失败: {ProgressId}", progressId);
-                return StatusCode(500, new { Message = "获取进度信息失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.getFailed"), Error = ex.Message });
             }
         }
 
@@ -91,7 +95,7 @@ namespace DockerPanel.API.Controllers.Acme
             catch (Exception ex)
             {
                 _logger.LogError(ex, "获取证书进度信息失败: {CertificateId}", certificateId);
-                return StatusCode(500, new { Message = "获取证书进度信息失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.getByCertificateFailed"), Error = ex.Message });
             }
         }
 
@@ -112,7 +116,7 @@ namespace DockerPanel.API.Controllers.Acme
             catch (Exception ex)
             {
                 _logger.LogError(ex, "获取所有进度列表失败");
-                return StatusCode(500, new { Message = "获取所有进度列表失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.listFailed"), Error = ex.Message });
             }
         }
 
@@ -132,12 +136,12 @@ namespace DockerPanel.API.Controllers.Acme
             try
             {
                 await _progressService.UpdateProgressStepAsync(progressId, request.Step, request.Message, request.IsCompleted);
-                return Ok(new { Message = "进度步骤更新成功" });
+                return Ok(new { Message = _localization.GetMessage("progress.stepUpdateSuccess") });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "更新进度步骤失败: {ProgressId}", progressId);
-                return StatusCode(500, new { Message = "更新进度步骤失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.stepUpdateFailed"), Error = ex.Message });
             }
         }
 
@@ -157,12 +161,12 @@ namespace DockerPanel.API.Controllers.Acme
             try
             {
                 await _progressService.CompleteCurrentStepAsync(progressId, request.Message);
-                return Ok(new { Message = "当前步骤完成成功" });
+                return Ok(new { Message = _localization.GetMessage("progress.completeCurrentSuccess") });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "完成当前步骤失败: {ProgressId}", progressId);
-                return StatusCode(500, new { Message = "完成当前步骤失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.completeCurrentFailed"), Error = ex.Message });
             }
         }
 
@@ -182,12 +186,12 @@ namespace DockerPanel.API.Controllers.Acme
             try
             {
                 await _progressService.AddErrorAsync(progressId, request.Error);
-                return Ok(new { Message = "错误信息添加成功" });
+                return Ok(new { Message = _localization.GetMessage("progress.addErrorSuccess") });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "添加错误信息失败: {ProgressId}", progressId);
-                return StatusCode(500, new { Message = "添加错误信息失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.addErrorFailed"), Error = ex.Message });
             }
         }
 
@@ -207,12 +211,12 @@ namespace DockerPanel.API.Controllers.Acme
             try
             {
                 await _progressService.AddWarningAsync(progressId, request.Warning);
-                return Ok(new { Message = "警告信息添加成功" });
+                return Ok(new { Message = _localization.GetMessage("progress.addWarningSuccess") });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "添加警告信息失败: {ProgressId}", progressId);
-                return StatusCode(500, new { Message = "添加警告信息失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.addWarningFailed"), Error = ex.Message });
             }
         }
 
@@ -230,12 +234,12 @@ namespace DockerPanel.API.Controllers.Acme
             try
             {
                 await _progressService.MarkAsCompletedAsync(progressId);
-                return Ok(new { Message = "进度标记完成成功" });
+                return Ok(new { Message = _localization.GetMessage("progress.markCompleteSuccess") });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "标记进度完成失败: {ProgressId}", progressId);
-                return StatusCode(500, new { Message = "标记进度完成失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.markCompleteFailed"), Error = ex.Message });
             }
         }
 
@@ -255,12 +259,12 @@ namespace DockerPanel.API.Controllers.Acme
             try
             {
                 await _progressService.MarkAsFailedAsync(progressId, request.ErrorMessage);
-                return Ok(new { Message = "进度标记失败成功" });
+                return Ok(new { Message = _localization.GetMessage("progress.markFailSuccess") });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "标记进度失败失败: {ProgressId}", progressId);
-                return StatusCode(500, new { Message = "标记进度失败失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.markFailFailed"), Error = ex.Message });
             }
         }
 
@@ -278,12 +282,12 @@ namespace DockerPanel.API.Controllers.Acme
             try
             {
                 await _progressService.DeleteProgressAsync(progressId);
-                return Ok(new { Message = "进度记录删除成功" });
+                return Ok(new { Message = _localization.GetMessage("progress.deleteSuccess") });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "删除进度记录失败: {ProgressId}", progressId);
-                return StatusCode(500, new { Message = "删除进度记录失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.deleteFailed"), Error = ex.Message });
             }
         }
 
@@ -299,12 +303,12 @@ namespace DockerPanel.API.Controllers.Acme
             try
             {
                 await _progressService.CleanupExpiredProgressAsync();
-                return Ok(new { Message = "过期进度记录清理成功" });
+                return Ok(new { Message = _localization.GetMessage("progress.cleanupSuccess") });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "清理过期进度记录失败");
-                return StatusCode(500, new { Message = "清理过期进度记录失败", Error = ex.Message });
+                return StatusCode(500, new { Message = _localization.GetMessage("progress.cleanupFailed"), Error = ex.Message });
             }
         }
     }

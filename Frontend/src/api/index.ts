@@ -1,6 +1,5 @@
 import axios from "axios"
 import type { AxiosRequestConfig } from "axios"
-import { ElMessage } from "element-plus"
 import { getAcceptLanguageHeader, getLocalizedErrorMessage } from "../i18n"
 
 // 扩展配置类型
@@ -95,6 +94,45 @@ api.interceptors.request.use(
   }
 )
 
+// 从后端响应体中解析出可读的错误信息。
+// 约定格式：{ code?: string, message?: string, error?: string }
+// ASP.NET 模型验证失败时为 ProblemDetails：{ title, detail, errors: { field: string[] } }
+const extractResponseMessage = (data: any): string => {
+  if (!data || typeof data !== "object") {
+    return typeof data === "string" ? data.trim() : ""
+  }
+
+  if (data.errors && typeof data.errors === "object") {
+    const details = Object.values(data.errors as Record<string, unknown>)
+      .flatMap((item) => (Array.isArray(item) ? item : [item]))
+      .filter((item): item is string => typeof item === "string" && item.length > 0)
+    if (details.length > 0) {
+      return details.join("；")
+    }
+  }
+
+  const raw = data.message || data.error || data.detail || data.title
+  const rawText = typeof raw === "string" ? raw.trim() : ""
+  if (data.code) {
+    return getLocalizedErrorMessage({ code: String(data.code), message: rawText })
+  }
+  return rawText
+}
+
+const statusFallbackMessage = (status: number): string => {
+  if (status === 400) return "请求参数错误"
+  if (status === 401) return "登录状态已失效，请重新登录"
+  if (status === 403) return "拒绝访问"
+  if (status === 404) return "请求资源不存在"
+  if (status === 423) return "账户已锁定，请稍后重试"
+  if (status === 429) return "操作过于频繁，请稍后重试"
+  if (status >= 500) return `服务器错误 (${status})`
+  return `请求失败 (${status})`
+}
+
+const resolveErrorMessage = (status: number, data: any): string =>
+  extractResponseMessage(data) || statusFallbackMessage(status)
+
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
@@ -108,85 +146,60 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // 对响应错误做点什么
-    let message = "请求失败"
-
     if (error.code === "ECONNABORTED") {
-      message = "请求超时，请检查网络连接或稍后重试"
-    } else if (error.response) {
-      const status = error.response.status
-      const data = error.response.data
+      error.message = "请求超时，请检查网络连接或稍后重试"
+      return Promise.reject(error)
+    }
 
-      if (status === 400) {
-        message = data?.message || "请求参数错误"
-      } else if (status === 401) {
-        const originalRequest = error.config
-        const code = data?.code
+    if (!error.response) {
+      error.message = error.request ? "网络连接失败，请检查网络设置" : error.message || "请求失败"
+      return Promise.reject(error)
+    }
 
-        // refresh 接口自身失败：必然需要重新登录
-        if (originalRequest.url === '/auth/refresh') {
-          forceLogout()
-          return Promise.reject(error)
-        }
+    const status = error.response.status
+    const data = error.response.data
 
-        // 明确需要重新登录的认证错误（refresh 失效/账户禁用），直接登出
-        if (code === 'REFRESH_EXPIRED' || code === 'REFRESH_INVALID' || code === 'ACCOUNT_DISABLED') {
-          forceLogout()
-          return Promise.reject(error)
-        }
+    // 先统一生成可读消息，保证任何提前返回的分支也带有正确的 error.message
+    error.message = resolveErrorMessage(status, data)
 
-        // 业务类凭证错误（如登录密码错误）：不登出，仅把消息交给调用方提示
-        if (code === 'INVALID_CREDENTIALS') {
-          message = getLocalizedErrorMessage({ code }) || data?.message || "用户名或密码错误"
-          return Promise.reject(error)
-        }
+    if (status === 401) {
+      const originalRequest = error.config
+      const code = data?.code
 
-        // 其余 401（access token 过期/缺失）：尝试用 refresh token 续期。
-        // safeRefreshToken 内部已保证单飞 + 跨标签页互斥，多个并发 401 共享同一刷新过程。
-        if (!originalRequest._retry) {
-          originalRequest._retry = true
-
-          return safeRefreshToken()
-            .then(() => api(originalRequest))
-            .catch((refreshError) => {
-              forceLogout()
-              return Promise.reject(refreshError)
-            })
-        }
-
+      // refresh 接口自身失败：必然需要重新登录
+      if (originalRequest.url === "/auth/refresh") {
         forceLogout()
-      } else if (status === 403) {
-        // CSRF 头缺失等防御性拦截：不登出，交由调用方提示或重试
-        if (data?.code === 'CSRF_INVALID') {
-          message = getLocalizedErrorMessage({ code: data.code }) || data?.message || "请求被安全策略拒绝（缺少必要请求头）"
-        } else {
-          message = data?.message || "拒绝访问"
-        }
-      } else if (status === 404) {
-        message = data?.message || "请求资源不存在"
-      } else if (status >= 500) {
-        // 尝试使用后端返回的错误代码进行翻译
-        if (data?.code || data?.error) {
-          message = getLocalizedErrorMessage({
-            code: data.code,
-            message: data.error || data.message
-          })
-        } else {
-          message = data?.error || data?.message || `服务器错误 (${status})`
-        }
-      } else {
-        message = data?.message || `请求失败 (${status})`
+        return Promise.reject(error)
       }
-    } else if (error.request) {
-      message = "网络连接失败，请检查网络设置"
-    } else {
-      message = error.message || "请求失败"
+
+      // 明确需要重新登录的认证错误（refresh 失效/账户禁用），直接登出
+      if (code === "REFRESH_EXPIRED" || code === "REFRESH_INVALID" || code === "ACCOUNT_DISABLED") {
+        forceLogout()
+        return Promise.reject(error)
+      }
+
+      // 业务类凭证错误（如登录密码错误）：不登出，仅把消息交给调用方提示
+      if (code === "INVALID_CREDENTIALS") {
+        return Promise.reject(error)
+      }
+
+      // 其余 401（access token 过期/缺失）：尝试用 refresh token 续期。
+      // safeRefreshToken 内部已保证单飞 + 跨标签页互斥，多个并发 401 共享同一刷新过程。
+      if (!originalRequest._retry) {
+        originalRequest._retry = true
+
+        return safeRefreshToken()
+          .then(() => api(originalRequest))
+          .catch((refreshError) => {
+            forceLogout()
+            return Promise.reject(refreshError)
+          })
+      }
+
+      forceLogout()
     }
 
     console.error("API请求错误:", error)
-
-    // 覆盖 error.message，让调用方获取正确的错误信息
-    error.message = message
 
     return Promise.reject(error)
   }

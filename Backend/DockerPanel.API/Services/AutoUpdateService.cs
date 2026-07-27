@@ -291,19 +291,24 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
         
         try
         {
-            var config = await GetConfigAsync(containerId);
-            if (config == null)
-            {
-                result.ErrorMessage = "未找到自动升级配置";
-                return result;
-            }
-            
             var container = await _containerEngine.GetContainerAsync(containerId);
             if (container == null)
             {
                 result.ErrorMessage = "容器不存在";
                 return result;
             }
+
+            // 手动触发升级时若尚未配置，自动创建默认配置
+            var config = await GetConfigAsync(containerId)
+                         ?? await SetConfigAsync(containerId, new ContainerAutoUpdateConfig
+                         {
+                             ContainerId = containerId,
+                             ContainerName = container.Name ?? string.Empty,
+                             EnableUpdateCheck = true,
+                             EnableAutoPull = false,
+                             EnableAutoRestart = false,
+                             CheckIntervalHours = 6
+                         });
             
             // 更新状态为正在拉取
             config.Status = AutoUpdateStatus.Pulling;
@@ -326,7 +331,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             result.NewDigest = newImage?.Id;
             result.OldDigest = config.CurrentLocalDigest;
             
-            if (!pullOnly && config.EnableAutoRestart)
+            if (!pullOnly)
             {
                 // 更新状态为正在重启
                 config.Status = AutoUpdateStatus.Restarting;

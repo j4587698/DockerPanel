@@ -176,6 +176,21 @@ builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // 返回结构化错误体，避免前端只能看到裸的 429 状态码
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        if (context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter =
+                ((int)retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
+        await context.HttpContext.Response.WriteAsync(
+            "{\"code\":\"TOO_MANY_REQUESTS\",\"message\":\"尝试过于频繁，请稍后重试。\"}",
+            cancellationToken);
+    };
     options.AddPolicy("LoginPolicy", context =>
     {
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? context.Request.Headers.Host.ToString();

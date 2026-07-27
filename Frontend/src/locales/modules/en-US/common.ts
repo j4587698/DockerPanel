@@ -77,6 +77,7 @@ export default {
     REFRESH_INVALID: 'Invalid session, please log in again',
     CSRF_INVALID: 'Request blocked by security policy',
     TOKEN_EXPIRED: 'Session expired, please log in again',
+    TOO_MANY_REQUESTS: 'Too many attempts, please try again later',
   },
   deleteConfirm: 'Confirm Delete',
   deleteSuccess: 'Deleted successfully',

@@ -29,8 +29,13 @@ public static class ServiceCollectionExtensions
         // 兼容旧版本数据格式，避免索引重建时因重复主键导致启动失败
         TinyDbDataRepair.Repair(dbPath);
 
-        // 注册TinyDb数据库实例
-        services.AddSingleton<TinyDbEngine>(new TinyDbEngine(dbPath));
+        // 注册TinyDb数据库实例。
+        // 必须用工厂委托而非现成实例：DI 容器只负责释放"自己创建"的对象，
+        // 传入实例（AddSingleton<T>(instance)）不会在关机时调用 Dispose()，
+        // 导致 SaveCollections/FlushCore 从不执行——脏页与空闲页链表头不落盘，
+        // 每次退出都等同于崩溃，重启后触发空闲页链表重建并可能回收仍被索引引用的页
+        // （表现为 "Invalid B-tree page type for page N. Expected Index, found Data."）。
+        services.AddSingleton<TinyDbEngine>(_ => new TinyDbEngine(dbPath));
 
         // 注册数据库上下文
         services.AddScoped<TinyDbContext>(provider =>

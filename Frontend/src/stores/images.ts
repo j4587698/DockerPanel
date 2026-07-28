@@ -157,12 +157,13 @@ export const useImagesStore = defineStore('images', () => {
   })
 
   // 获取镜像列表
-  const fetchImages = async (params?: { nodeId?: string }) => {
-    state.value.loading = true
+  const fetchImages = async (params?: { nodeId?: string; silent?: boolean }) => {
+    const { silent = false, ...query } = params ?? {}
+    if (!silent) state.value.loading = true
     state.value.error = null
 
     try {
-      const response = await imageApi.getImages(params)
+      const response = await imageApi.getImages(query)
       // 响应拦截器已解包，response 即为数据
       let images = []
       if (Array.isArray(response)) {
@@ -174,10 +175,12 @@ export const useImagesStore = defineStore('images', () => {
       state.value.images = images
     } catch (error: any) {
       state.value.error = error.message || '获取镜像列表失败'
-      ElMessage.error(state.value.error)
-      throw error
+      if (!silent) {
+        ElMessage.error(state.value.error)
+        throw error
+      }
     } finally {
-      state.value.loading = false
+      if (!silent) state.value.loading = false
     }
   }
 

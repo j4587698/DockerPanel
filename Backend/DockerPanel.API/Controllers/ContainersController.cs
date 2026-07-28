@@ -18,19 +18,22 @@ public class ContainersController : ControllerBase
     private readonly ILogger<ContainersController> _logger;
     private readonly IHubContext<DockerPanelHub> _hubContext;
     private readonly ILocalizationService _localization;
+    private readonly DockerEngine _dockerEngine;
 
     public ContainersController(
         IContainerService containerService,
         DomainMappingService domainMappingService,
         ILogger<ContainersController> logger,
         IHubContext<DockerPanelHub> hubContext,
-        ILocalizationService localization)
+        ILocalizationService localization,
+        DockerEngine dockerEngine)
     {
         _containerService = containerService;
         _domainMappingService = domainMappingService;
         _logger = logger;
         _hubContext = hubContext;
         _localization = localization;
+        _dockerEngine = dockerEngine;
     }
 
     /// <summary>
@@ -60,7 +63,25 @@ public class ContainersController : ControllerBase
         try
         {
             var container = await _containerService.GetContainerAsync(id, nodeId);
-            if (container == null) return NotFound(new { message = _localization.GetMessage("container.notFound") });
+            if (container == null)
+            {
+                // 决定性诊断：把「请求的 ID」和「Docker 当前真实存在的 ID」一起打出来，
+                // 一眼区分是前端传了失效 ID，还是后端连到了别的 Docker 守护进程。
+                try
+                {
+                    var live = (await _containerService.GetContainersAsync(nodeId, all: true)).ToList();
+                    _logger.LogWarning(
+                        "容器未找到: 请求 Id={Id}, nodeId={NodeId}, 目标={Target}; Docker 当前共 {Count} 个容器: {Live}",
+                        id, nodeId ?? "(默认)", await _dockerEngine.DescribeTargetAsync(nodeId), live.Count,
+                        string.Join(", ", live.Select(c => $"{c.Name}={c.Id}")));
+                }
+                catch (Exception diagEx)
+                {
+                    _logger.LogWarning(diagEx, "容器未找到: 请求 Id={Id}，且枚举现有容器也失败", id);
+                }
+
+                return NotFound(new { message = _localization.GetMessage("container.notFound") });
+            }
             
             // 获取容器的域名映射信息
             var mappings = await _domainMappingService.GetContainerDomainMappingsAsync(id);

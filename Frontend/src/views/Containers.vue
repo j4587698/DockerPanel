@@ -516,6 +516,7 @@ const toggleSelectAll = () => {
 }
 
 const refreshData = () => store.fetchContainers({ all: true })
+const silentRefresh = () => store.fetchContainers({ all: true, silent: true })
 const openCreate = () => showCreate.value = true
 const viewDetail = (row: any) => router.push(`/containers/${row.id}`)
 
@@ -710,15 +711,39 @@ const hasUpdateAvailable = (containerId: string): boolean => {
   return updateStatusMap.value.get(containerId) === AutoUpdateStatus.UpdateAvailable
 }
 
+// 自动刷新：容器可能被 compose/外部重建，ID 会变化。
+// 若列表长期不刷新，页面上的旧 ID 会导致详情 404、统计恒为 0、删除找不到对象。
+let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
+
+const startAutoRefresh = () => {
+  stopAutoRefresh()
+  const interval = Math.max(settingsStore.refreshInterval || 3000, 3000)
+  autoRefreshTimer = setInterval(() => {
+    if (document.hidden) return
+    silentRefresh()
+  }, interval)
+}
+
+const stopAutoRefresh = () => {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
+}
+
+watch(() => settingsStore.refreshInterval, () => startAutoRefresh())
+
 onMounted(() => {
   refreshData()
   store.startStatsMonitoring()
   loadUpdateStatuses().then(() => checkAllUpdates())
+  startAutoRefresh()
 })
 
 import { onUnmounted } from 'vue'
 onUnmounted(() => {
   store.stopStatsMonitoring()
+  stopAutoRefresh()
 })
 </script>
 

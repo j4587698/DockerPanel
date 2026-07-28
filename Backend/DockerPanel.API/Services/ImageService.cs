@@ -22,14 +22,14 @@ public class ImageService : IImageService
 
     public async Task<IEnumerable<ImageInfo>> GetImagesAsync(string? nodeId = null)
     {
-        _logger.LogInformation("获取镜像列表");
-        return await _engine.ListImagesAsync();
+        _logger.LogInformation("获取镜像列表, NodeId={NodeId}", nodeId ?? "<default>");
+        return await _engine.ListImagesAsync(nodeId);
     }
 
-    public async Task<ImageInfo?> GetImageAsync(string id)
+    public async Task<ImageInfo?> GetImageAsync(string id, string? nodeId = null)
     {
-        _logger.LogInformation("获取镜像详情: {ImageId}", id);
-        return await _engine.GetImageAsync(id);
+        _logger.LogInformation("获取镜像详情: {ImageId}, NodeId={NodeId}", id, nodeId ?? "<default>");
+        return await _engine.GetImageAsync(id, nodeId);
     }
 
     public async Task PullImageAsync(string name, string? tag = null, string? nodeId = null, IProgress<ImagePullProgress>? progress = null, string? registryId = null)
@@ -38,10 +38,10 @@ public class ImageService : IImageService
         await _engine.PullImageAsync(name, tag, progress, registryId);
     }
 
-    public async Task RemoveImageAsync(string id, bool force = false)
+    public async Task RemoveImageAsync(string id, bool force = false, string? nodeId = null)
     {
-        _logger.LogInformation("删除镜像: {ImageId}", id);
-        await _engine.RemoveImageAsync(id, force);
+        _logger.LogInformation("删除镜像: {ImageId}, NodeId={NodeId}", id, nodeId ?? "<default>");
+        await _engine.RemoveImageAsync(id, force, nodeId);
     }
 
     public async Task<string> BuildImageAsync(BuildImageRequest request)

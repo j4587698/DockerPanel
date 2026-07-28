@@ -1,6 +1,7 @@
 export default {
   title: 'Containers',
   subtitle: 'Manage and monitor your Docker container instances',
+  notFound: 'Container no longer exists (it may have been removed or recreated). Returning to the list.',
   deploy: 'Deploy Container',
   running: 'Running',
   stopped: 'Stopped',

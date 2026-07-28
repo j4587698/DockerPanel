@@ -57,7 +57,7 @@ public class ImageController : ControllerBase
     {
         try
         {
-            var image = await _imageService.GetImageAsync(imageId);
+            var image = await _imageService.GetImageAsync(imageId, nodeId);
             if (image == null)
             {
                 return NotFound(new { error = _localization.GetMessage("image.notFound"), imageId });
@@ -165,12 +165,12 @@ public class ImageController : ControllerBase
     {
         try
         {
-            await _imageService.RemoveImageAsync(imageId, force);
+            await _imageService.RemoveImageAsync(imageId, force, nodeId);
             return Ok(new { message = _localization.GetMessage("image.deleteSuccess"), imageId, force });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "删除镜像失败: {ImageId}", imageId);
+            _logger.LogError(ex, "删除镜像失败: {ImageId}, NodeId={NodeId}", imageId, nodeId ?? "<default>");
             return StatusCode(500, new { error = "删除镜像失败", message = ex.Message });
         }
     }

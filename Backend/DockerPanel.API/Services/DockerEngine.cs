@@ -137,6 +137,45 @@ public class DockerEngine : IContainerEngine, IDisposable
 
     public Task<DockerClient> GetClientAsync(string? nodeId = null) => GetDockerClientAsync(nodeId);
 
+    /// <summary>
+    /// 解析实际生效的节点 ID（未传 nodeId 时回退到默认节点），用于回填返回对象的 NodeId。
+    /// </summary>
+    private async Task<string> ResolveNodeIdAsync(string? nodeId)
+    {
+        if (!string.IsNullOrEmpty(nodeId)) return nodeId;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var nodeService = scope.ServiceProvider.GetService<INodeService>();
+            var defaultNode = nodeService == null ? null : await nodeService.GetDefaultNodeAsync();
+            return string.IsNullOrEmpty(defaultNode?.Id) ? "local" : defaultNode!.Id;
+        }
+        catch
+        {
+            return "local";
+        }
+    }
+
+    /// <summary>
+    /// 描述本次请求实际连到的节点与 Docker 端点，仅用于日志排查。
+    /// </summary>
+    public async Task<string> DescribeTargetAsync(string? nodeId = null)
+    {
+        var effectiveNodeId = await ResolveNodeIdAsync(nodeId);
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var nodeService = scope.ServiceProvider.GetService<INodeService>();
+            var endpoint = nodeService == null ? null : await nodeService.GetNodeEndpointAsync(effectiveNodeId);
+            return $"node={effectiveNodeId}, endpoint={endpoint?.ToString() ?? "unknown"}";
+        }
+        catch
+        {
+            return $"node={effectiveNodeId}, endpoint=unknown";
+        }
+    }
+
     // --- 接口实现 ---
 
     public async Task<bool> IsAvailableAsync(string? nodeId = null)
@@ -157,6 +196,7 @@ public class DockerEngine : IContainerEngine, IDisposable
         {
             var client = await GetDockerClientAsync(nodeId);
             var containers = await client.Containers.ListContainersAsync(new ContainersListParameters { All = all });
+            var effectiveNodeId = await ResolveNodeIdAsync(nodeId);
             return containers.Select(c => new ContainerInfo { 
                 Id = c.ID, 
                 Name = c.Names?.FirstOrDefault()?.TrimStart('/') ?? "", 
@@ -165,6 +205,7 @@ public class DockerEngine : IContainerEngine, IDisposable
                 Status = c.Status, 
                 State = c.State, 
                 Created = c.Created,
+                NodeId = effectiveNodeId,
                 Ports = c.Ports?.Select(p => new ContainerPortMapping {
                     Ip = p.IP,
                     PrivatePort = p.PrivatePort,
@@ -401,10 +442,22 @@ public class DockerEngine : IContainerEngine, IDisposable
                 RestartPolicy = restartPolicy,
                 Mounts = mounts,
                 HostName = config?.Hostname ?? "",
-                NodeId = "local"
+                NodeId = await ResolveNodeIdAsync(nodeId)
             };
         }
-        catch (Exception) { return null; }
+        catch (DockerApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // 只有 Docker 明确回复 404 才算"容器不存在"
+            _logger.LogWarning(ex, "容器 {Id} 在 {Target} 上不存在", id, await DescribeTargetAsync(nodeId));
+            return null;
+        }
+        catch (Exception ex)
+        {
+            // 其它异常（连接失败、响应反序列化失败等）绝不能伪装成"容器未找到"，
+            // 否则生产上只会看到 404，真正的原因被吞掉无法排查。
+            _logger.LogError(ex, "检查容器详情失败: Id={Id}, {Target}", id, await DescribeTargetAsync(nodeId));
+            throw;
+        }
     }
 
     public async Task<string> CreateContainerAsync(CreateContainerRequest request, string? nodeId = null)
@@ -1161,6 +1214,8 @@ public class DockerEngine : IContainerEngine, IDisposable
         var imageUsageCount = containers
             .GroupBy(c => c.ImageID)
             .ToDictionary(g => g.Key, g => g.Count());
+
+        var effectiveNodeId = await ResolveNodeIdAsync(nodeId);
         
         return images.Select(i => {
             var repoTag = i.RepoTags?.FirstOrDefault() ?? "<none>";
@@ -1178,6 +1233,7 @@ public class DockerEngine : IContainerEngine, IDisposable
                 RepoTags = i.RepoTags?.ToArray() ?? Array.Empty<string>(),
                 RepoDigests = i.RepoDigests?.ToArray() ?? Array.Empty<string>(),
                 Digest = i.RepoDigests?.FirstOrDefault()?.Split('@').LastOrDefault() ?? string.Empty,
+                NodeId = effectiveNodeId,
                 ContainersCount = imageUsageCount.TryGetValue(imageId, out var count) ? count : 0
             };
         });
@@ -1224,7 +1280,11 @@ public class DockerEngine : IContainerEngine, IDisposable
                 }
             }
             
-            if (inspectResult == null) return null;
+            if (inspectResult == null)
+            {
+                _logger.LogWarning("镜像 {ImageId} 在节点 {NodeId} 上不存在", id, nodeId ?? "<default>");
+                return null;
+            }
             
             var info = new ImageDetailInfo
             {

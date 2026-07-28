@@ -427,10 +427,37 @@ public class NodeService : INodeService
         // 清除缓存的客户端
         RemoveCachedClient(id);
 
+        // 删的如果是当前默认节点，先标记，删完之后再选一个兜底，
+        // 否则 GetDefaultNodeAsync 查不到 IsDefault=true 的节点，会回退到本地
+        // 但本地也未必在线，导致前端列表显示空白且无任何错误提示。
+        var wasDefault = _dbContext.NodeInfos.FindById(id)?.IsDefault == true;
+
         var removed = _dbContext.NodeInfos.Delete(id);
         if (removed > 0)
         {
             _logger.LogInformation("节点删除成功: {Id}", id);
+
+            if (wasDefault)
+            {
+                // 优先本地节点；本地不在则选第一个在线节点，确保下次 nodeId=null 仍能命中
+                var localFromDb = _dbContext.NodeInfos.FindById(LocalNodeId);
+                if (localFromDb != null && !localFromDb.IsDefault)
+                {
+                    localFromDb.IsDefault = true;
+                    _dbContext.NodeInfos.Update(localFromDb);
+                    _logger.LogInformation("默认节点被删除，已将本地节点重设为默认节点");
+                }
+                else
+                {
+                    var firstNode = _dbContext.NodeInfos.Query().FirstOrDefault();
+                    if (firstNode != null && !firstNode.IsDefault)
+                    {
+                        firstNode.IsDefault = true;
+                        _dbContext.NodeInfos.Update(firstNode);
+                        _logger.LogInformation("默认节点被删除，已将节点 {Id}({Name}) 重设为默认节点", firstNode.Id, firstNode.Name);
+                    }
+                }
+            }
         }
 
         await Task.CompletedTask;
@@ -656,7 +683,14 @@ public class NodeService : INodeService
             return defaultNode;
         }
 
-        // 如果没有默认节点，返回第一个在线节点
+        // 没有显式默认节点时优先本地节点，
+        // 否则会按存储顺序随机选中某个远程节点，导致未传 nodeId 的接口连到错误的 Docker 守护进程。
+        var localFromDb = _dbContext.NodeInfos.FindById(LocalNodeId);
+        if (localFromDb != null)
+        {
+            return localFromDb;
+        }
+
         var firstNode = _dbContext.NodeInfos.Query().FirstOrDefault();
         return await Task.FromResult(firstNode ?? localNode);
     }

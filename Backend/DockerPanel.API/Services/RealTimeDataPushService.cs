@@ -318,7 +318,9 @@ public class RealTimeDataPushService : IHostedService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug("获取容器 {Id} 统计失败: {Msg}", container.ID[..12], ex.Message);
+                    // 这里一旦批量失败，前端所有容器的 CPU/内存/网络都会显示为 0，
+                    // 必须至少以 Warning 级别输出，否则生产环境完全无法定位。
+                    _logger.LogWarning(ex, "获取容器 {Id} 统计失败", container.ID[..12]);
                 }
             }
 

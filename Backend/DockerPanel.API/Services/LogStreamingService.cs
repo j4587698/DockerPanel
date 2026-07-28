@@ -184,6 +184,13 @@ public class LogStreamingService : IHostedService
                 {
                     _logger.LogDebug("容器 {ContainerId} 的日志流已取消", containerId);
                 }
+                catch (DockerContainerNotFoundException)
+                {
+                    // 容器在当前连接的守护进程上不存在：要么已被删除/重建，
+                    // 要么列表与日志流连到了不同的节点。把实际目标打出来便于区分。
+                    _logger.LogWarning("容器 {ContainerId} 日志流失败：目标 {Target} 上无此容器",
+                        containerId, await dockerEngine.DescribeTargetAsync());
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "容器 {ContainerId} 的日志流发生错误", containerId);

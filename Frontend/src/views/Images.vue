@@ -493,6 +493,25 @@ const refreshData = async () => {
   selectedIds.value = []
 }
 
+// 自动刷新：镜像可能被外部拉取/删除，页面不刷新会导致删除时提示找不到镜像。
+let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
+
+const startAutoRefresh = () => {
+  stopAutoRefresh()
+  const interval = Math.max(settingsStore.refreshInterval || 3000, 5000)
+  autoRefreshTimer = setInterval(() => {
+    if (document.hidden) return
+    store.fetchImages({ silent: true })
+  }, interval)
+}
+
+const stopAutoRefresh = () => {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
+}
+
 const handleDelete = async (image: any) => {
   const name = image.repository === '<none>' ? image.id.substring(7, 19) : `${image.repository}:${image.tag}`
   
@@ -747,9 +766,15 @@ const handleBuild = async () => {
 
 onMounted(() => {
   refreshData()
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 
 watch(search, () => { currentPage.value = 1 })
+watch(() => settingsStore.refreshInterval, () => startAutoRefresh())
 watch(() => settingsStore.defaultPageSize, (size) => {
   pageSize.value = size
   currentPage.value = 1

@@ -86,12 +86,15 @@ export const useContainersStore = defineStore('containers', () => {
     nodeId?: string
     all?: boolean
     limit?: number
+    /** 后台自动刷新：不切 loading、不弹错误提示 */
+    silent?: boolean
   }) => {
+    const { silent = false, ...query } = params ?? {}
     try {
-      state.value.loading = true
+      if (!silent) state.value.loading = true
       state.value.error = null
 
-      const response = await containerApi.getContainers(params)
+      const response = await containerApi.getContainers(query)
 
       // 处理响应数据 - 显式声明类型
       let containers: ContainerInfo[] = []
@@ -105,9 +108,9 @@ export const useContainersStore = defineStore('containers', () => {
     } catch (error: any) {
       console.error('获取容器列表失败:', error)
       state.value.error = error.message || '获取容器列表失败'
-      ElMessage.error(state.value.error || '获取容器列表失败')
+      if (!silent) ElMessage.error(state.value.error || '获取容器列表失败')
     } finally {
-      state.value.loading = false
+      if (!silent) state.value.loading = false
     }
   }
 

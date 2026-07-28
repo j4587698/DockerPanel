@@ -98,6 +98,18 @@ public class ContainerService : IContainerService
 
         var effectiveImage = overrideImage ?? container.Image;
 
+        // Docker 在未显式指定 --hostname 时，会把「容器短 ID」写进 Config.Hostname。
+        // 重建容器如果原样把它复制给新容器，新容器就会永远背着上一代容器的短 ID 当 hostname，
+        // 并且一代代传下去 —— 于是容器内 `hostname` 与面板显示的真实容器 ID 永远对不上。
+        // 这里识别出「自动生成的 hostname」（恰好 12 位小写十六进制）并丢弃，交回 Docker 重新分配。
+        var inheritedHostname = container.HostName;
+        if (!string.IsNullOrEmpty(inheritedHostname) &&
+            System.Text.RegularExpressions.Regex.IsMatch(inheritedHostname, "^[0-9a-f]{12}$"))
+        {
+            _logger.LogInformation("容器 {Id} 的 hostname {Hostname} 是 Docker 自动生成的短 ID，重建时不再继承", id, inheritedHostname);
+            inheritedHostname = null;
+        }
+
         // 构建创建请求
         var createRequest = new CreateContainerRequest
         {
@@ -106,7 +118,7 @@ public class ContainerService : IContainerService
             Entrypoint = container.Entrypoint,
             Command = container.Command,
             WorkingDir = container.WorkingDir,
-            Hostname = container.HostName,
+            Hostname = inheritedHostname,
             NetworkMode = container.HostConfig?.NetworkMode ?? "bridge",
             Labels = container.Labels
         };
@@ -169,9 +181,26 @@ public class ContainerService : IContainerService
         }
 
         // 备份原容器域名映射
+        // 注意：容器可能已被外部（如 docker compose up -d）重建过，导致映射里存的 ContainerId 早已失效，
+        // 因此除按 ID 匹配外，还要按容器名匹配，否则映射会在重建后彻底丢失。
         var dbContext = _serviceProvider.GetRequiredService<TinyDbContext>();
         var mappingsCollection = dbContext.GetCollection<DomainMapping>("domain_mappings");
         var oldMappings = mappingsCollection.Find(m => m.ContainerId == id).ToList();
+
+        var containerName = container.Name?.TrimStart('/');
+        if (!string.IsNullOrEmpty(containerName))
+        {
+            var byName = mappingsCollection.Find(m => m.ContainerName == containerName).ToList();
+            foreach (var mapping in byName)
+            {
+                if (oldMappings.All(m => m.Id != mapping.Id))
+                {
+                    _logger.LogWarning("域名映射 {Domain} 记录的 ContainerId({Stale}) 与当前容器 {Id} 不一致，按容器名 {Name} 恢复",
+                        mapping.Domain, mapping.ContainerId, id, containerName);
+                    oldMappings.Add(mapping);
+                }
+            }
+        }
 
         // 删除旧容器
         await RemoveContainerAsync(id, force: true);

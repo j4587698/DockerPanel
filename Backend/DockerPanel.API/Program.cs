@@ -495,6 +495,53 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 
+// 动态内容绝不能被缓存。
+// 之前这些路径的响应不带任何 Cache-Control，CDN（已实测腾讯云 EdgeOne 返回 eo-cache-status: HIT，
+// age 超过 11 小时）会按启发式规则缓存并长期回放，表现为容器列表停留在旧快照，
+// 且客户端 Ctrl+F5 和重启后端都无效 —— 请求根本没到过源站。
+// 其中：
+//   /api/*                    带认证的业务数据，被公共缓存保存还构成敏感信息泄露
+//   /health*                  被缓存会让健康探测拿到过期结论
+//   /.well-known/acme-challenge/*  被缓存会让证书续期校验拿到旧 token 而失败
+//   /*Hub                     SignalR 协商响应
+string[] noStorePrefixes =
+[
+    "/api",
+    "/health",
+    "/.well-known/acme-challenge",
+    "/dockerpanelHub",
+    "/sshTerminalHub",
+    "/containerTerminalHub"
+];
+
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    var shouldNotStore = false;
+    foreach (var prefix in noStorePrefixes)
+    {
+        if (path.StartsWithSegments(prefix))
+        {
+            shouldNotStore = true;
+            break;
+        }
+    }
+
+    if (shouldNotStore)
+    {
+        context.Response.OnStarting(() =>
+        {
+            var headers = context.Response.Headers;
+            headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+            headers.Pragma = "no-cache";
+            headers.Expires = "0";
+            return Task.CompletedTask;
+        });
+    }
+
+    await next();
+});
+
 // 添加请求日志中间件
 app.Use(async (context, next) =>
 {

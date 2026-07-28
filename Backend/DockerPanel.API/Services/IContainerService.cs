@@ -287,7 +287,7 @@ public interface IContainerService
         /// <summary>
         /// 根据ID获取镜像
         /// </summary>
-        Task<ImageInfo?> GetImageAsync(string id);
+        Task<ImageInfo?> GetImageAsync(string id, string? nodeId = null);
     
         /// <summary>
         /// 拉取镜像
@@ -302,7 +302,7 @@ public interface IContainerService
         /// <summary>
         /// 删除镜像
         /// </summary>
-        Task RemoveImageAsync(string id, bool force = false);
+        Task RemoveImageAsync(string id, bool force = false, string? nodeId = null);
     
         /// <summary>
         /// 从 Dockerfile 内容构建镜像（Dockerfile 模式，无代码上下文）

@@ -317,8 +317,14 @@ const loadContainerDetail = async () => {
       extractContainerConfig(data)
       if (activeTab.value === 'logs') loadLogs()
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
+    // 容器已被重建/删除（ID 失效）时，明确提示并退回列表，避免继续用失效 ID 订阅日志与统计
+    if (err?.response?.status === 404) {
+      ElMessage.warning(t('container.notFound'))
+      router.replace('/containers')
+      return
+    }
     ElMessage.error(t('common.error'))
   } finally {
     loading.value = false

@@ -1,6 +1,7 @@
 export default {
   title: '容器管理',
   subtitle: '管理、运行并监控您的 Docker 容器实例',
+  notFound: '容器不存在，可能已被删除或重建，已为您返回列表',
   deploy: '部署容器',
   running: '运行中',
   stopped: '已停止',

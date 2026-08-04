@@ -155,7 +155,8 @@ export default {
   },
   // Update related
   update: {
-    newVersionAvailable: 'New version available',
+  newVersionAvailable: 'New version available',
+  newVersionAvailableHint: 'A newer image version was detected. Click "Upgrade Now" to upgrade.',
     hasUpdate: 'Update',
     fetching: 'Fetching...'
   },

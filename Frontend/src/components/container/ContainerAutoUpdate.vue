@@ -29,6 +29,17 @@
             </div>
           </div>
           
+          <!-- 有新版本可用提示 -->
+          <el-alert
+            v-if="config?.hasUpdateAvailable"
+            type="warning"
+            :closable="false"
+            show-icon
+            style="margin-bottom: 16px"
+            :title="t('container.newVersionAvailable')"
+            :description="t('container.newVersionAvailableHint')"
+          />
+          
           <!-- 操作按钮 -->
           <div class="action-buttons">
             <el-button 
@@ -37,17 +48,11 @@
               @click="handleCheckUpdate"
              :icon="Search">{{ t('container.checkUpdate') }}</el-button>
             <el-button 
+              v-if="config?.hasUpdateAvailable"
               type="warning"
               :loading="updating"
-              :disabled="!config?.hasUpdateAvailable"
               @click="handleOneClickUpdate"
              :icon="Download">{{ t('container.upgrade.oneClick') }}</el-button>
-            <el-button 
-              v-if="config?.hasUpdateAvailable"
-              type="success"
-              :loading="updating"
-              @click="handleUpdate(true)"
-             :icon="Download">{{ t('container.pullOnly') }}</el-button>
           </div>
           
           <!-- 回滚功能 -->
@@ -210,7 +215,8 @@ import {
   AutoUpdateStatus,
   UpdateAction,
   statusTextMap,
-  statusColorMap
+  statusColorMap,
+  normalizeStatus
 } from '@/api/autoUpdate'
 
 interface Props {
@@ -243,18 +249,20 @@ const formConfig = ref({
 // 状态显示
 const statusText = computed(() => {
   if (!config.value) return t('container.autoUpdateStatus.notConfigured')
-  if (config.value.status === AutoUpdateStatus.Unknown && !config.value.lastCheckTime) {
+  const status = normalizeStatus(config.value.status)
+  if (status === AutoUpdateStatus.Unknown && !config.value.lastCheckTime) {
     return t('container.autoUpdateStatus.pending')
   }
-  return statusTextMap[config.value.status] || t('common.unknown')
+  return statusTextMap[status] || t('common.unknown')
 })
 
 const statusColor = computed(() => {
   if (!config.value) return 'info'
-  if (config.value.status === AutoUpdateStatus.Unknown && !config.value.lastCheckTime) {
+  const status = normalizeStatus(config.value.status)
+  if (status === AutoUpdateStatus.Unknown && !config.value.lastCheckTime) {
     return 'info'
   }
-  return statusColorMap[config.value.status] || 'info'
+  return statusColorMap[status] || 'info'
 })
 
 // 加载配置
@@ -265,6 +273,7 @@ const loadConfig = async () => {
     
     // 同步到表单
     if (config.value) {
+      config.value.status = normalizeStatus(config.value.status)
       formConfig.value = {
         enableUpdateCheck: config.value.enableUpdateCheck,
         enableAutoPull: config.value.enableAutoPull,
@@ -282,7 +291,7 @@ const handleCheckUpdate = async () => {
   checking.value = true
   try {
     // 先确保配置存在
-    if (!config.value || config.value.status === AutoUpdateStatus.Disabled) {
+    if (!config.value || normalizeStatus(config.value.status) === AutoUpdateStatus.Disabled) {
       await handleSaveConfig(true) // 静默保存默认配置
     }
     
@@ -306,14 +315,14 @@ const handleCheckUpdate = async () => {
 }
 
 // 更新容器
-const handleUpdate = async (pullOnly: boolean) => {
+const handleUpdate = async () => {
   updating.value = true
   try {
-    const res = await autoUpdateApi.updateContainer(props.containerId, pullOnly)
+    const res = await autoUpdateApi.updateContainer(props.containerId, false)
     const result = res as any
     
     if (result.success) {
-      ElMessage.success(pullOnly ? t('container.imagePullSuccess') : t('container.containerUpdated'))
+      ElMessage.success(t('container.containerUpdated'))
     } else {
       ElMessage.error(result.errorMessage || t('common.error'))
     }
@@ -337,7 +346,7 @@ const handleOneClickUpdate = async () => {
   } catch {
     return // 用户取消
   }
-  await handleUpdate(false)
+  await handleUpdate()
 }
 
 // 保存配置
@@ -349,7 +358,11 @@ const handleSaveConfig = async (silent = false) => {
       containerName: props.containerName
     })
     // request 拦截器已经处理了 data.data，所以 res 就是配置对象
-    config.value = res as any
+    const result = res as any
+    if (result) {
+      result.status = normalizeStatus(result.status)
+    }
+    config.value = result
     if (!silent) {
       ElMessage.success(t('container.configSaved'))
     }

@@ -106,6 +106,7 @@ export default {
   configSaved: '配置保存成功',
   checkSuccess: '检查完成',
   newVersionAvailable: '发现新版本可用',
+  newVersionAvailableHint: '检测到该镜像有新版本，可点击"一键升级"立即升级',
   imagePullSuccess: '镜像拉取成功',
   containerUpdated: '容器升级成功',
   loadTagsFailed: '加载镜像标签失败',

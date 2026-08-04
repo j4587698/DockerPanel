@@ -140,6 +140,23 @@ export const autoUpdateApi = {
     api.post<UpdateResult>(`/auto-update/rollback/${containerId}?targetTag=${encodeURIComponent(targetTag)}`)
 }
 
+// 后端使用 JsonStringEnumConverter 将枚举序列化为字符串，这里做归一化转换
+export const normalizeStatus = (status: AutoUpdateStatus | string | null | undefined): AutoUpdateStatus => {
+  if (typeof status === 'number') return status
+  const map: Record<string, AutoUpdateStatus> = {
+    Unknown: AutoUpdateStatus.Unknown,
+    Checking: AutoUpdateStatus.Checking,
+    UpToDate: AutoUpdateStatus.UpToDate,
+    UpdateAvailable: AutoUpdateStatus.UpdateAvailable,
+    Pulling: AutoUpdateStatus.Pulling,
+    Restarting: AutoUpdateStatus.Restarting,
+    UpdateSuccess: AutoUpdateStatus.UpdateSuccess,
+    UpdateFailed: AutoUpdateStatus.UpdateFailed,
+    Disabled: AutoUpdateStatus.Disabled
+  }
+  return map[status || ''] ?? AutoUpdateStatus.Unknown
+}
+
 // 状态文本映射
 export const statusTextMap: Record<AutoUpdateStatus, string> = {
   [AutoUpdateStatus.Unknown]: '未知',

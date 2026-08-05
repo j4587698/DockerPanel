@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,16 +6,16 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using Certes;
-using Certes.Acme;
-using Certes.Acme.Resource;
+using AcmeForge;
+
+
 using DockerPanel.API.Models.Acme;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Http;
 using Microsoft.AspNetCore.SignalR;
 using DockerPanel.API.Hubs;
 using DockerPanel.API.Data;
-using DockerPanel.API.Services.Acme.DnsProviders;
+using AcmeForge.Dns;
 using TinyDb;
 using TinyDb.Bson;
 using TinyDb.Core;
@@ -25,7 +25,7 @@ using DockerPanel.API.Services;
 
 namespace DockerPanel.API.Services.Acme
 {
-    public partial class CertesAcmeService
+    public partial class AcmeForgeAcmeService
     {
 
         public async Task<IEnumerable<AcmeChallenge>> GetPendingChallengesAsync(string orderId)
@@ -70,9 +70,9 @@ namespace DockerPanel.API.Services.Acme
                     };
                 }
 
-                // 获取 ACME 上下文 - 使用正确的账户密钥
+                // 获取 ACME 客户端 - 使用正确的账户密钥
                 var directoryUrl = "https://acme-v02.api.letsencrypt.org/directory";
-                IAcmeContext? acmeContextFinal;
+                AcmeClient? acmeContextFinal;
 
                 if (!TryGetCachedAcmeContext(order.AccountId, out acmeContextFinal))
                 {
@@ -82,16 +82,34 @@ namespace DockerPanel.API.Services.Acme
 
                     if (account != null && !string.IsNullOrEmpty(account.AccountKey))
                     {
-                        _logger.LogInformation("使用数据库中的账户密钥创建ACME上下文: {AccountId}", order.AccountId);
-                        var privateKey = Certes.KeyFactory.FromPem(account.AccountKey);
-                        acmeContextFinal = new AcmeContext(new Uri(directoryUrl), privateKey);
+                        _logger.LogInformation("使用数据库中的账户密钥创建ACME客户端: {AccountId}", order.AccountId);
+                        var privateKey = AcmeKey.FromPem(account.AccountKey);
+                        acmeContextFinal = CreateAcmeClient(directoryUrl, privateKey);
+                        try
+                        {
+                            await acmeContextFinal.NewAccountAsync(Array.Empty<string>(), true);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning("账户验证失败（可能需 EAB）: {AccountId}, Error: {Error}", order.AccountId, ex.Message);
+                            return new AcmeChallengeResult
+                            {
+                                Success = false,
+                                Message = $"ACME 账户验证失败: {ex.Message}",
+                                ErrorType = "acme_context_error"
+                            };
+                        }
                         CacheAcmeContext(order.AccountId, account.Provider ?? "letsencrypt", acmeContextFinal);
                     }
                     else
                     {
-                        _logger.LogWarning("未找到账户密钥，创建新的ACME上下文（可能无法工作）");
-                        acmeContextFinal = new AcmeContext(new Uri(directoryUrl));
-                        CacheAcmeContext(order.AccountId, "letsencrypt", acmeContextFinal);
+                        _logger.LogWarning("未找到账户密钥，无法创建 ACME 客户端: {AccountId}", order.AccountId);
+                        return new AcmeChallengeResult
+                        {
+                            Success = false,
+                            Message = "未找到账户密钥",
+                            ErrorType = "acme_context_error"
+                        };
                     }
                 }
 
@@ -100,25 +118,42 @@ namespace DockerPanel.API.Services.Acme
                     return new AcmeChallengeResult
                     {
                         Success = false,
-                        Message = "无法获取ACME上下文",
+                        Message = "无法获取ACME客户端",
                         ErrorType = "acme_context_error"
                     };
                 }
 
-                // 获取订单上下文
-                var orderContext = acmeContextFinal.Order(new Uri(order.OrderUri));
-                if (orderContext == null)
+                // 获取订单资源
+                AcmeForge.Resources.AcmeOrder orderResource;
+                try
+                {
+                    orderResource = await acmeContextFinal.GetOrderAsync(new Uri(order.OrderUri));
+                }
+                catch (Exception ex)
                 {
                     return new AcmeChallengeResult
                     {
                         Success = false,
-                        Message = "未找到订单上下文",
+                        Message = $"获取订单资源失败: {ex.Message}",
                         ErrorType = "order_context_error"
                     };
                 }
 
                 // 获取授权列表和目标域名
-                var authorizations = await orderContext.Authorizations();
+                var authorizationUrls = orderResource.Authorizations ?? Array.Empty<string>();
+                List<(string Url, AcmeForge.Resources.AcmeAuthorization Resource)> authorizationContexts = new();
+                foreach (var authUrl in authorizationUrls)
+                {
+                    try
+                    {
+                        var authResource = await acmeContextFinal.GetAuthorizationAsync(new Uri(authUrl));
+                        authorizationContexts.Add((authUrl, authResource));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "获取授权资源失败: {AuthUrl}", authUrl);
+                    }
+                }
 
                 var orderAuthorizationRecord = order.Authorizations
                     ?.FirstOrDefault(a =>
@@ -127,7 +162,7 @@ namespace DockerPanel.API.Services.Acme
                          a.Domain.Equals(authorizationId, StringComparison.OrdinalIgnoreCase)));
 
                 var targetDomain = orderAuthorizationRecord?.Domain ?? order.Domains.FirstOrDefault(); // 从订单获取目标域名
-                var targetAuthorization = await ResolveAuthorizationContextAsync(authorizations, authorizationId, targetDomain);
+                var targetAuthorization = await ResolveAuthorizationContextAsync(authorizationContexts, authorizationId, targetDomain);
 
                 if (targetAuthorization == null)
                 {
@@ -137,12 +172,12 @@ namespace DockerPanel.API.Services.Acme
                         Success = false,
                         Message = "未找到授权信息",
                         ErrorType = "authorization_not_found",
-                        ErrorDetails = $"域名: {targetDomain}, 授权数量: {authorizations?.Count() ?? 0}"
+                        ErrorDetails = $"域名: {targetDomain}, 授权数量: {authorizationContexts.Count}"
                     };
                 }
 
                 // 获取挑战列表
-                var challenges = await targetAuthorization.Challenges();
+                var challenges = targetAuthorization.Value.Resource.Challenges ?? Array.Empty<AcmeForge.Resources.AcmeChallenge>();
                 var targetChallenge = challenges.FirstOrDefault(c => c.Type == request.ChallengeType);
 
                 if (targetChallenge == null)
@@ -159,9 +194,23 @@ namespace DockerPanel.API.Services.Acme
                 _logger.LogInformation("等待挑战验证完成: ChallengeType={ChallengeType}, Token={Token}",
                     targetChallenge.Type, targetChallenge.Token);
 
-                var challengeResult = await targetChallenge.Validate();
+                AcmeForge.Resources.AcmeChallenge challengeResult;
+                try
+                {
+                    challengeResult = await acmeContextFinal.ValidateChallengeAsync(new Uri(targetChallenge.Url));
+                }
+                catch (Exception ex)
+                {
+                    return new AcmeChallengeResult
+                    {
+                        Success = false,
+                        Message = $"触发挑战验证失败: {ex.Message}",
+                        ErrorType = "challenge_validate_error",
+                        ErrorDetails = ex.ToString()
+                    };
+                }
 
-                var statusString = challengeResult.Status?.ToString()?.ToLowerInvariant();
+                var statusString = challengeResult.Status?.ToLowerInvariant();
                 _logger.LogInformation("挑战验证结果: ChallengeType={ChallengeType}, Status={Status}", targetChallenge.Type, statusString);
 
                 if (statusString == "valid")
@@ -175,7 +224,7 @@ namespace DockerPanel.API.Services.Acme
                         ChallengeType = targetChallenge.Type,
                         Status = "valid",
                         Token = targetChallenge.Token,
-                        ValidationUrl = targetChallenge.Location?.ToString(),
+                        ValidationUrl = targetChallenge.Url,
                         ValidatedAt = DateTime.UtcNow
                     };
                 }
@@ -196,17 +245,17 @@ namespace DockerPanel.API.Services.Acme
                 else
                 {
                     _logger.LogError("挑战验证失败: ChallengeType={ChallengeType}, Status={Status}, Error={Error}",
-                        targetChallenge.Type, statusString, challengeResult.Error?.ToString());
+                        targetChallenge.Type, statusString, challengeResult.Error?.Detail);
 
                     return new AcmeChallengeResult
                     {
                         Success = false,
-                        Message = $"挑战验证失败: {challengeResult.Error}",
+                        Message = $"挑战验证失败: {challengeResult.Error?.Detail}",
                         ChallengeType = targetChallenge.Type,
                         Status = statusString ?? "unknown",
                         Token = targetChallenge.Token,
                         ErrorType = "challenge_failed",
-                        ErrorDetails = challengeResult.Error?.ToString()
+                        ErrorDetails = challengeResult.Error?.Detail
                     };
                 }
             }
@@ -227,11 +276,11 @@ namespace DockerPanel.API.Services.Acme
         /// <summary>
         /// 预检查HTTP-01挑战文件是否正确存储并可访问
         /// </summary>
-        private async Task<bool> PreCheckHttpChallengeAsync(IChallengeContext httpChallenge, string domain, string? progressId)
+        private async Task<bool> PreCheckHttpChallengeAsync(AcmeForge.Resources.AcmeChallenge httpChallenge, string domain, string? progressId, AcmeKey accountKey)
         {
             try
             {
-                var token = httpChallenge.Token;
+                var token = httpChallenge.Token ?? string.Empty;
                 if (string.IsNullOrEmpty(token))
                 {
                     _logger.LogError("HTTP-01挑战Token为空");
@@ -255,7 +304,7 @@ namespace DockerPanel.API.Services.Acme
                 _logger.LogInformation("挑战文件已在存储中找到: Token={Token}", token);
 
                 // 2. 重新计算并验证KeyAuthorization是否正确
-                var expectedKeyAuthorization = httpChallenge.KeyAuthz;
+                var expectedKeyAuthorization = ChallengeHelper.ComputeKeyAuthorization(token, accountKey);
                 if (storedKeyAuthorization != expectedKeyAuthorization)
                 {
                     _logger.LogError("挑战文件内容不匹配: Token={Token}, 期望={Expected}, 实际={Actual}",
@@ -377,7 +426,12 @@ namespace DockerPanel.API.Services.Acme
             }
         }
 
-        private async Task<List<AcmeChallenge>> GetChallengesAsync(IAuthorizationContext authContext, string domain, AcmeCertificateOrder order)
+        private async Task<List<AcmeChallenge>> GetChallengesAsync(
+            AcmeClient acme,
+            string authUrl,
+            AcmeForge.Resources.AcmeAuthorization authResource,
+            string domain,
+            AcmeCertificateOrder order)
         {
             var challenges = new List<AcmeChallenge>();
 
@@ -385,16 +439,22 @@ namespace DockerPanel.API.Services.Acme
             {
                 _logger.LogInformation("获取域名 {Domain} 的挑战信息", domain);
 
-                var challengeContexts = await authContext.Challenges();
-
-                foreach (var challengeContext in challengeContexts)
+                var accountKey = await ResolveAccountKeyAsync(order.AccountId);
+                if (accountKey == null)
                 {
-                    var challengeType = challengeContext.Type;
-                    var token = challengeContext.Token;
+                    _logger.LogWarning("无法解析账户密钥，跳过挑战获取: {AccountId}", order.AccountId);
+                    return challenges;
+                }
 
-                    // 获取账户密钥用于生成 Key Authorization
-                    // 使用正确的 ACME 协议生成 Key Authorization
-                    var keyAuthorization = challengeContext.KeyAuthz;
+                var challengeResources = authResource.Challenges ?? Array.Empty<AcmeForge.Resources.AcmeChallenge>();
+
+                foreach (var challengeResource in challengeResources)
+                {
+                    var challengeType = challengeResource.Type ?? string.Empty;
+                    var token = challengeResource.Token ?? string.Empty;
+
+                    // 计算 Key Authorization
+                    var keyAuthorization = ChallengeHelper.ComputeKeyAuthorization(token, accountKey);
 
                     _logger.LogInformation("挑战信息: Type={Type}, Token={Token}, KeyAuthz={KeyAuthz}",
                         challengeType, token, keyAuthorization);
@@ -443,7 +503,7 @@ namespace DockerPanel.API.Services.Acme
                         {
                             Type = "dns-01",
                             Status = "pending",
-                            Url = challengeContext.Location?.ToString() ?? "",
+                            Url = challengeResource.Url ?? "",
                             Token = token,
                             KeyAuthorization = keyAuthorization,
                             ChallengeData = new Dictionary<string, object>
@@ -481,7 +541,7 @@ namespace DockerPanel.API.Services.Acme
                         {
                             Type = "tls-alpn-01",
                             Status = "pending",
-                            Url = challengeContext.Location?.ToString() ?? "",
+                            Url = challengeResource.Url ?? "",
                             Token = token,
                             KeyAuthorization = keyAuthorization,
                             ChallengeData = new Dictionary<string, object>

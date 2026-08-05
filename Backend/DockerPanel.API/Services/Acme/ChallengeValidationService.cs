@@ -12,7 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DockerPanel.API.Services;
 using DockerPanel.API.Models.Acme;
-using DockerPanel.API.Services.Acme.DnsProviders;
+using AcmeForge.Dns;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -32,7 +32,7 @@ namespace DockerPanel.API.Services.Acme
         private readonly IBackgroundTaskQueue _taskQueue;
         private readonly Dictionary<string, ChallengeStatus> _challengeStatuses;
         private readonly Dictionary<string, DnsProvider> _dnsProviders;
-        private readonly Dictionary<string, IDnsProvider> _dnsProviderServices;
+        private readonly Dictionary<string, AcmeForge.Dns.IDnsProvider> _dnsProviderServices;
         private readonly SemaphoreSlim _semaphore;
 
         public ChallengeValidationService(
@@ -55,7 +55,7 @@ namespace DockerPanel.API.Services.Acme
             _taskQueue = taskQueue;
             _challengeStatuses = new Dictionary<string, ChallengeStatus>();
             _dnsProviders = InitializeDnsProviders();
-            _dnsProviderServices = new Dictionary<string, IDnsProvider>(StringComparer.OrdinalIgnoreCase)
+            _dnsProviderServices = new Dictionary<string, AcmeForge.Dns.IDnsProvider>(StringComparer.OrdinalIgnoreCase)
             {
                 ["cloudflare"] = cloudflareProvider,
                 ["aliyun"] = aliyunProvider,

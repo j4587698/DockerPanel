@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,16 +6,16 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using Certes;
-using Certes.Acme;
-using Certes.Acme.Resource;
+using AcmeForge;
+
+
 using DockerPanel.API.Models.Acme;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Http;
 using Microsoft.AspNetCore.SignalR;
 using DockerPanel.API.Hubs;
 using DockerPanel.API.Data;
-using DockerPanel.API.Services.Acme.DnsProviders;
+using AcmeForge.Dns;
 using TinyDb;
 using TinyDb.Bson;
 using TinyDb.Core;
@@ -25,7 +25,7 @@ using DockerPanel.API.Services;
 
 namespace DockerPanel.API.Services.Acme
 {
-    public partial class CertesAcmeService
+    public partial class AcmeForgeAcmeService
     {
 
         public async Task<IEnumerable<AcmeCertificateOrder>> GetPendingOrdersForDomainsAsync(IEnumerable<string> domains)
@@ -108,16 +108,16 @@ namespace DockerPanel.API.Services.Acme
                     CertificateApplicationStep.InitializingAcmeClient,
                     "初始化ACME客户端");
 
-                // 🔧 修复：为每个证书订单创建独立的ACME上下文，避免授权冲突
-                var acme = await CreateIndependentAcmeContextAsync(request.AccountId, request.AccountKey, request.AcmeProvider, progressId);
+                // 🔧 修复：为每个证书订单创建独立的ACME客户端，避免授权冲突
+                var acme = await CreateIndependentAcmeClientAsync(request.AccountId, request.AccountKey, request.AcmeProvider, progressId);
 
-                // 检查ACME上下文是否创建成功
+                // 检查ACME客户端是否创建成功
                 if (acme == null)
                 {
-                    _logger.LogError("无法创建ACME上下文，证书申请失败: {AccountId}", request.AccountId);
+                    _logger.LogError("无法创建ACME客户端，证书申请失败: {AccountId}", request.AccountId);
                     if (!string.IsNullOrEmpty(progressId))
                     {
-                        await _progressService.AddErrorAsync(progressId, "无法创建ACME上下文");
+                        await _progressService.AddErrorAsync(progressId, "无法创建ACME客户端");
                     }
                     return null;
                 }
@@ -127,20 +127,20 @@ namespace DockerPanel.API.Services.Acme
                     CertificateApplicationStep.CreatingOrder,
                     "创建ACME订单");
 
-                var identifiers = request.Domains.ToArray();
-                var orderContext = await acme.NewOrder(identifiers);
+                var orderResource = await acme.NewOrderAsync(request.Domains);
+                var orderUrl = acme.LastOrderUrl ?? string.Empty;
 
                 order = new AcmeCertificateOrder
                 {
                     Id = orderId, // 使用预先生成的ID
                     AccountId = request.AccountId,
-                    OrderUri = orderContext.Location?.ToString() ?? string.Empty,
+                    OrderUri = orderUrl,
                     Domains = request.Domains,
                     Status = "pending",
                     CreatedAt = DateTime.UtcNow,
                     ExpiresAt = DateTime.UtcNow.AddHours(1),
-                    FinalizeUri = "",
-                    CertificateUri = "",
+                    FinalizeUri = orderResource.Finalize ?? string.Empty,
+                    CertificateUri = orderResource.Certificate ?? string.Empty,
                     ProgressId = progressId,
                     Authorizations = new List<AcmeAuthorization>(),
                     Metadata = new Dictionary<string, object>(request.Metadata ?? new Dictionary<string, object>())
@@ -151,16 +151,16 @@ namespace DockerPanel.API.Services.Acme
                     CertificateApplicationStep.GettingAuthorizations,
                     "获取域名授权信息");
 
-                var authorizations = await orderContext.Authorizations();
+                var authorizationUrls = orderResource.Authorizations ?? Array.Empty<string>();
 
                 // 处理每个授权
-                foreach (var authContext in authorizations)
+                foreach (var authUrl in authorizationUrls)
                 {
                     await _progressService.UpdateProgressStepAsync(progressId,
                         CertificateApplicationStep.ValidatingDomains,
-                        $"验证域名: {authContext.Location?.ToString()}");
+                        $"验证域名: {authUrl}");
 
-                    var authorizationDetails = await authContext.Resource();
+                    var authorizationDetails = await acme.GetAuthorizationAsync(new Uri(authUrl));
                     var domain = authorizationDetails.Identifier?.Value
                                  ?? order.Domains.FirstOrDefault()
                                  ?? "unknown";
@@ -178,7 +178,7 @@ namespace DockerPanel.API.Services.Acme
                     };
 
                     // 处理挑战
-                    var challenges = await GetChallengesAsync(authContext, authorization.Domain, order);
+                    var challenges = await GetChallengesAsync(acme, authUrl, authorizationDetails, authorization.Domain, order);
                     authorization.Challenges = challenges;
 
                     order.Authorizations.Add(authorization);
@@ -251,23 +251,34 @@ namespace DockerPanel.API.Services.Acme
                 : new Dictionary<string, object>();
 
             // 收集所有需要验证的授权域名和对应的记录值
-            var validationTasks = new List<(IAuthorizationContext authContext, string domain, string recordName, string recordValue)>();
+            var validationTasks = new List<(string authUrl, string domain, string recordName, string recordValue)>();
 
             try
             {
-                // 获取ACME上下文
+                // 获取ACME客户端
                 var acme = await GetOrCreateAcmeContextAsync(order.AccountId, null, progressId);
                 if (acme == null)
                 {
-                    _logger.LogError("无法获取ACME上下文进行自动验证: OrderId={OrderId}", order.Id);
+                    _logger.LogError("无法获取ACME客户端进行自动验证: OrderId={OrderId}", order.Id);
                     return false;
                 }
 
-                // 获取订单上下文
-                var orderContext = acme.Order(new Uri(order.OrderUri));
-                if (orderContext == null)
+                var accountKey = await ResolveAccountKeyAsync(order.AccountId);
+                if (accountKey == null)
                 {
-                    _logger.LogError("无法获取订单上下文进行自动验证: OrderId={OrderId}", order.Id);
+                    _logger.LogError("无法解析账户密钥进行自动验证: OrderId={OrderId}", order.Id);
+                    return false;
+                }
+
+                // 获取订单资源
+                AcmeForge.Resources.AcmeOrder orderResource;
+                try
+                {
+                    orderResource = await acme.GetOrderAsync(new Uri(order.OrderUri));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "无法获取订单资源进行自动验证: OrderId={OrderId}", order.Id);
                     return false;
                 }
 
@@ -275,26 +286,26 @@ namespace DockerPanel.API.Services.Acme
                     order.Id, challengeType, dnsProvider);
 
                 // 获取所有授权
-                var authorizations = await orderContext.Authorizations();
+                var authorizationUrls = orderResource.Authorizations ?? Array.Empty<string>();
                 bool allValidated = true;
 
                 if (challengeType == "dns-01")
                 {
                     // 预处理：收集所有授权信息
-                    foreach (var authContext in authorizations)
+                    foreach (var authUrl in authorizationUrls)
                     {
-                        var authResource = await authContext.Resource();
+                        var authResource = await acme.GetAuthorizationAsync(new Uri(authUrl));
                         var domain = authResource.Identifier?.Value ?? "unknown";
 
-                        var challenges = await authContext.Challenges();
-                        var dnsChallenge = challenges.FirstOrDefault(c => c.Type == "dns-01");
+                        var dnsChallenge = (authResource.Challenges ?? Array.Empty<AcmeForge.Resources.AcmeChallenge>())
+                            .FirstOrDefault(c => c.Type == "dns-01");
 
                         if (dnsChallenge != null)
                         {
                             var recordName = $"_acme-challenge.{domain}";
                             // 🔧 修复：DNS-01 的 TXT 记录值必须是 KeyAuthz 的 SHA256 哈希的 base64url 编码
                             // 根据 ACME RFC-8555 规范
-                            var keyAuthz = dnsChallenge.KeyAuthz;
+                            var keyAuthz = ChallengeHelper.ComputeKeyAuthorization(dnsChallenge.Token ?? string.Empty, accountKey);
                             using var sha256 = System.Security.Cryptography.SHA256.Create();
                             var hash = sha256.ComputeHash(System.Text.Encoding.ASCII.GetBytes(keyAuthz));
                             var recordValue = Convert.ToBase64String(hash)
@@ -302,7 +313,7 @@ namespace DockerPanel.API.Services.Acme
                                 .Replace('+', '-')   // 替换为 URL 安全字符
                                 .Replace('/', '_');  // 替换为 URL 安全字符
 
-                            validationTasks.Add((authContext, domain, recordName, recordValue));
+                            validationTasks.Add((authUrl, domain, recordName, recordValue));
                             _logger.LogInformation("收集DNS-01验证任务: Domain={Domain}, RecordName={RecordName}, RecordValue={RecordValue}", domain, recordName, recordValue);
                         }
                     }
@@ -367,7 +378,7 @@ namespace DockerPanel.API.Services.Acme
 
                     // 步骤3: 逐个验证授权
                     _logger.LogInformation("步骤3: 验证所有授权");
-                    foreach (var (authContext, domain, recordName, recordValue) in validationTasks)
+                    foreach (var (authUrl, domain, recordName, recordValue) in validationTasks)
                     {
                         _logger.LogInformation("开始验证域名: {Domain}", domain);
 
@@ -379,7 +390,8 @@ namespace DockerPanel.API.Services.Acme
                         }
 
                         // 获取挑战并验证
-                        var challenges = await authContext.Challenges();
+                        var authResource = await acme.GetAuthorizationAsync(new Uri(authUrl));
+                        var challenges = authResource.Challenges ?? Array.Empty<AcmeForge.Resources.AcmeChallenge>();
                         var dnsChallenge = challenges.FirstOrDefault(c => c.Type == "dns-01");
 
                         if (dnsChallenge == null)
@@ -391,27 +403,12 @@ namespace DockerPanel.API.Services.Acme
                         }
 
                         _logger.LogInformation("通知ACME服务器验证DNS-01挑战: {Domain}", domain);
-                        await dnsChallenge.Validate();
+                        var challengeResult = await acme.WaitForChallengeValidAsync(
+                            new Uri(dnsChallenge.Url),
+                            TimeSpan.FromSeconds(90)); // 30次 * 3秒
 
-                        // 🚀 增加轮询逻辑：等待 ACME 服务端完成验证
-                        int maxPollAttempts = 30; // 最多检查30次
-                        int pollAttempts = 0;
-                        string? finalStatus = "pending";
-
-                        while (pollAttempts < maxPollAttempts)
-                        {
-                            await Task.Delay(3000); // 每次间隔3秒
-                            var challengeResource = await dnsChallenge.Resource();
-                            finalStatus = challengeResource.Status?.ToString()?.ToLowerInvariant();
-
-                            _logger.LogInformation("等待ACME服务端验证结果: Domain={Domain}, Status={Status} (尝试 {Attempt}/{Max})",
-                                domain, finalStatus, pollAttempts + 1, maxPollAttempts);
-
-                            if (finalStatus == "valid" || finalStatus == "invalid")
-                                break;
-
-                            pollAttempts++;
-                        }
+                        var finalStatus = challengeResult.Status?.ToLowerInvariant();
+                        _logger.LogInformation("ACME服务端验证结果: Domain={Domain}, Status={Status}", domain, finalStatus);
 
                         if (finalStatus == "valid")
                         {
@@ -456,10 +453,10 @@ namespace DockerPanel.API.Services.Acme
                 else if (challengeType == "http-01")
                 {
                     // HTTP-01 验证
-                    foreach (var authContext in authorizations)
+                    foreach (var authUrl in authorizationUrls)
                     {
-                        var authResource = await authContext.Resource();
-                        var domain = authResource.Identifier?.Value ?? authContext.Location?.ToString().Split('/').LastOrDefault() ?? "unknown";
+                        var authResource = await acme.GetAuthorizationAsync(new Uri(authUrl));
+                        var domain = authResource.Identifier?.Value ?? authUrl.Split('/').LastOrDefault() ?? "unknown";
                         _logger.LogInformation("开始验证域名: {Domain}", domain);
 
                         if (!string.IsNullOrEmpty(progressId))
@@ -469,7 +466,7 @@ namespace DockerPanel.API.Services.Acme
                                 $"正在验证域名: {domain} ({challengeType})");
                         }
 
-                        var validationSuccess = await ValidateHttpChallengeAsync(authContext, domain, progressId);
+                        var validationSuccess = await ValidateHttpChallengeAsync(acme, authUrl, authResource, domain, accountKey, progressId);
 
                         if (!validationSuccess)
                         {
@@ -485,10 +482,10 @@ namespace DockerPanel.API.Services.Acme
                 else if (challengeType == "tls-alpn-01")
                 {
                     // TLS-ALPN-01 验证
-                    foreach (var authContext in authorizations)
+                    foreach (var authUrl in authorizationUrls)
                     {
-                        var authResource = await authContext.Resource();
-                        var domain = authResource.Identifier?.Value ?? authContext.Location?.ToString().Split('/').LastOrDefault() ?? "unknown";
+                        var authResource = await acme.GetAuthorizationAsync(new Uri(authUrl));
+                        var domain = authResource.Identifier?.Value ?? authUrl.Split('/').LastOrDefault() ?? "unknown";
                         _logger.LogInformation("开始验证域名: {Domain}", domain);
 
                         if (!string.IsNullOrEmpty(progressId))
@@ -498,7 +495,7 @@ namespace DockerPanel.API.Services.Acme
                                 $"正在验证域名: {domain} ({challengeType})");
                         }
 
-                        var validationSuccess = await ValidateTlsAlpnChallengeAsync(authContext, progressId);
+                        var validationSuccess = await ValidateTlsAlpnChallengeAsync(acme, authUrl, authResource, accountKey, progressId);
 
                         if (!validationSuccess)
                         {
@@ -524,7 +521,7 @@ namespace DockerPanel.API.Services.Acme
                         CertificateApplicationStep.DownloadingCertificate,
                         "正在完成证书申请并下载证书");
 
-                    var success = await FinalizeCertificateAsync(orderContext, order, progressId);
+                    var success = await FinalizeCertificateAsync(acme, order, progressId);
 
                     // 如果是DNS-01挑战，验证完成后清理DNS记录
                     if (success && challengeType == "dns-01")
@@ -574,12 +571,18 @@ namespace DockerPanel.API.Services.Acme
         /// <summary>
         /// 验证HTTP-01挑战
         /// </summary>
-        private async Task<bool> ValidateHttpChallengeAsync(IAuthorizationContext authContext, string domain, string? progressId)
+        private async Task<bool> ValidateHttpChallengeAsync(
+            AcmeClient acme,
+            string authUrl,
+            AcmeForge.Resources.AcmeAuthorization authResource,
+            string domain,
+            AcmeKey accountKey,
+            string? progressId)
         {
             try
             {
                 // 获取挑战
-                var challenges = await authContext.Challenges();
+                var challenges = authResource.Challenges ?? Array.Empty<AcmeForge.Resources.AcmeChallenge>();
                 var httpChallenge = challenges.FirstOrDefault(c => c.Type == "http-01");
 
                 if (httpChallenge == null)
@@ -598,42 +601,25 @@ namespace DockerPanel.API.Services.Acme
                 _logger.LogInformation("找到HTTP-01挑战，开始验证: Token={Token}, Domain={Domain}", httpChallenge.Token, domain);
 
                 // 🔍 预检查：确保挑战文件已正确存储并可访问
-                var preCheckSuccess = await PreCheckHttpChallengeAsync(httpChallenge, domain, progressId);
+                var preCheckSuccess = await PreCheckHttpChallengeAsync(httpChallenge, domain, progressId, accountKey);
                 if (!preCheckSuccess)
                 {
                     _logger.LogError("挑战文件预检查失败，停止验证流程");
                     return false;
                 }
 
-                // 🚀 主动触发验证
+                // 🚀 主动触发验证并等待结果
                 _logger.LogInformation("通知Let's Encrypt验证HTTP-01挑战");
                 try
                 {
-                    await httpChallenge.Validate();
-                    _logger.LogInformation("已通知Let's Encrypt验证HTTP-01挑战");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "通知Let's Encrypt验证HTTP-01挑战失败");
-                    return false;
-                }
+                    var challengeResult = await acme.WaitForChallengeValidAsync(
+                        new Uri(httpChallenge.Url),
+                        TimeSpan.FromSeconds(180)); // 60次 * 3秒，最多3分钟
+                    var currentStatus = challengeResult.Status?.ToLowerInvariant();
 
-                // 🚀 主动检查验证结果，使用更短的等待间隔
-                int maxAttempts = 60; // 最多检查60次，每次间隔3秒，总计3分钟
-                int attempts = 0;
+                    _logger.LogInformation("检查挑战状态: {Status}", currentStatus);
 
-                while (attempts < maxAttempts)
-                {
-                    await Task.Delay(3000); // 等待3秒给Let's Encrypt足够时间
-
-                    // 🎯 重新获取挑战状态
-                    var challengeDetail = await httpChallenge.Resource();
-                    var currentStatus = challengeDetail.Status?.ToString()?.ToLowerInvariant();
-
-                    _logger.LogInformation("检查挑战状态: {Status} (尝试 {Attempt}/{MaxAttempts})",
-                        currentStatus, attempts + 1, maxAttempts);
-
-                    // 如果状态变为valid，跳出循环
+                    // 如果状态变为valid，成功
                     if (currentStatus == "valid")
                     {
                         _logger.LogInformation("HTTP-01挑战验证成功");
@@ -649,33 +635,10 @@ namespace DockerPanel.API.Services.Acme
                     // 如果状态变为invalid，直接失败
                     if (currentStatus == "invalid")
                     {
-                        var error = challengeDetail.Error;
+                        var error = challengeResult.Error;
                         var errorType = error?.Type ?? "unknown";
                         var errorDetail = error?.Detail ?? "挑战验证失败";
                         var errorStatus = error?.Status ?? 0;
-
-                        // 尝试从授权上下文获取更详细的错误信息
-                        try
-                        {
-                            var authResource = await authContext.Resource();
-                            var authChallenges = await authContext.Challenges();
-                            var httpChal = authChallenges.FirstOrDefault(c => c.Type == "http-01");
-                            if (httpChal != null)
-                            {
-                                var chalDetail = await httpChal.Resource();
-                                if (chalDetail.Error != null)
-                                {
-                                    error = chalDetail.Error;
-                                    errorType = error.Type ?? errorType;
-                                    errorDetail = error.Detail ?? errorDetail;
-                                    errorStatus = error.Status > 0 ? error.Status : errorStatus;
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "获取授权挑战详细错误失败");
-                        }
 
                         var errorMessage = $"[{errorType}] {errorDetail} (HTTP {errorStatus})";
 
@@ -689,17 +652,21 @@ namespace DockerPanel.API.Services.Acme
                         return false;
                     }
 
-                    attempts++;
+                    // 超时
+                    _logger.LogWarning("HTTP-01挑战验证超时");
+
+                    if (!string.IsNullOrEmpty(progressId))
+                    {
+                        await _progressService.AddErrorAsync(progressId, "HTTP-01挑战验证超时");
+                    }
+
+                    return false;
                 }
-
-                _logger.LogWarning("HTTP-01挑战验证超时");
-
-                if (!string.IsNullOrEmpty(progressId))
+                catch (Exception ex)
                 {
-                    await _progressService.AddErrorAsync(progressId, "HTTP-01挑战验证超时");
+                    _logger.LogError(ex, "通知Let's Encrypt验证HTTP-01挑战失败");
+                    return false;
                 }
-
-                return false;
             }
             catch (Exception ex)
             {
@@ -717,13 +684,18 @@ namespace DockerPanel.API.Services.Acme
         /// <summary>
         /// 验证TLS-ALPN-01挑战
         /// </summary>
-        private async Task<bool> ValidateTlsAlpnChallengeAsync(IAuthorizationContext authContext, string? progressId)
+        private async Task<bool> ValidateTlsAlpnChallengeAsync(
+            AcmeClient acme,
+            string authUrl,
+            AcmeForge.Resources.AcmeAuthorization authResource,
+            AcmeKey accountKey,
+            string? progressId)
         {
             string domain = "unknown";
             try
             {
                 // 获取挑战
-                var challenges = await authContext.Challenges();
+                var challenges = authResource.Challenges ?? Array.Empty<AcmeForge.Resources.AcmeChallenge>();
                 var tlsAlpnChallenge = challenges.FirstOrDefault(c => c.Type == "tls-alpn-01");
 
                 if (tlsAlpnChallenge == null)
@@ -743,9 +715,8 @@ namespace DockerPanel.API.Services.Acme
                 _logger.LogInformation("找到TLS-ALPN-01挑战，开始验证: Token={Token}", tlsAlpnChallenge.Token);
 
                 // 获取授权信息以获取域名
-                var auth = await authContext.Resource();
-                domain = auth.Identifier?.Value ?? "unknown";
-                var keyAuthorization = tlsAlpnChallenge.KeyAuthz;
+                domain = authResource.Identifier?.Value ?? "unknown";
+                var keyAuthorization = ChallengeHelper.ComputeKeyAuthorization(tlsAlpnChallenge.Token ?? string.Empty, accountKey);
 
                 // 确保挑战证书已在内存中就绪
                 var existingCert = _tlsAlpnChallengeService.GetChallengeCertificate(domain);
@@ -782,37 +753,18 @@ namespace DockerPanel.API.Services.Acme
                 // 等待一小段时间确保证书服务已就绪
                 await Task.Delay(TimeSpan.FromSeconds(1));
 
-                // 主动触发验证
+                // 主动触发验证并等待结果
                 _logger.LogInformation("通知Let's Encrypt验证TLS-ALPN-01挑战");
                 try
                 {
-                    await tlsAlpnChallenge.Validate();
-                    _logger.LogInformation("已通知Let's Encrypt验证TLS-ALPN-01挑战");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "通知Let's Encrypt验证TLS-ALPN-01挑战失败");
-                    _tlsAlpnChallengeService.CleanupChallenge(domain);
-                    return false;
-                }
+                    var challengeResult = await acme.WaitForChallengeValidAsync(
+                        new Uri(tlsAlpnChallenge.Url),
+                        TimeSpan.FromSeconds(180)); // 60次 * 3秒
+                    var currentStatus = challengeResult.Status?.ToLowerInvariant();
 
-                // 检查验证结果
-                int maxAttempts = 60;
-                int attempts = 0;
+                    _logger.LogInformation("检查TLS-ALPN-01挑战状态: {Status}", currentStatus);
 
-                while (attempts < maxAttempts)
-                {
-                    await Task.Delay(3000);
-                    attempts++;
-
-                    // 重新获取挑战状态
-                    var challengeDetail = await tlsAlpnChallenge.Resource();
-                    var currentStatus = challengeDetail.Status?.ToString()?.ToLowerInvariant();
-
-                    _logger.LogInformation("检查TLS-ALPN-01挑战状态: {Status} (尝试 {Attempt}/{MaxAttempts})",
-                        currentStatus, attempts, maxAttempts);
-
-                    // 如果状态变为valid，跳出循环
+                    // 如果状态变为valid，成功
                     if (currentStatus == "valid")
                     {
                         _logger.LogInformation("TLS-ALPN-01挑战验证成功");
@@ -830,7 +782,7 @@ namespace DockerPanel.API.Services.Acme
                     // 如果状态变为invalid，直接失败
                     if (currentStatus == "invalid")
                     {
-                        var errorMessage = challengeDetail.Error?.Detail ?? "挑战验证失败";
+                        var errorMessage = challengeResult.Error?.Detail ?? "挑战验证失败";
                         _logger.LogWarning("TLS-ALPN-01挑战验证失败: {Error}", errorMessage);
                         // 验证失败，清理内存中的挑战证书
                         _tlsAlpnChallengeService.CleanupChallenge(domain);
@@ -842,18 +794,24 @@ namespace DockerPanel.API.Services.Acme
 
                         return false;
                     }
+
+                    _logger.LogWarning("TLS-ALPN-01挑战验证超时");
+                    // 超时，清理内存中的挑战证书
+                    _tlsAlpnChallengeService.CleanupChallenge(domain);
+
+                    if (!string.IsNullOrEmpty(progressId))
+                    {
+                        await _progressService.AddErrorAsync(progressId, "TLS-ALPN-01挑战验证超时");
+                    }
+
+                    return false;
                 }
-
-                _logger.LogWarning("TLS-ALPN-01挑战验证超时");
-                // 超时，清理内存中的挑战证书
-                _tlsAlpnChallengeService.CleanupChallenge(domain);
-
-                if (!string.IsNullOrEmpty(progressId))
+                catch (Exception ex)
                 {
-                    await _progressService.AddErrorAsync(progressId, "TLS-ALPN-01挑战验证超时");
+                    _logger.LogError(ex, "通知Let's Encrypt验证TLS-ALPN-01挑战失败");
+                    _tlsAlpnChallengeService.CleanupChallenge(domain);
+                    return false;
                 }
-
-                return false;
             }
             catch (Exception ex)
             {
@@ -877,91 +835,39 @@ namespace DockerPanel.API.Services.Acme
         /// <summary>
         /// 完成证书申请并下载证书
         /// </summary>
-        private async Task<bool> FinalizeCertificateAsync(IOrderContext orderContext, AcmeCertificateOrder order, string? progressId)
+        private async Task<bool> FinalizeCertificateAsync(
+            AcmeClient acme,
+            AcmeCertificateOrder order,
+            string? progressId)
         {
             try
             {
                 // 生成私钥和 CSR
                 _logger.LogInformation("生成 CSR 并提交 Finalize 请求: {Domains}", string.Join(", ", order.Domains));
 
-                var privateKey = KeyFactory.NewKey(KeyAlgorithm.ES256);
+                var privateKey = AcmeKey.Generate(AcmeKeyAlgorithm.ES256);
 
-                // 🔧 修复：实际调用 Finalize 提交 CSR
-                await orderContext.Finalize(new CsrInfo
-                {
-                    CommonName = order.Domains.FirstOrDefault()
-                }, privateKey);
-
+                // 🔧 修复：实际调用 Finalize 提交 CSR，并等待证书颁发
+                var csrDer = CsrBuilder.CreateSigningRequestDer(privateKey, order.Domains.FirstOrDefault() ?? string.Empty, order.Domains);
                 _logger.LogInformation("CSR 已提交，等待证书颁发");
 
-                // 等待证书颁发
-                int maxWaitAttempts = 30; // 最多等待30次，每次2秒，总计1分钟
-                int waitAttempts = 0;
+                var completion = await acme.CompleteOrderAsync(
+                    new Uri(order.OrderUri),
+                    csrDer,
+                    TimeSpan.FromSeconds(60)); // 最多等待30次，每次2秒，总计1分钟
 
-                while (waitAttempts < maxWaitAttempts)
+                _logger.LogInformation("检查证书颁发状态: {Status}", completion.Status);
+
+                // 🔧 修复：使用不区分大小写的比较（ACME 返回 "valid"）
+                var statusLower = completion.Status?.ToLowerInvariant() ?? "";
+
+                if (statusLower == "valid")
                 {
-                    await Task.Delay(2000);
+                    // 下载证书
+                    _logger.LogInformation("证书已颁发，开始下载");
+                    var certificatePem = completion.CertificatePem!;
 
-                    // 检查订单状态
-                    var orderDetail = await orderContext.Resource();
-                    var orderStatus = orderDetail.Status?.ToString();
-
-                    waitAttempts++;
-
-                    _logger.LogInformation("检查证书颁发状态: {Status} (尝试 {Attempt}/{MaxAttempts})",
-                        orderStatus, waitAttempts, maxWaitAttempts);
-
-                    // 🔧 修复：使用不区分大小写的比较（ACME 返回 "Valid" 而不是 "valid"）
-                    var statusLower = orderStatus?.ToLowerInvariant() ?? "";
-
-                    if (statusLower == "valid")
-                    {
-                        // 下载证书
-                        _logger.LogInformation("证书已颁发，开始下载");
-                        var certificateChain = await orderContext.Download();
-
-                        // 转换为PEM格式
-                        // 🔧 修复：Let's Encrypt Staging 的证书链可能有兼容性问题
-                        string certificatePem;
-                        try
-                        {
-                            // 先尝试标准方法
-                            certificatePem = certificateChain.ToPem();
-                        }
-                        catch (Exception ex) when (ex.Message.Contains("Can not find issuer"))
-                        {
-                            // 如果是 Staging 环境的证书链问题，使用原始证书 DER 转 PEM
-                            _logger.LogWarning("证书链构建失败，使用原始证书: {Error}", ex.Message);
-
-                            // CertificateChain.Certificate 是 IEncodable，需要调用 ToDer()
-                            var certDer = certificateChain.Certificate.ToDer();
-                            certificatePem = "-----BEGIN CERTIFICATE-----\r\n" +
-                                Convert.ToBase64String(certDer, Base64FormattingOptions.InsertLineBreaks) +
-                                "\r\n-----END CERTIFICATE-----";
-
-                            // 尝试添加中间证书（如果可用）
-                            try
-                            {
-                                // 获取中间证书 - Issuers 是 IList<IEncodable>，需要调用 ToDer()
-                                var issuers = certificateChain.Issuers;
-                                if (issuers != null && issuers.Count > 0)
-                                {
-                                    foreach (var issuer in issuers)
-                                    {
-                                        var issuerDer = issuer.ToDer();
-                                        certificatePem += "\r\n-----BEGIN CERTIFICATE-----\r\n" +
-                                            Convert.ToBase64String(issuerDer, Base64FormattingOptions.InsertLineBreaks) +
-                                            "\r\n-----END CERTIFICATE-----";
-                                    }
-                                }
-                            }
-                            catch (Exception issuerEx)
-                            {
-                                _logger.LogWarning("获取中间证书失败: {Error}", issuerEx.Message);
-                            }
-                        }
-
-                        var privateKeyPem = privateKey.ToPem();
+                    var privateKeyPem = privateKey.ToPem();
 
                         // 解析证书以获取详细信息
                         var cert = X509Certificate2.CreateFromPem(certificatePem);
@@ -1124,7 +1030,7 @@ namespace DockerPanel.API.Services.Acme
                     }
                     else if (statusLower == "invalid")
                     {
-                        var errorMessage = orderDetail.Error?.ToString() ?? "证书申请失败";
+                        var errorMessage = completion.Error?.Detail ?? "证书申请失败";
                         _logger.LogError("证书申请失败: {Error}", errorMessage);
 
                         if (!string.IsNullOrEmpty(progressId))
@@ -1134,7 +1040,6 @@ namespace DockerPanel.API.Services.Acme
 
                         return false;
                     }
-                }
 
                 _logger.LogWarning("证书申请超时");
 

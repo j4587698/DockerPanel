@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,16 +6,16 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using Certes;
-using Certes.Acme;
-using Certes.Acme.Resource;
+using AcmeForge;
+
+
 using DockerPanel.API.Models.Acme;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Http;
 using Microsoft.AspNetCore.SignalR;
 using DockerPanel.API.Hubs;
 using DockerPanel.API.Data;
-using DockerPanel.API.Services.Acme.DnsProviders;
+using AcmeForge.Dns;
 using TinyDb;
 using TinyDb.Bson;
 using TinyDb.Core;
@@ -25,7 +25,7 @@ using DockerPanel.API.Services;
 
 namespace DockerPanel.API.Services.Acme
 {
-    public partial class CertesAcmeService
+    public partial class AcmeForgeAcmeService
     {
 
         public async Task<int> CheckCertificateExpiryAsync(string certificateId)
@@ -236,20 +236,20 @@ namespace DockerPanel.API.Services.Acme
         {
             try
             {
-                IKey key;
+                AcmeKey key;
                 var keyTypeStr = keyType.ToLower();
 
                 if (keyTypeStr.Contains("ec") || keyTypeStr.Contains("p256"))
                 {
-                    key = KeyFactory.NewKey(KeyAlgorithm.ES256);
+                    key = AcmeKey.Generate(AcmeKeyAlgorithm.ES256);
                 }
                 else if (keyTypeStr.Contains("384"))
                 {
-                    key = KeyFactory.NewKey(KeyAlgorithm.ES384);
+                    key = AcmeKey.Generate(AcmeKeyAlgorithm.ES384);
                 }
                 else
                 {
-                    key = KeyFactory.NewKey(KeyAlgorithm.RS256);
+                    key = AcmeKey.Generate(AcmeKeyAlgorithm.RS256);
                 }
 
                 return new AcmeKeyPair
@@ -298,11 +298,11 @@ namespace DockerPanel.API.Services.Acme
         {
             try
             {
-                IKey key;
+                AcmeKey key;
 
                 if (format.Equals("pem", StringComparison.OrdinalIgnoreCase))
                 {
-                    key = KeyFactory.FromPem(keyData);
+                    key = AcmeKey.FromPem(keyData);
                 }
                 else
                 {

@@ -255,7 +255,7 @@ builder.Services.AddScoped<INodeGroupService, NodeGroupServiceImpl>();
 // 添加ACME证书管理服务 - 使用包含续期功能的实现
 builder.Services.AddScoped<DockerPanel.API.Services.Acme.AcmeJobQueueService>();
 builder.Services.AddHostedService<DockerPanel.API.Services.Acme.AcmeJobWorker>();
-builder.Services.AddScoped<DockerPanel.API.Services.Acme.IAcmeService, DockerPanel.API.Services.Acme.CertesAcmeService>();
+builder.Services.AddScoped<DockerPanel.API.Services.Acme.IAcmeService, DockerPanel.API.Services.Acme.AcmeForgeAcmeService>();
 // 移除重复注册
 // builder.Services.AddScoped<DockerPanel.API.Services.Acme.CertesAcmeService>();
 // 使用 TinyDb 持久化存储替换内存存储，解决挑战文件丢失问题，使用主数据库
@@ -307,15 +307,15 @@ builder.Services.AddHostedService<CertificateTimeoutCheckerService>();
 // 添加HttpClient工厂
 builder.Services.AddHttpClient();
 
-// 注册DNS提供商服务
-builder.Services.AddSingleton<DockerPanel.API.Services.Acme.DnsProviders.CloudflareDnsProvider>();
-builder.Services.AddSingleton<DockerPanel.API.Services.Acme.DnsProviders.AliyunDnsProvider>();
-builder.Services.AddSingleton<DockerPanel.API.Services.Acme.DnsProviders.TencentDnsProvider>();
-builder.Services.AddSingleton<DockerPanel.API.Services.Acme.DnsProviders.DnsPodDnsProvider>();
-builder.Services.AddSingleton<DockerPanel.API.Services.Acme.DnsProviders.DnsPodTraditionalDnsProvider>();
-builder.Services.AddSingleton<DockerPanel.API.Services.Acme.DnsProviders.AwsRoute53DnsProvider>();
-builder.Services.AddSingleton<DockerPanel.API.Services.Acme.DnsProviders.AzureDnsProvider>();
-builder.Services.AddSingleton<DockerPanel.API.Services.Acme.DnsProviders.GoDaddyDnsProvider>();
+// 注册DNS提供商服务（来自 AcmeForge 库）
+builder.Services.AddSingleton<AcmeForge.Dns.CloudflareDnsProvider>();
+builder.Services.AddSingleton<AcmeForge.Dns.AliyunDnsProvider>();
+builder.Services.AddSingleton<AcmeForge.Dns.TencentDnsProvider>();
+builder.Services.AddSingleton<AcmeForge.Dns.DnsPodDnsProvider>();
+builder.Services.AddSingleton<AcmeForge.Dns.DnsPodTraditionalDnsProvider>();
+builder.Services.AddSingleton<AcmeForge.Dns.AwsRoute53DnsProvider>();
+builder.Services.AddSingleton<AcmeForge.Dns.AzureDnsProvider>();
+builder.Services.AddSingleton<AcmeForge.Dns.GoDaddyDnsProvider>();
 
 // 添加DockerPanel核心服务
 builder.Services.AddDockerPanelServices();

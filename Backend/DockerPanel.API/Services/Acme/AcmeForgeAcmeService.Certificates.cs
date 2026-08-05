@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,16 +6,17 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using Certes;
-using Certes.Acme;
-using Certes.Acme.Resource;
+using AcmeForge;
+using AcmeForge.Resources;
+
+
 using DockerPanel.API.Models.Acme;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Http;
 using Microsoft.AspNetCore.SignalR;
 using DockerPanel.API.Hubs;
 using DockerPanel.API.Data;
-using DockerPanel.API.Services.Acme.DnsProviders;
+using AcmeForge.Dns;
 using TinyDb;
 using TinyDb.Bson;
 using TinyDb.Core;
@@ -25,7 +26,7 @@ using DockerPanel.API.Services;
 
 namespace DockerPanel.API.Services.Acme
 {
-    public partial class CertesAcmeService
+    public partial class AcmeForgeAcmeService
     {
 
         public async Task<AcmeCertificateData> DownloadCertificateAsync(string orderId)
@@ -48,33 +49,24 @@ namespace DockerPanel.API.Services.Acme
                     throw new InvalidOperationException($"无法获取 ACME 上下文");
                 }
 
-                // 获取订单上下文
-                var orderContext = acmeContext.Order(new Uri(order.OrderUri));
-                if (orderContext == null)
-                {
-                    throw new InvalidOperationException($"未找到订单上下文");
-                }
-
-                // 检查订单状态
-                var orderDetails = await orderContext.Resource();
+                // 获取订单资源
+                var orderDetails = await acmeContext.GetOrderAsync(new Uri(order.OrderUri));
                 _logger.LogInformation("订单状态: {Status}, 域名: {Domains}", orderDetails.Status, string.Join(",", order.Domains));
 
-                if (orderDetails.Status?.ToString() != "Ready" && orderDetails.Status?.ToString() != "Valid")
+                if (orderDetails.Status != "ready" && orderDetails.Status != "valid")
                 {
                     throw new InvalidOperationException($"订单尚未准备就绪，当前状态: {orderDetails.Status}");
                 }
 
                 // 声明变量
-                CertificateChain? certificateChain = null;
                 string certificatePem;
                 string privateKeyPem;
 
-                if (orderDetails.Status?.ToString() == "Valid")
+                if (orderDetails.Status == "valid")
                 {
                     // 订单已完成，直接下载证书
                     _logger.LogInformation("订单已完成，直接下载证书...");
-                    certificateChain = await orderContext.Download();
-                    certificatePem = certificateChain.ToPem();
+                    certificatePem = await acmeContext.DownloadCertificatePemAsync(new Uri(orderDetails.Certificate!));
 
                     var certificatesCollection = _dbContext.GetCollection<DockerPanel.API.Services.Acme.CertificateRecord>(DbCollections.Certificates);
                     var existingCertificate = certificatesCollection.FindAll()
@@ -91,21 +83,32 @@ namespace DockerPanel.API.Services.Acme
                 {
                     // 订单准备就绪，需要完成订单
                     _logger.LogInformation("开始完成订单并下载证书...");
-                    var privateKey = KeyFactory.NewKey(KeyAlgorithm.ES256);
+                    var privateKey = AcmeKey.Generate(AcmeKeyAlgorithm.ES256);
 
                     // 完成订单并获取证书
-                    certificateChain = await orderContext.Generate(new CsrInfo
-                    {
-                        CountryName = "CN",
-                        State = "Beijing",
-                        Locality = "Beijing",
-                        Organization = "DockerPanel",
-                        OrganizationUnit = "SSL",
-                        CommonName = order.Domains.First()
-                    }, privateKey);
+                    var csrDer = CsrBuilder.CreateSigningRequestDer(
+                        privateKey,
+                        order.Domains.First(),
+                        order.Domains,
+                        new CsrOptions
+                        {
+                            CountryName = "CN",
+                            Locality = "Beijing",
+                            Organization = "DockerPanel",
+                            OrganizationUnit = "SSL"
+                        });
 
-                    // 转换为PEM格式
-                    certificatePem = certificateChain.ToPem();
+                    var completion = await acmeContext.CompleteOrderAsync(
+                        new Uri(order.OrderUri),
+                        csrDer,
+                        TimeSpan.FromSeconds(60));
+
+                    if (completion.Status?.ToLowerInvariant() != "valid")
+                    {
+                        throw new InvalidOperationException($"订单 finalize 失败: {completion.Error?.Detail ?? (completion.TimedOut ? "超时" : $"状态: {completion.Status}")}");
+                    }
+
+                    certificatePem = completion.CertificatePem!;
                     privateKeyPem = privateKey.ToPem();
                 }
 
@@ -353,21 +356,21 @@ namespace DockerPanel.API.Services.Acme
 
                 if (shouldCallAcme)
                 {
-                    var acmeContext = await GetAcmeContextAsync(certificate!.AccountId);
-                    if (acmeContext is not AcmeContext concreteAcmeContext)
+                    var acme = await GetAcmeContextAsync(certificate!.AccountId);
+                    if (acme == null)
                     {
                         throw new InvalidOperationException("无法获取可用于撤销证书的 ACME 上下文");
                     }
 
                     using var x509 = X509Certificate2.CreateFromPem(certificate.CertificateData);
                     var certPrivateKey = !string.IsNullOrWhiteSpace(certificate.PrivateKeyData)
-                        ? KeyFactory.FromPem(certificate.PrivateKeyData)
+                        ? AcmeKey.FromPem(certificate.PrivateKeyData)
                         : null;
-                    var reason = Enum.IsDefined(typeof(RevocationReason), request.Reason)
-                        ? (RevocationReason)request.Reason
-                        : RevocationReason.Unspecified;
+                    var reason = Enum.IsDefined(typeof(AcmeRevocationReason), request.Reason)
+                        ? (AcmeRevocationReason)request.Reason
+                        : AcmeRevocationReason.Unspecified;
 
-                    await concreteAcmeContext.RevokeCertificate(x509.RawData, reason, certPrivateKey);
+                    await acme.RevokeCertificateAsync(x509.RawData, reason, certPrivateKey);
                     _logger.LogInformation("ACME 证书撤销请求已提交: {CertificateId}", certificate.Id);
                 }
                 else

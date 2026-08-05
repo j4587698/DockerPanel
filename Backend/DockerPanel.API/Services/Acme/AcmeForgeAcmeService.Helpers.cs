@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,16 +6,16 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using Certes;
-using Certes.Acme;
-using Certes.Acme.Resource;
+using AcmeForge;
+
+
 using DockerPanel.API.Models.Acme;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Http;
 using Microsoft.AspNetCore.SignalR;
 using DockerPanel.API.Hubs;
 using DockerPanel.API.Data;
-using DockerPanel.API.Services.Acme.DnsProviders;
+using AcmeForge.Dns;
 using TinyDb;
 using TinyDb.Bson;
 using TinyDb.Core;
@@ -25,7 +25,7 @@ using DockerPanel.API.Services;
 
 namespace DockerPanel.API.Services.Acme
 {
-    public partial class CertesAcmeService
+    public partial class AcmeForgeAcmeService
     {
 
         private CertificateRecord? FindCertificateRecord(string certificateId)
@@ -43,7 +43,7 @@ namespace DockerPanel.API.Services.Acme
                                                        c.SerialNumber == certificateId);
         }
 
-        private async Task<IKey?> ResolveAccountKeyAsync(string accountId)
+        private async Task<AcmeKey?> ResolveAccountKeyAsync(string accountId)
         {
             if (string.IsNullOrWhiteSpace(accountId))
             {
@@ -62,7 +62,7 @@ namespace DockerPanel.API.Services.Acme
                 return null;
             }
 
-            var key = KeyFactory.FromPem(account.AccountKey);
+            var key = AcmeKey.FromPem(account.AccountKey);
             _accountKeys[accountId] = key;
             _staticAccountKeys[accountId] = key;
             return key;
@@ -269,7 +269,7 @@ namespace DockerPanel.API.Services.Acme
             return domains.ToList();
         }
 
-        private static (string type, int size, string algorithm) GetKeyType(IKey key, Dictionary<string, object>? metadata = null)
+        private static (string type, int size, string algorithm) GetKeyType(AcmeKey key, Dictionary<string, object>? metadata = null)
         {
             var metadataType = metadata?.GetValueOrDefault("KeyType")?.ToString();
             var metadataSize = metadata?.GetValueOrDefault("KeySize")?.ToString();
@@ -359,7 +359,7 @@ namespace DockerPanel.API.Services.Acme
             }
         }
 
-        private bool TryGetCachedAcmeContext(string key, out IAcmeContext? context)
+        private bool TryGetCachedAcmeContext(string key, out AcmeClient? context)
         {
             context = null;
             if (string.IsNullOrWhiteSpace(key))
@@ -368,7 +368,7 @@ namespace DockerPanel.API.Services.Acme
             }
 
             // 直接命中
-            if (_acmeContexts.TryGetValue(key, out var existing))
+            if (_clients.TryGetValue(key, out var existing))
             {
                 context = existing;
                 return true;
@@ -376,17 +376,17 @@ namespace DockerPanel.API.Services.Acme
 
             // 使用小写 Provider 名称
             var lowerKey = key.ToLowerInvariant();
-            if (_acmeContexts.TryGetValue(lowerKey, out existing))
+            if (_clients.TryGetValue(lowerKey, out existing))
             {
                 context = existing;
                 return true;
             }
 
             // 尝试从静态缓存恢复
-            if (_staticAcmeContexts.TryGetValue(key, out existing) ||
-                _staticAcmeContexts.TryGetValue(lowerKey, out existing))
+            if (_staticClients.TryGetValue(key, out existing) ||
+                _staticClients.TryGetValue(lowerKey, out existing))
             {
-                _acmeContexts[key] = existing;
+                _clients[key] = existing;
                 context = existing;
                 return true;
             }
@@ -394,31 +394,31 @@ namespace DockerPanel.API.Services.Acme
             return false;
         }
 
-        private void CacheAcmeContext(string accountId, string? provider, IAcmeContext context)
+        private void CacheAcmeContext(string accountId, string? provider, AcmeClient context)
         {
             if (!string.IsNullOrWhiteSpace(accountId))
             {
-                _acmeContexts[accountId] = context;
-                _staticAcmeContexts[accountId] = context;
+                _clients[accountId] = context;
+                _staticClients[accountId] = context;
             }
 
             var providerKey = string.IsNullOrWhiteSpace(provider)
                 ? "letsencrypt"
                 : provider.ToLowerInvariant();
 
-            _acmeContexts[providerKey] = context;
+            _clients[providerKey] = context;
         }
 
-        private async Task<IAuthorizationContext?> ResolveAuthorizationContextAsync(
-            IEnumerable<IAuthorizationContext> authorizationContexts,
+        private async Task<(string Url, AcmeForge.Resources.AcmeAuthorization Resource)?> ResolveAuthorizationContextAsync(
+            IEnumerable<(string Url, AcmeForge.Resources.AcmeAuthorization Resource)> authorizationContexts,
             string? authorizationId,
             string? domain)
         {
             if (!string.IsNullOrEmpty(authorizationId))
             {
                 var match = authorizationContexts.FirstOrDefault(a =>
-                    a.Location.ToString().Contains(authorizationId, StringComparison.OrdinalIgnoreCase));
-                if (match != null)
+                    a.Url.Contains(authorizationId, StringComparison.OrdinalIgnoreCase));
+                if (match.Url != null)
                 {
                     return match;
                 }
@@ -430,9 +430,8 @@ namespace DockerPanel.API.Services.Acme
                 {
                     try
                     {
-                        var authResource = await authContext.Resource();
-                        if (authResource?.Identifier?.Value != null &&
-                            authResource.Identifier.Value.Equals(domain, StringComparison.OrdinalIgnoreCase))
+                        if (authContext.Resource?.Identifier?.Value != null &&
+                            authContext.Resource.Identifier.Value.Equals(domain, StringComparison.OrdinalIgnoreCase))
                         {
                             return authContext;
                         }
@@ -447,7 +446,7 @@ namespace DockerPanel.API.Services.Acme
             return null;
         }
 
-        private async Task<IAcmeContext?> GetAcmeContextAsync(string providerOrAccountId)
+        private async Task<AcmeClient?> GetAcmeContextAsync(string providerOrAccountId)
         {
             try
             {
@@ -457,7 +456,7 @@ namespace DockerPanel.API.Services.Acme
                 }
 
                 // 如果是accountId，需要查找对应的账户获取provider
-                IKey? accountKey = null;
+                AcmeKey? accountKey = null;
                 var cacheAccountKey = providerOrAccountId;
 
                 if (Guid.TryParse(providerOrAccountId, out var accountGuid))
@@ -472,7 +471,7 @@ namespace DockerPanel.API.Services.Acme
                         if (!string.IsNullOrEmpty(account.AccountKey))
                         {
                             // 从存储的密钥字符串重建密钥
-                            accountKey = KeyFactory.FromPem(account.AccountKey);
+                            accountKey = AcmeKey.FromPem(account.AccountKey);
                         }
                     }
                     else
@@ -483,9 +482,13 @@ namespace DockerPanel.API.Services.Acme
 
                 // 现在providerOrAccountId应该是provider名称
                 var directoryUrl = GetDirectoryUrl(providerOrAccountId);
-                var acmeContext = accountKey != null
-                    ? new AcmeContext(new Uri(directoryUrl), accountKey)
-                    : new AcmeContext(new Uri(directoryUrl));
+                if (accountKey == null)
+                {
+                    _logger.LogWarning("获取 ACME 上下文失败，未找到账户密钥: {ProviderOrAccountId}", providerOrAccountId);
+                    return null;
+                }
+
+                var acmeContext = CreateAcmeClient(directoryUrl, accountKey);
 
                 CacheAcmeContext(cacheAccountKey, providerOrAccountId, acmeContext);
                 return acmeContext;
@@ -497,7 +500,7 @@ namespace DockerPanel.API.Services.Acme
             }
         }
 
-        private async Task<IKey> GetAccountKeyAsync(string keyIdentifier)
+        private async Task<AcmeKey> GetAccountKeyAsync(string keyIdentifier)
         {
             try
             {
@@ -516,7 +519,7 @@ namespace DockerPanel.API.Services.Acme
                     if (!string.IsNullOrEmpty(account.AccountKey))
                     {
                         _logger.LogInformation("从数据库加载账户密钥: {AccountId}", keyIdentifier);
-                        var privateKey = KeyFactory.FromPem(account.AccountKey);
+                        var privateKey = AcmeKey.FromPem(account.AccountKey);
                         _accountKeys[keyIdentifier] = privateKey;
                         _staticAccountKeys[keyIdentifier] = privateKey;
                         return privateKey;
@@ -533,7 +536,7 @@ namespace DockerPanel.API.Services.Acme
 
                 // 如果数据库中没有，生成新的密钥
                 _logger.LogWarning("未找到账户密钥，生成新密钥: {AccountId}", keyIdentifier);
-                var newKey = KeyFactory.NewKey(KeyAlgorithm.ES256);
+                var newKey = AcmeKey.Generate(AcmeKeyAlgorithm.ES256);
                 _accountKeys[keyIdentifier] = newKey;
                 _staticAccountKeys[keyIdentifier] = newKey;
 
@@ -585,9 +588,9 @@ namespace DockerPanel.API.Services.Acme
                     };
                 }
 
-                // 获取 ACME 上下文 - 复用之前的逻辑
+                // 获取 ACME 上下文
                 var directoryUrl = "https://acme-v02.api.letsencrypt.org/directory";
-                var acmeContext = _acmeContexts.TryGetValue("letsencrypt", out var existingContext)
+                var acmeContext = _clients.TryGetValue("letsencrypt", out var existingContext)
                     ? existingContext
                     : await CreateAcmeContextWithAccountAsync(order.AccountId, directoryUrl);
 
@@ -601,47 +604,54 @@ namespace DockerPanel.API.Services.Acme
                     };
                 }
 
-                // 获取订单上下文
-                var orderContext = acmeContext.Order(new Uri(order.OrderUri));
-                if (orderContext == null)
+                // 获取订单资源
+                AcmeForge.Resources.AcmeOrder orderResource;
+                try
+                {
+                    orderResource = await acmeContext.GetOrderAsync(new Uri(order.OrderUri));
+                }
+                catch (Exception ex)
                 {
                     return new AcmeChallengeResult
                     {
                         Success = false,
-                        Message = "未找到订单上下文",
+                        Message = $"获取订单资源失败: {ex.Message}",
                         ErrorType = "order_context_error"
                     };
                 }
 
                 // 获取授权列表
-                var authorizations = await orderContext.Authorizations();
-                _logger.LogInformation("获取到 {Count} 个授权", authorizations?.Count() ?? 0);
+                var authorizationUrls = orderResource.Authorizations ?? Array.Empty<string>();
+                _logger.LogInformation("获取到 {Count} 个授权", authorizationUrls.Length);
 
                 // 根据域名查找对应的授权（更可靠的方法）
                 var existingOrder = await GetCertificateOrderAsync(orderId);
                 var targetDomain = existingOrder?.Domains.FirstOrDefault();
                 _logger.LogInformation("目标域名: {TargetDomain}, 订单状态: {OrderStatus}", targetDomain, existingOrder?.Status);
-                IAuthorizationContext? targetAuthorization = null;
+                string? targetAuthorizationUrl = null;
 
-                if (authorizations != null)
+                foreach (var authUrl in authorizationUrls)
                 {
-                    _logger.LogInformation("开始查找域名 {Domain} 的授权", targetDomain);
-                    foreach (var auth in authorizations)
+                    try
                     {
-                        var authResource = await auth.Resource();
-                        var authDomain = authResource.Identifier.Value;
-                        _logger.LogInformation("检查授权: 域名={AuthDomain}, 位置={Location}", authDomain, auth.Location);
+                        var authResource = await acmeContext.GetAuthorizationAsync(new Uri(authUrl));
+                        var authDomain = authResource.Identifier?.Value ?? "unknown";
+                        _logger.LogInformation("检查授权: 域名={AuthDomain}, 位置={Location}", authDomain, authUrl);
 
                         if (authDomain == targetDomain)
                         {
-                            targetAuthorization = auth;
+                            targetAuthorizationUrl = authUrl;
                             _logger.LogInformation("找到匹配的授权: {Domain}", targetDomain);
                             break;
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "获取授权资源失败: {AuthUrl}", authUrl);
+                    }
                 }
 
-                if (targetAuthorization == null)
+                if (string.IsNullOrEmpty(targetAuthorizationUrl))
                 {
                     _logger.LogWarning("未找到域名 {Domain} 的授权信息", targetDomain);
                     return new AcmeChallengeResult
@@ -649,12 +659,13 @@ namespace DockerPanel.API.Services.Acme
                         Success = false,
                         Message = "未找到授权信息",
                         ErrorType = "authorization_not_found",
-                        ErrorDetails = $"域名: {targetDomain}, 授权数量: {authorizations?.Count() ?? 0}"
+                        ErrorDetails = $"域名: {targetDomain}, 授权数量: {authorizationUrls.Length}"
                     };
                 }
 
-                // 获取挑战列表
-                var challenges = await targetAuthorization.Challenges();
+                // 获取授权资源与挑战列表
+                var authorizationResource = await acmeContext.GetAuthorizationAsync(new Uri(targetAuthorizationUrl));
+                var challenges = authorizationResource.Challenges ?? Array.Empty<AcmeForge.Resources.AcmeChallenge>();
                 var targetChallenge = challenges.FirstOrDefault(c => c.Type == challengeType);
 
                 if (targetChallenge == null)
@@ -672,8 +683,24 @@ namespace DockerPanel.API.Services.Acme
                 // 获取挑战详细信息 - 仅检查状态，不触发验证
                 _logger.LogInformation("检查挑战状态: Type={Type}, Token={Token}",
                     targetChallenge.Type, targetChallenge.Token);
-                var challengeDetail = await targetChallenge.Resource();
-                var challengeStatus = challengeDetail.Status?.ToString()?.ToLowerInvariant() ?? "pending";
+                AcmeForge.Resources.AcmeChallenge challengeDetail;
+                try
+                {
+                    challengeDetail = string.IsNullOrEmpty(targetChallenge.Url)
+                        ? targetChallenge
+                        : await acmeContext.GetChallengeAsync(new Uri(targetChallenge.Url));
+                }
+                catch (Exception ex)
+                {
+                    return new AcmeChallengeResult
+                    {
+                        Success = false,
+                        Message = $"获取挑战状态失败: {ex.Message}",
+                        ErrorType = "exception"
+                    };
+                }
+
+                var challengeStatus = challengeDetail.Status?.ToLowerInvariant() ?? "pending";
                 var validatedAt = challengeStatus == "valid" ? DateTime.UtcNow : (DateTime?)null;
 
                 _logger.LogInformation("挑战状态查询结果: Type={Type}, Status={Status}, Token={Token}",
@@ -706,7 +733,7 @@ namespace DockerPanel.API.Services.Acme
                 }
                 else if (challengeStatus == "invalid")
                 {
-                    var errorDetails = challengeDetail.Error?.ToString() ?? "未知错误";
+                    var errorDetails = challengeDetail.Error?.Detail ?? "未知错误";
                     return new AcmeChallengeResult
                     {
                         Success = false,
@@ -746,19 +773,19 @@ namespace DockerPanel.API.Services.Acme
         }
 
         /// <summary>
-        /// 创建独立的ACME上下文（不使用缓存，避免授权冲突）
+        /// 创建独立的ACME客户端（不使用缓存，避免授权冲突）
         /// </summary>
-        private async Task<AcmeContext?> CreateIndependentAcmeContextAsync(string accountId, string? accountKey, string acmeProvider, string progressId)
+        private async Task<AcmeClient?> CreateIndependentAcmeClientAsync(string accountId, string? accountKey, string acmeProvider, string progressId)
         {
-            _logger.LogInformation("为证书订单创建独立的 ACME 上下文: {AccountId}, Provider: {Provider}", accountId, acmeProvider);
+            _logger.LogInformation("为证书订单创建独立的 ACME 客户端: {AccountId}, Provider: {Provider}", accountId, acmeProvider);
 
             // 优先使用直接提供的账户密钥
             if (!string.IsNullOrEmpty(accountKey))
             {
-                _logger.LogInformation("使用提供的账户密钥创建独立 ACME 上下文: {AccountId}", accountId);
+                _logger.LogInformation("使用提供的账户密钥创建独立 ACME 客户端: {AccountId}", accountId);
                 try
                 {
-                    var privateKey = Certes.KeyFactory.FromPem(accountKey);
+                    var privateKey = AcmeKey.FromPem(accountKey);
 
                     // 尝试从数据库获取账户信息以获取正确的 DirectoryUrl
                     var accountsCollection = _dbContext.GetCollection<AcmeAccount>(DbCollections.AcmeAccounts);
@@ -778,27 +805,28 @@ namespace DockerPanel.API.Services.Acme
                         _logger.LogInformation("使用 acmeProvider 获取 DirectoryUrl: {Url}", directoryUrl);
                     }
 
-                    var acme = new AcmeContext(new Uri(directoryUrl), privateKey);
+                    var acme = CreateAcmeClient(directoryUrl, privateKey);
 
-                    // 验证账户有效性
-                    var account = await acme.Account();
-                    if (account != null)
+                    // 验证账户有效性（对既有密钥重新注册以获取 KID）
+                    try
                     {
-                        _logger.LogInformation("独立 ACME 上下文创建成功: {AccountId}", accountId);
-                        return acme;
+                        await acme.NewAccountAsync(Array.Empty<string>(), true);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        _logger.LogWarning("独立 ACME 上下文创建失败，账户无效: {AccountId}", accountId);
+                        _logger.LogWarning("账户验证失败（可能需 EAB）: {AccountId}, Error: {Error}", accountId, ex.Message);
                         return null;
                     }
+
+                    _logger.LogInformation("独立 ACME 客户端创建成功: {AccountId}", accountId);
+                    return acme;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "使用提供的账户密钥创建独立 ACME 上下文时发生错误: {AccountId}", accountId);
+                    _logger.LogError(ex, "使用提供的账户密钥创建独立 ACME 客户端时发生错误: {AccountId}", accountId);
                     if (!string.IsNullOrEmpty(progressId))
                     {
-                        await _progressService.AddErrorAsync(progressId, $"ACME上下文创建错误: {ex.Message}");
+                        await _progressService.AddErrorAsync(progressId, $"ACME客户端创建错误: {ex.Message}");
                     }
                     return null;
                 }
@@ -825,35 +853,36 @@ namespace DockerPanel.API.Services.Acme
                         _logger.LogInformation("使用 Provider 获取 DirectoryUrl: {Url}", directoryUrl);
                     }
 
-                    _logger.LogInformation("使用数据库中的账户密钥创建独立 ACME 上下文: {AccountId}, Provider: {Provider}, DirectoryUrl: {Url}", accountId, dbAccount.Provider, directoryUrl);
-                    var privateKey = Certes.KeyFactory.FromPem(dbAccount.AccountKey);
-                    var acme = new AcmeContext(new Uri(directoryUrl), privateKey);
+                    _logger.LogInformation("使用数据库中的账户密钥创建独立 ACME 客户端: {AccountId}, Provider: {Provider}, DirectoryUrl: {Url}", accountId, dbAccount.Provider, directoryUrl);
+                    var privateKey = AcmeKey.FromPem(dbAccount.AccountKey);
+                    var acme = CreateAcmeClient(directoryUrl, privateKey);
 
                     // 验证账户有效性
-                    var accountInfo = await acme.Account();
-                    if (accountInfo != null)
+                    try
                     {
-                        _logger.LogInformation("独立 ACME 上下文创建成功: {AccountId}", accountId);
-                        return acme;
+                        await acme.NewAccountAsync(Array.Empty<string>(), true);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        _logger.LogWarning("独立 ACME 上下文创建失败，账户无效: {AccountId}", accountId);
+                        _logger.LogWarning("账户验证失败（可能需 EAB）: {AccountId}, Error: {Error}", accountId, ex.Message);
                         return null;
                     }
+
+                    _logger.LogInformation("独立 ACME 客户端创建成功: {AccountId}", accountId);
+                    return acme;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "从数据库获取账户创建独立 ACME 上下文时发生错误: {AccountId}", accountId);
+                _logger.LogError(ex, "从数据库获取账户创建独立 ACME 客户端时发生错误: {AccountId}", accountId);
                 if (!string.IsNullOrEmpty(progressId))
                 {
-                    await _progressService.AddErrorAsync(progressId, $"ACME上下文创建错误: {ex.Message}");
+                    await _progressService.AddErrorAsync(progressId, $"ACME客户端创建错误: {ex.Message}");
                 }
                 return null;
             }
 
-            _logger.LogError("无法创建独立的 ACME 上下文，未找到有效的账户密钥: {AccountId}", accountId);
+            _logger.LogError("无法创建独立的 ACME 客户端，未找到有效的账户密钥: {AccountId}", accountId);
             if (!string.IsNullOrEmpty(progressId))
             {
                 await _progressService.AddErrorAsync(progressId, "未找到有效的ACME账户密钥");
@@ -862,45 +891,58 @@ namespace DockerPanel.API.Services.Acme
         }
 
         /// <summary>
-        /// 获取或创建ACME上下文
+        /// 获取或创建ACME客户端
         /// </summary>
-        private async Task<AcmeContext?> GetOrCreateAcmeContextAsync(string accountId, string? accountKey, string? progressId)
+        private async Task<AcmeClient?> GetOrCreateAcmeContextAsync(string accountId, string? accountKey, string? progressId)
         {
             // 尝试从缓存获取
             if (TryGetCachedAcmeContext(accountId, out var cachedContext))
             {
-                _logger.LogInformation("找到现有的 ACME 上下文: {AccountId}", accountId);
-                return (AcmeContext?)cachedContext;
+                _logger.LogInformation("找到现有的 ACME 客户端: {AccountId}", accountId);
+                return (AcmeClient?)cachedContext;
             }
 
-            _logger.LogInformation("内存中未找到账户 {AccountId} 的 ACME 上下文，尝试重新创建", accountId);
+            _logger.LogInformation("内存中未找到账户 {AccountId} 的 ACME 客户端，尝试重新创建", accountId);
 
             // 优先使用直接提供的账户密钥
             if (!string.IsNullOrEmpty(accountKey))
             {
-                _logger.LogInformation("使用提供的账户密钥创建 ACME 上下文: {AccountId}", accountId);
+                _logger.LogInformation("使用提供的账户密钥创建 ACME 客户端: {AccountId}", accountId);
                 try
                 {
-                    var privateKey = Certes.KeyFactory.FromPem(accountKey);
+                    var privateKey = AcmeKey.FromPem(accountKey);
                     var directoryUrl = GetDirectoryUrl("letsencrypt");
-                    var acme = new AcmeContext(new Uri(directoryUrl), privateKey);
+                    var acme = CreateAcmeClient(directoryUrl, privateKey);
+                    try
+                    {
+                        await acme.NewAccountAsync(Array.Empty<string>(), true);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("提供的账户密钥验证失败（可能需 EAB）: {AccountId}, Error: {Error}", accountId, ex.Message);
+                        if (!string.IsNullOrEmpty(progressId))
+                        {
+                            await _progressService.AddErrorAsync(progressId, $"使用提供的账户密钥创建 ACME 客户端失败: {accountId}");
+                        }
+                        throw new InvalidOperationException($"使用提供的账户密钥创建 ACME 客户端失败: {accountId}", ex);
+                    }
 
                     CacheAcmeContext(accountId, "letsencrypt", acme);
-                    _logger.LogInformation("成功使用提供的密钥创建 ACME 上下文: {AccountId}", accountId);
-                    return (AcmeContext?)acme;
+                    _logger.LogInformation("成功使用提供的密钥创建 ACME 客户端: {AccountId}", accountId);
+                    return (AcmeClient?)acme;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "使用提供的账户密钥创建 ACME 上下文失败: {AccountId}", accountId);
+                    _logger.LogError(ex, "使用提供的账户密钥创建 ACME 客户端失败: {AccountId}", accountId);
                     if (!string.IsNullOrEmpty(progressId))
                     {
-                        await _progressService.AddErrorAsync(progressId, $"使用提供的账户密钥创建 ACME 上下文失败: {accountId}");
+                        await _progressService.AddErrorAsync(progressId, $"使用提供的账户密钥创建 ACME 客户端失败: {accountId}");
                     }
-                    throw new InvalidOperationException($"使用提供的账户密钥创建 ACME 上下文失败: {accountId}", ex);
+                    throw new InvalidOperationException($"使用提供的账户密钥创建 ACME 客户端失败: {accountId}", ex);
                 }
             }
 
-            // 从数据库获取账户信息并重新创建ACME上下文
+            // 从数据库获取账户信息并重新创建ACME客户端
             var accountsCollection = _dbContext.GetCollection<AcmeAccount>(DbCollections.AcmeAccounts);
             var dbAccount = accountsCollection.FindById(accountId);
 
@@ -916,11 +958,11 @@ namespace DockerPanel.API.Services.Acme
                 {
                     if (!string.IsNullOrEmpty(progressId))
                     {
-                        await _progressService.AddErrorAsync(progressId, $"无法为账户 {accountId} 创建 ACME 上下文");
+                        await _progressService.AddErrorAsync(progressId, $"无法为账户 {accountId} 创建 ACME 客户端");
                     }
-                    throw new InvalidOperationException($"无法为账户 {accountId} 创建 ACME 上下文");
+                    throw new InvalidOperationException($"无法为账户 {accountId} 创建 ACME 客户端");
                 }
-                _logger.LogInformation("成功为账户 {AccountId} 重新创建 ACME 上下文", accountId);
+                _logger.LogInformation("成功为账户 {AccountId} 重新创建 ACME 客户端", accountId);
                 return context;
             }
             else
@@ -934,9 +976,9 @@ namespace DockerPanel.API.Services.Acme
         }
 
         /// <summary>
-        /// 使用账户信息创建ACME上下文
+        /// 使用账户信息创建ACME客户端
         /// </summary>
-        private async Task<AcmeContext?> CreateAcmeContextWithAccountAsync(string accountId, string? directoryUrl)
+        private async Task<AcmeClient?> CreateAcmeContextWithAccountAsync(string accountId, string? directoryUrl)
         {
             try
             {
@@ -946,13 +988,22 @@ namespace DockerPanel.API.Services.Acme
 
                 if (dbAccount != null && !string.IsNullOrEmpty(dbAccount.AccountKey))
                 {
-                    _logger.LogInformation("使用数据库中的账户密钥创建ACME上下文: {AccountId}", accountId);
-                    var privateKey = Certes.KeyFactory.FromPem(dbAccount.AccountKey);
+                    _logger.LogInformation("使用数据库中的账户密钥创建ACME客户端: {AccountId}", accountId);
+                    var privateKey = AcmeKey.FromPem(dbAccount.AccountKey);
                     var url = directoryUrl ?? GetDirectoryUrl(dbAccount.Provider);
-                    var acmeContext = new AcmeContext(new Uri(url), privateKey);
-                    _acmeContexts["letsencrypt"] = acmeContext;
+                    var acmeContext = CreateAcmeClient(url, privateKey);
+                    try
+                    {
+                        await acmeContext.NewAccountAsync(Array.Empty<string>(), true);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("账户验证失败（可能需 EAB）: {AccountId}, Error: {Error}", accountId, ex.Message);
+                        return null;
+                    }
+                    _clients["letsencrypt"] = acmeContext;
                     // 同时保存到静态字典
-                    _staticAcmeContexts[accountId] = acmeContext;
+                    _staticClients[accountId] = acmeContext;
                     return acmeContext;
                 }
                 else
@@ -963,7 +1014,7 @@ namespace DockerPanel.API.Services.Acme
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "创建ACME上下文失败: {AccountId}", accountId);
+                _logger.LogError(ex, "创建ACME客户端失败: {AccountId}", accountId);
                 return null;
             }
         }
@@ -1074,7 +1125,7 @@ namespace DockerPanel.API.Services.Acme
         /// <summary>
         /// 获取DNS提供商实例
         /// </summary>
-        private IDnsProvider? GetDnsProvider(string providerName)
+        private AcmeForge.Dns.IDnsProvider? GetDnsProvider(string providerName)
         {
             if (string.IsNullOrEmpty(providerName))
             {

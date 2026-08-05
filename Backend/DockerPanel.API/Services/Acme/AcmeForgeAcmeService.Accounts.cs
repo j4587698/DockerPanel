@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,16 +6,16 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
-using Certes;
-using Certes.Acme;
-using Certes.Acme.Resource;
+using AcmeForge;
+
+
 using DockerPanel.API.Models.Acme;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Http;
 using Microsoft.AspNetCore.SignalR;
 using DockerPanel.API.Hubs;
 using DockerPanel.API.Data;
-using DockerPanel.API.Services.Acme.DnsProviders;
+using AcmeForge.Dns;
 using TinyDb;
 using TinyDb.Bson;
 using TinyDb.Core;
@@ -25,7 +25,7 @@ using DockerPanel.API.Services;
 
 namespace DockerPanel.API.Services.Acme
 {
-    public partial class CertesAcmeService
+    public partial class AcmeForgeAcmeService
     {
 
         public async Task<IEnumerable<AcmeAccount>> GetAccountsAsync()
@@ -81,15 +81,15 @@ namespace DockerPanel.API.Services.Acme
             try
             {
                 var directoryUrl = GetDirectoryUrl(request.Provider);
-                var accountKey = KeyFactory.NewKey(KeyAlgorithm.ES256);
-                var acme = new AcmeContext(new Uri(directoryUrl), accountKey);
+                var accountKey = AcmeKey.Generate(AcmeKeyAlgorithm.ES256);
+                var acme = CreateAcmeClient(directoryUrl, accountKey);
 
                 var contacts = new[] { $"mailto:{request.Email}" };
 
                 // 检查是否需要 EAB（External Account Binding）
                 var requiresEab = RequiresEab(request.Provider);
 
-                IAccountContext accountContext;
+                AcmeForge.Resources.AcmeAccount accountResource;
                 if (requiresEab)
                 {
                     // 需要验证 EAB 凭据
@@ -100,14 +100,14 @@ namespace DockerPanel.API.Services.Acme
 
                     _logger.LogInformation("使用 EAB 创建账户: {Email} @ {Provider}, KID: {Kid}", request.Email, request.Provider, request.EabKid);
 
-                    // 使用 EAB 创建账户 (Certes API: NewAccount(contacts, termsOfServiceAgreed, eabKid, eabHmacKey))
-                    accountContext = await acme.NewAccount(contacts, true, request.EabKid, request.EabHmacKey);
+                    // 使用 EAB 创建账户
+                    accountResource = await acme.NewAccountAsync(contacts, true, new EabCredentials(request.EabKid, request.EabHmacKey));
                 }
                 else
                 {
                     // 不需要 EAB，直接创建账户
                     _logger.LogInformation("直接创建账户: {Email} @ {Provider}", request.Email, request.Provider);
-                    accountContext = await acme.NewAccount(contacts, true);
+                    accountResource = await acme.NewAccountAsync(contacts, true);
                 }
 
                 var account = new AcmeAccount
@@ -116,8 +116,8 @@ namespace DockerPanel.API.Services.Acme
                     Email = request.Email,
                     Provider = request.Provider,
                     AccountKey = accountKey.ToPem(),
-                    AccountUri = accountContext.Location?.ToString() ?? string.Empty,
-                    IsActive = accountContext != null,
+                    AccountUri = acme.Kid ?? string.Empty,
+                    IsActive = accountResource != null,
                     CreatedAt = DateTime.UtcNow,
                     Metadata = new Dictionary<string, object>
                     {
@@ -221,9 +221,9 @@ namespace DockerPanel.API.Services.Acme
 
                 // 删除内存缓存
                 _accountKeys.Remove(accountId);
-                _acmeContexts.Remove(accountId);
+                _clients.Remove(accountId);
                 _staticAccountKeys.TryRemove(accountId, out _);
-                _staticAcmeContexts.TryRemove(accountId, out _);
+                _staticClients.TryRemove(accountId, out _);
 
                 // 删除数据库中的账户记录
                 var accountsCollection = _dbContext.GetCollection<AcmeAccount>(DbCollections.AcmeAccounts);

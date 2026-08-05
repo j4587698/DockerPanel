@@ -13,6 +13,7 @@ public class DockerPanelHub : Hub
 {
     private readonly ILogger<DockerPanelHub> _logger;
     private readonly IContainerService _containerService;
+    private readonly IImageService _imageService;
     private readonly INodeResourceService _nodeResourceService;
     private readonly LogStreamingService _logStreamingService;
     private static readonly ConcurrentDictionary<string, HashSet<string>> _subscriptions = new();
@@ -66,11 +67,13 @@ public class DockerPanelHub : Hub
     public DockerPanelHub(
         ILogger<DockerPanelHub> logger,
         IContainerService containerService,
+        IImageService imageService,
         INodeResourceService nodeResourceService,
         LogStreamingService logStreamingService)
     {
         _logger = logger;
         _containerService = containerService;
+        _imageService = imageService;
         _nodeResourceService = nodeResourceService;
         _logStreamingService = logStreamingService;
     }
@@ -153,6 +156,22 @@ public class DockerPanelHub : Hub
     }
 
     /// <summary>
+    /// 取消订阅容器状态更新
+    /// </summary>
+    public Task UnsubscribeFromContainers()
+    {
+        var connectionId = Context.ConnectionId;
+
+        if (_subscriptions.TryGetValue(connectionId, out var subs))
+        {
+            subs.Remove("containers");
+            _logger.LogInformation("客户端 {ConnectionId} 取消订阅容器状态更新", connectionId);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// 订阅系统资源监控
     /// </summary>
     public async Task SubscribeToSystemStats()
@@ -194,6 +213,53 @@ public class DockerPanelHub : Hub
         {
             subs.Remove("systemstats");
             _logger.LogInformation("客户端 {ConnectionId} 取消订阅系统资源监控", connectionId);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 订阅镜像列表更新
+    /// </summary>
+    public async Task SubscribeToImages()
+    {
+        var connectionId = Context.ConnectionId;
+
+        if (!_subscriptions.ContainsKey(connectionId))
+        {
+            _subscriptions[connectionId] = new HashSet<string>();
+        }
+
+        _subscriptions[connectionId].Add("images");
+
+        _logger.LogInformation("客户端 {ConnectionId} 订阅了镜像列表更新", connectionId);
+
+        // 发送当前镜像列表
+        try
+        {
+            var images = await _imageService.GetImagesAsync();
+            await Clients.Caller.SendAsync("ImagesUpdated", images);
+        }
+        catch (Exception ex)
+        {
+            var language = GetConnectionLanguage(connectionId);
+            var errorMessage = LocalizationService.GetTranslatedMessage("signalr.error.imageList", language, "Failed to get image list");
+            _logger.LogError(ex, "获取镜像列表失败");
+            await Clients.Caller.SendAsync("Error", new { Message = errorMessage });
+        }
+    }
+
+    /// <summary>
+    /// 取消订阅镜像列表更新
+    /// </summary>
+    public Task UnsubscribeFromImages()
+    {
+        var connectionId = Context.ConnectionId;
+
+        if (_subscriptions.TryGetValue(connectionId, out var subs))
+        {
+            subs.Remove("images");
+            _logger.LogInformation("客户端 {ConnectionId} 取消订阅镜像列表更新", connectionId);
         }
 
         return Task.CompletedTask;
@@ -365,6 +431,19 @@ public class DockerPanelHub : Hub
         foreach (var connectionId in connections)
         {
             await hubContext.Clients.Client(connectionId).SendAsync("ContainersUpdated", containers);
+        }
+    }
+
+    /// <summary>
+    /// 广播镜像列表更新给所有订阅的客户端
+    /// </summary>
+    public static async Task BroadcastImageUpdate(IHubContext<DockerPanelHub> hubContext, object images)
+    {
+        var connections = _subscriptions.Where(kvp => kvp.Value.Contains("images")).Select(kvp => kvp.Key);
+
+        foreach (var connectionId in connections)
+        {
+            await hubContext.Clients.Client(connectionId).SendAsync("ImagesUpdated", images);
         }
     }
 

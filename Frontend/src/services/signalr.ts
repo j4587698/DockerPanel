@@ -425,6 +425,11 @@ class SignalRService {
       this.emit('container-stats', { type: 'container-stats', data, timestamp: new Date().toISOString() })
     })
 
+    // 监听镜像列表更新
+    this.connection.on('ImagesUpdated', (data) => {
+      this.emit('images', { type: 'images', data, timestamp: new Date().toISOString() })
+    })
+
     // 监听日志更新
     this.connection.on('LogUpdated', (data) => {
       this.emit('logs', { type: 'logs', data, timestamp: new Date().toISOString() })
@@ -602,6 +607,21 @@ class SignalRService {
   async subscribeToContainers() {
     this.activeSubscriptions.add('SubscribeToContainers')
     return await this.invoke('SubscribeToContainers')
+  }
+
+  async unsubscribeFromContainers() {
+    this.activeSubscriptions.delete('SubscribeToContainers')
+    return await this.invoke('UnsubscribeFromContainers')
+  }
+
+  async subscribeToImages() {
+    this.activeSubscriptions.add('SubscribeToImages')
+    return await this.invoke('SubscribeToImages')
+  }
+
+  async unsubscribeFromImages() {
+    this.activeSubscriptions.delete('SubscribeToImages')
+    return await this.invoke('UnsubscribeFromImages')
   }
 
   async subscribeToSystemStats() {

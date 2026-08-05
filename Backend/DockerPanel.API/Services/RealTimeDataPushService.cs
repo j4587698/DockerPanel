@@ -216,67 +216,16 @@ public class RealTimeDataPushService : IHostedService
 
                 try
                 {
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                    var tcs = new TaskCompletionSource<ContainerStatsResponse>();
-                    
-                    var progress = new Progress<ContainerStatsResponse>(stats =>
-                    {
-                        tcs.TrySetResult(stats);
-                    });
-                    
-                    var statsTask = dockerClient.Containers.GetContainerStatsAsync(
-                        container.ID, 
-                        new ContainerStatsParameters { Stream = false }, 
-                        progress, 
-                        cts.Token);
-                    
-                    // 等待任务完成，同时等待结果
-                    await Task.WhenAll(statsTask, tcs.Task);
-                    
-                    var stats = await tcs.Task;
+                    // 复用 DockerEngine 已实现的双采样统计（Stream=true，拿到两次采样即取消），
+                    // 避免直接调用 Enhanced 版 stats 流（等待流关闭导致超时全部失败）
+                    var stats = await dockerEngine.GetContainerStatsAsync(container.ID);
                     if (stats == null) continue;
-                    double containerCpu = 0;
-                    long containerMemory = 0;
 
-                    // CPU 计算
-                    if (stats.CPUStats != null && stats.PreCPUStats != null)
-                    {
-                        var cpuDelta = stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage;
-                        var systemDelta = stats.CPUStats.SystemUsage.GetValueOrDefault() - stats.PreCPUStats.SystemUsage.GetValueOrDefault();
+                    double containerCpu = Math.Min(stats.CpuStats?.PercentCpu ?? 0, 100);
+                    totalCpuPercent += containerCpu;
 
-                        if (systemDelta > 0 && cpuDelta > 0)
-                        {
-                            var onlineCpus = stats.CPUStats.OnlineCPUs.GetValueOrDefault(1);
-                            containerCpu = Math.Min((double)cpuDelta / (double)systemDelta * onlineCpus * 100.0, 100);
-                            totalCpuPercent += containerCpu;
-                        }
-                    }
-
-                    // 内存计算
-                    if (stats.MemoryStats != null && stats.MemoryStats.Usage.GetValueOrDefault() > 0)
-                    {
-                        var cache = 0UL;
-                        if (stats.MemoryStats.Stats != null)
-                        {
-                            if (stats.MemoryStats.Stats.TryGetValue("cache", out var cacheVal))
-                                cache = cacheVal;
-                            else if (stats.MemoryStats.Stats.TryGetValue("inactive_file", out var inactiveFile))
-                                cache = inactiveFile;
-                        }
-                        
-                        containerMemory = (long)Math.Max(0, (long)stats.MemoryStats.Usage.GetValueOrDefault() - (long)cache);
-                        totalMemUsed += containerMemory;
-                    }
-
-                    // 网络统计
-                    if (stats.Networks != null)
-                    {
-                        foreach (var network in stats.Networks)
-                        {
-                            networkRxSnapshot += (long)network.Value.RxBytes;
-                            networkTxSnapshot += (long)network.Value.TxBytes;
-                        }
-                    }
+                    long containerMemory = stats.MemoryStats?.Usage ?? 0;
+                    totalMemUsed += containerMemory;
 
                     // 网络统计列表
                     var networkList = new List<object>();
@@ -284,13 +233,15 @@ public class RealTimeDataPushService : IHostedService
                     {
                         foreach (var network in stats.Networks)
                         {
+                            networkRxSnapshot += network.RxBytes;
+                            networkTxSnapshot += network.TxBytes;
                             networkList.Add(new
                             {
-                                name = network.Key,
-                                rxBytes = (long)network.Value.RxBytes,
-                                txBytes = (long)network.Value.TxBytes,
-                                rxPackets = (long)network.Value.RxPackets,
-                                txPackets = (long)network.Value.TxPackets
+                                name = network.Name,
+                                rxBytes = network.RxBytes,
+                                txBytes = network.TxBytes,
+                                rxPackets = network.RxPackets,
+                                txPackets = network.TxPackets
                             });
                         }
                     }
@@ -302,16 +253,14 @@ public class RealTimeDataPushService : IHostedService
                         cpuStats = new
                         {
                             percentCpu = Math.Round(containerCpu, 2),
-                            cpuUsage = (long)(stats.CPUStats?.CPUUsage?.TotalUsage ?? 0),
-                            systemUsage = (long)(stats.CPUStats?.SystemUsage ?? 0)
+                            cpuUsage = stats.CpuStats?.CpuUsage ?? 0,
+                            systemUsage = stats.CpuStats?.SystemUsage ?? 0
                         },
                         memoryStats = new
                         {
                             usage = containerMemory,
-                            limit = (long)(stats.MemoryStats?.Limit ?? 0),
-                            percentMemory = stats.MemoryStats != null && stats.MemoryStats.Limit > 0 
-                                ? Math.Round((double)containerMemory / (long)stats.MemoryStats.Limit * 100, 2) 
-                                : 0
+                            limit = stats.MemoryStats?.Limit ?? 0,
+                            percentMemory = stats.MemoryStats?.PercentMemory ?? 0
                         },
                         networks = networkList
                     });

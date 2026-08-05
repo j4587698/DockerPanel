@@ -315,7 +315,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useContainersStore } from '@/stores/containers'
@@ -516,7 +516,6 @@ const toggleSelectAll = () => {
 }
 
 const refreshData = () => store.fetchContainers({ all: true })
-const silentRefresh = () => store.fetchContainers({ all: true, silent: true })
 const openCreate = () => showCreate.value = true
 const viewDetail = (row: any) => router.push(`/containers/${row.id}`)
 
@@ -711,39 +710,18 @@ const hasUpdateAvailable = (containerId: string): boolean => {
   return updateStatusMap.value.get(containerId) === AutoUpdateStatus.UpdateAvailable
 }
 
-// 自动刷新：容器可能被 compose/外部重建，ID 会变化。
-// 若列表长期不刷新，页面上的旧 ID 会导致详情 404、统计恒为 0、删除找不到对象。
-let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
-
-const startAutoRefresh = () => {
-  stopAutoRefresh()
-  const interval = Math.max(settingsStore.refreshInterval || 3000, 3000)
-  autoRefreshTimer = setInterval(() => {
-    if (document.hidden) return
-    silentRefresh()
-  }, interval)
-}
-
-const stopAutoRefresh = () => {
-  if (autoRefreshTimer) {
-    clearInterval(autoRefreshTimer)
-    autoRefreshTimer = null
-  }
-}
-
-watch(() => settingsStore.refreshInterval, () => startAutoRefresh())
-
+// 容器列表改为后端 docker events 推送驱动（startContainerListSync），
+// 容器状态/列表变化时由 SignalR 推送 ContainersUpdated，前端不再定时轮询全量刷新。
 onMounted(() => {
   refreshData()
   store.startStatsMonitoring()
+  store.startContainerListSync()
   loadUpdateStatuses().then(() => checkAllUpdates())
-  startAutoRefresh()
 })
 
-import { onUnmounted } from 'vue'
 onUnmounted(() => {
   store.stopStatsMonitoring()
-  stopAutoRefresh()
+  store.stopContainerListSync()
 })
 </script>
 

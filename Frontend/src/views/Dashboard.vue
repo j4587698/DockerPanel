@@ -205,7 +205,6 @@ import {
 import { useContainersStore } from '@/stores/containers'
 import { useImagesStore } from '@/stores/images'
 import { useSystemStore } from '@/stores/system'
-import { useSettingsStore } from '@/stores/settings'
 import { signalrService } from '@/services/signalr'
 import { echarts, type ECharts } from '@/plugins/echarts'
 import { formatLocalizedTime } from '@/utils/date'
@@ -224,7 +223,6 @@ const router = useRouter()
 const cStore = useContainersStore()
 const iStore = useImagesStore()
 const sStore = useSystemStore()
-const settingsStore = useSettingsStore()
 
 const loading = ref(false)
 const cpuChartContainer = ref<HTMLElement | null>(null)
@@ -234,7 +232,6 @@ const cpuChartInstance = shallowRef<ECharts | null>(null)
 const memoryChartInstance = shallowRef<ECharts | null>(null)
 const networkChartInstance = shallowRef<ECharts | null>(null)
 let unsubscribeSignalR: (() => void) | null = null
-let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 // Use Docker stats from store
 const dockerStats = computed(() => sStore.dockerStats)
@@ -590,38 +587,10 @@ const loadData = async () => {
   }
 }
 
-const loadDataSilently = async () => {
-  try {
-    await Promise.all([
-      cStore.fetchContainers({ all: true }), 
-      iStore.fetchImages(),
-      sStore.fetchDockerStats()
-    ])
-  } catch (error) {
-    console.warn('Dashboard auto refresh failed:', error)
-  }
-}
-
-const stopAutoRefreshTimer = () => {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
-  }
-}
-
-const startAutoRefreshTimer = () => {
-  stopAutoRefreshTimer()
-  const interval = Math.max(settingsStore.refreshInterval || 3000, 3000)
-  refreshTimer = setInterval(() => {
-    void loadDataSilently()
-  }, interval)
-}
-
-watch(() => settingsStore.refreshInterval, () => {
-  startAutoRefreshTimer()
-})
-
-const startAutoRefresh = async () => {
+// 数据全部由服务端 SignalR 推送驱动：
+// - docker-stats：RealTimeDataPushService 定期推送（有订阅时）
+// - 容器/镜像列表：DockerEventService 监听 docker events，变化时推送
+const startRealtimeStats = async () => {
   // Ensure SignalR is connected before subscribing
   if (!signalrService.isConnected()) {
     await signalrService.connect()
@@ -634,18 +603,20 @@ const startAutoRefresh = async () => {
   unsubscribeSignalR = signalrService.subscribe('docker-stats', (message) => {
     sStore.updateDockerStats(message.data)
   })
+
+  // 容器/镜像列表更新由后端事件推送
+  await cStore.startContainerListSync()
+  await iStore.startRealtimeSync()
 }
 
 onMounted(async () => {
   await loadData()
   await nextTick()
   initCharts()
-  await startAutoRefresh()
-  startAutoRefreshTimer()
+  await startRealtimeStats()
 })
 
 onUnmounted(() => {
-  stopAutoRefreshTimer()
   // 取消系统统计订阅
   signalrService.unsubscribeFromSystemStats().catch(() => {})
   
@@ -653,6 +624,8 @@ onUnmounted(() => {
     unsubscribeSignalR()
     unsubscribeSignalR = null
   }
+  cStore.stopContainerListSync().catch(() => {})
+  iStore.stopRealtimeSync().catch(() => {})
   window.removeEventListener('resize', handleResize)
   disposeCharts()
 })

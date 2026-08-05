@@ -63,7 +63,7 @@ export default {
   resetSuccess: '已恢复默认设置',
   // 新增功能翻译
   refreshInterval: '刷新间隔',
-  refreshIntervalHint: 'Dashboard 数据自动刷新频率',
+  refreshIntervalHint: '容器/镜像等列表数据已由服务端实时推送，此设置不再影响列表刷新',
   defaultPageSize: '默认分页大小',
   metricsRetentionHint: '预留给历史指标数据保留策略；实时指标不写入数据库',
   seconds: '秒',

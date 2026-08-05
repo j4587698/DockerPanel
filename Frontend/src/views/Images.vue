@@ -493,25 +493,6 @@ const refreshData = async () => {
   selectedIds.value = []
 }
 
-// 自动刷新：镜像可能被外部拉取/删除，页面不刷新会导致删除时提示找不到镜像。
-let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
-
-const startAutoRefresh = () => {
-  stopAutoRefresh()
-  const interval = Math.max(settingsStore.refreshInterval || 3000, 5000)
-  autoRefreshTimer = setInterval(() => {
-    if (document.hidden) return
-    store.fetchImages({ silent: true })
-  }, interval)
-}
-
-const stopAutoRefresh = () => {
-  if (autoRefreshTimer) {
-    clearInterval(autoRefreshTimer)
-    autoRefreshTimer = null
-  }
-}
-
 const handleDelete = async (image: any) => {
   const name = image.repository === '<none>' ? image.id.substring(7, 19) : `${image.repository}:${image.tag}`
   
@@ -764,17 +745,18 @@ const handleBuild = async () => {
     })
 }
 
+// 镜像列表改为后端 docker events 推送驱动（startRealtimeSync），
+// 镜像拉取/删除/构建等变化时由 SignalR 推送 ImagesUpdated，前端不再定时轮询全量刷新。
 onMounted(() => {
   refreshData()
-  startAutoRefresh()
+  store.startRealtimeSync()
 })
 
 onUnmounted(() => {
-  stopAutoRefresh()
+  store.stopRealtimeSync()
 })
 
 watch(search, () => { currentPage.value = 1 })
-watch(() => settingsStore.refreshInterval, () => startAutoRefresh())
 watch(() => settingsStore.defaultPageSize, (size) => {
   pageSize.value = size
   currentPage.value = 1

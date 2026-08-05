@@ -371,6 +371,38 @@ export const useContainersStore = defineStore('containers', () => {
     await signalrService.unsubscribeFromContainerStats().catch(() => {})
   }
 
+  // 容器列表实时同步（由后端 docker events 推送 ContainersUpdated）
+  let containerListUnsubscribe: (() => void) | null = null
+
+  const startContainerListSync = async () => {
+    if (containerListUnsubscribe) return
+
+    // 确保SignalR已连接
+    if (!signalrService.isConnected()) {
+      await signalrService.connect()
+    }
+
+    // 订阅容器列表更新
+    containerListUnsubscribe = signalrService.subscribe('container', (msg) => {
+      const list = msg.data as ContainerInfo[]
+      if (Array.isArray(list)) {
+        state.value.containers = list
+      }
+    })
+
+    // 告知后端我们想要容器列表更新（订阅时后端也会立即推送当前列表）
+    await signalrService.subscribeToContainers()
+  }
+
+  const stopContainerListSync = async () => {
+    if (containerListUnsubscribe) {
+      containerListUnsubscribe()
+      containerListUnsubscribe = null
+    }
+    // 取消后端订阅
+    await signalrService.unsubscribeFromContainers().catch(() => {})
+  }
+
   return {
     // 状态
     containers: computed(() => state.value.containers),
@@ -407,6 +439,8 @@ export const useContainersStore = defineStore('containers', () => {
     clearError,
     reset,
     startStatsMonitoring,
-    stopStatsMonitoring
+    stopStatsMonitoring,
+    startContainerListSync,
+    stopContainerListSync
   }
 })

@@ -294,6 +294,10 @@ builder.Services.AddHostedService<BackgroundTaskCleanupService>();
 // 启用实时数据推送服务 - 用于推送容器统计信息和系统状态
 builder.Services.AddHostedService<RealTimeDataPushService>();
 
+// Docker 事件监听服务 - 监听容器/镜像事件，变化时通过 SignalR 主动推送列表更新
+builder.Services.AddSingleton<DockerEventService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DockerEventService>());
+
 // 日志流推送服务 - 用于实时推送容器日志
 builder.Services.AddSingleton<LogStreamingService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LogStreamingService>());

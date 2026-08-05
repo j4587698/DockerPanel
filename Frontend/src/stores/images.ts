@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { ElMessage } from 'element-plus'
 import { imageApi } from '@/api/image'
+import { signalrService } from '@/services/signalr'
 import type {
   ImageInfo,
   ImageDetailInfo,
@@ -467,6 +468,37 @@ export const useImagesStore = defineStore('images', () => {
     fetchStatistics()
   }
 
+  // 镜像列表实时同步（由后端 docker events 推送 ImagesUpdated）
+  let realtimeUnsubscribe: (() => void) | null = null
+
+  const startRealtimeSync = async () => {
+    if (realtimeUnsubscribe) return
+
+    // 确保SignalR已连接
+    if (!signalrService.isConnected()) {
+      await signalrService.connect()
+    }
+
+    // 订阅镜像列表更新
+    realtimeUnsubscribe = signalrService.subscribe('images', (msg) => {
+      if (Array.isArray(msg.data)) {
+        state.value.images = msg.data
+      }
+    })
+
+    // 告知后端我们想要镜像列表更新（订阅时后端也会立即推送当前列表）
+    await signalrService.subscribeToImages()
+  }
+
+  const stopRealtimeSync = async () => {
+    if (realtimeUnsubscribe) {
+      realtimeUnsubscribe()
+      realtimeUnsubscribe = null
+    }
+    // 取消后端订阅
+    await signalrService.unsubscribeFromImages().catch(() => {})
+  }
+
   return {
     // 状态
     state,
@@ -503,7 +535,9 @@ export const useImagesStore = defineStore('images', () => {
     selectImage,
     clearSelection,
     clearError,
-    resetFilter
+    resetFilter,
+    startRealtimeSync,
+    stopRealtimeSync
   }
 })
 

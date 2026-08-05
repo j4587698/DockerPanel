@@ -60,7 +60,7 @@ export default {
   resetSuccess: 'Settings reset to default',
   // New feature translations
   refreshInterval: 'Refresh Interval',
-  refreshIntervalHint: 'Dashboard data auto-refresh frequency',
+  refreshIntervalHint: 'Container/image list data is now pushed in real-time by the server; this setting no longer affects list refresh',
   defaultPageSize: 'Default Page Size',
   metricsRetentionHint: 'Reserved for historical metrics retention. Real-time metrics are not persisted.',
   seconds: 'seconds',

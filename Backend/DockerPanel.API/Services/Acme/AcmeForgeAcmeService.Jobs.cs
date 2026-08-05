@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text.Json;
 using System.Threading.Tasks;
 using DockerPanel.API.Models.Acme;
@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DockerPanel.API.Services.Acme
 {
-    public partial class CertesAcmeService
+    public partial class AcmeForgeAcmeService
     {
         public async Task ProcessJobAsync(AcmeJobRecord job)
         {
@@ -20,7 +20,7 @@ namespace DockerPanel.API.Services.Acme
                 }
                 else
                 {
-                    throw new NotSupportedException($"CertesAcmeService 不支持的任务类型: {job.JobType}");
+                    throw new NotSupportedException($"AcmeForgeAcmeService 不支持的任务类型: {job.JobType}");
                 }
             }
             catch (Exception ex)

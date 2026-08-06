@@ -334,7 +334,7 @@ public class NetworkController : ControllerBase
 /// <summary>
 /// 清理网络请求
 /// </summary>
-public class PruneNetworksRequest
+public class PruneNetworksRequest : DockerPanel.API.Models.INodeIdRequest
 {
     public bool Filters { get; set; } = false;
     public string? LabelFilter { get; set; }

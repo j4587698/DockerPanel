@@ -142,10 +142,14 @@ public class OperationAuditFilter : IAsyncActionFilter
         if (context.HttpContext.Request.Query.TryGetValue("nodeId", out var queryNodeId) && !string.IsNullOrWhiteSpace(queryNodeId))
             return queryNodeId.ToString();
 
+        // AOT 兼容：避免反射遍历属性，改为接口识别
         foreach (var argument in context.ActionArguments.Values)
         {
-            var value = argument?.GetType().GetProperty("NodeId")?.GetValue(argument)?.ToString();
-            if (!string.IsNullOrWhiteSpace(value)) return value;
+            if (argument is DockerPanel.API.Models.INodeIdRequest { NodeId: not null } req &&
+                !string.IsNullOrWhiteSpace(req.NodeId))
+            {
+                return req.NodeId;
+            }
         }
 
         return null;

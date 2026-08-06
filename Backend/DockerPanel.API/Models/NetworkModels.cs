@@ -474,7 +474,7 @@ public class NetworkOptimizationResult
 /// <summary>
 /// 创建网络请求
 /// </summary>
-public class CreateNetworkRequest
+public class CreateNetworkRequest : INodeIdRequest
 {
     public string Name { get; set; } = string.Empty;
     public string Driver { get; set; } = "bridge";

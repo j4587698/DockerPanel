@@ -89,7 +89,8 @@ export const settingsApi = {
     return api.post<PanelSystemSettings>("/settings/system/import", formData, {
       headers: {
         "Content-Type": "multipart/form-data"
-      }
+      },
+      timeout: 0
     })
   }
 }

@@ -116,7 +116,8 @@ export const volumeApi = {
     formData.append('file', file)
     return api.post(`/volumes/${volumeId}/files/upload`, formData, {
       params: { path, nodeId },
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0
     })
   },
 

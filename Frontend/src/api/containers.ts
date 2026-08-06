@@ -250,7 +250,8 @@ export const containerApi = {
     formData.append('path', path)
     return api.post(`/containers/${id}/files/upload`, formData, {
       params: { nodeId },
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0
     })
   },
 

@@ -15,6 +15,7 @@ using System.Security.Authentication;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc.Authorization;
@@ -49,6 +50,12 @@ builder.Services.AddControllers(options =>
         // 将枚举序列化为字符串而不是整数值
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
+
+// 放宽 multipart 表单上传限制（默认仅 128MB，大文件上传会直接断开）
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 10L * 1024 * 1024 * 1024; // 10GB
+});
 
 // 添加Swagger/OpenAPI支持
 builder.Services.AddEndpointsApiExplorer();
@@ -356,9 +363,13 @@ builder.Services.AddScoped<IAutoUpdateService, AutoUpdateService>();
 // 默认: HTTP 80 + HTTPS 443，从数据库加载证书，支持 TLS-ALPN-01 挑战
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
-    // 设置最大请求体大小为 1GB（用于上传大文件构建镜像）
-    options.Limits.MaxRequestBodySize = 1_073_741_824;
-    
+    // 请求体大小不设上限：本服务同时充当反向代理（YARP 流式转发，不缓冲进内存），
+    // 大请求体只会分块流式透传，不会驻留内存
+    options.Limits.MaxRequestBodySize = null;
+
+    // 关闭请求体最小速率限制，避免慢速大文件转发过程中被 Kestrel 中途掐断
+    options.Limits.MinRequestBodyDataRate = null;
+
     // HTTP 端口（始终启用）
     var httpPort = context.Configuration.GetValue("HTTP_PORT", 80);
     options.ListenAnyIP(httpPort);

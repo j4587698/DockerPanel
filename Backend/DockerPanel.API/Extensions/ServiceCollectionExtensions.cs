@@ -124,53 +124,48 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 添加Swagger文档
+    /// 添加 OpenAPI 文档生成（内置源生成器，AOT 兼容，替代 Swashbuckle）
     /// </summary>
-    public static IServiceCollection AddDockerPanelSwagger(this IServiceCollection services)
+    public static IServiceCollection AddDockerPanelOpenApi(this IServiceCollection services)
     {
-        services.AddSwaggerGen(options =>
+        services.AddOpenApi(options =>
         {
-            options.SwaggerDoc("v1", new()
+            options.AddDocumentTransformer((document, context, cancellationToken) =>
             {
-                Title = "DockerPanel API",
-                Version = "v1",
-                Description = "Docker容器管理面板API文档",
-                Contact = new()
+                // 文档头部信息
+                document.Info ??= new Microsoft.OpenApi.OpenApiInfo();
+                document.Info.Title = "DockerPanel API";
+                document.Info.Version = "v1";
+                document.Info.Description = "Docker容器管理面板API文档";
+                document.Info.Contact = new Microsoft.OpenApi.OpenApiContact
                 {
                     Name = "DockerPanel Team",
                     Email = "support@dockerpanel.com"
-                }
-            });
+                };
 
-            // 包含XML注释
-            var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-            if (File.Exists(xmlPath))
-            {
-                options.IncludeXmlComments(xmlPath);
-            }
-
-            // 添加安全定义
-            options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.OpenApiSecurityScheme
-            {
-                Description = "JWT授权 (示例: Bearer {token})",
-                Name = "Authorization",
-                In = Microsoft.OpenApi.ParameterLocation.Header,
-                Type = Microsoft.OpenApi.SecuritySchemeType.Http,
-                Scheme = "bearer",
-                BearerFormat = "JWT"
-            });
-
-            options.AddSecurityRequirement(openApiDocument => new Microsoft.OpenApi.OpenApiSecurityRequirement
-            {
+                // Bearer JWT 安全方案（2.x 需通过 AddComponent 注册到文档工作区，引用才能解析）
+                document.Components ??= new Microsoft.OpenApi.OpenApiComponents();
+                document.AddComponent("Bearer", new Microsoft.OpenApi.OpenApiSecurityScheme
                 {
-                    new Microsoft.OpenApi.OpenApiSecuritySchemeReference("Bearer", openApiDocument, null),
-                    new List<string>()
-                }
-            });
+                    Description = "JWT授权 (示例: Bearer {token})",
+                    Name = "Authorization",
+                    In = Microsoft.OpenApi.ParameterLocation.Header,
+                    Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT"
+                });
 
-            // 启用Swagger注释
-            options.EnableAnnotations();
+                document.Security ??= new List<Microsoft.OpenApi.OpenApiSecurityRequirement>();
+                document.Security.Add(new Microsoft.OpenApi.OpenApiSecurityRequirement
+                {
+                    {
+                        new Microsoft.OpenApi.OpenApiSecuritySchemeReference("Bearer", document),
+                        new List<string>()
+                    }
+                });
+
+                return Task.CompletedTask;
+            });
         });
 
         return services;

@@ -8,6 +8,9 @@
     <InformationalVersion>$(Version)</InformationalVersion>
     <!-- 本地化由自研 JSON 语言包实现，不依赖 ICU；可为镜像省去 icu-libs(约 30MB) -->
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- 生成 XML 文档，供内置 OpenAPI 源生成器读取注释生成接口文档 -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,8 +34,9 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="SSH.NET" Version="2025.1.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
-    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="10.2.3" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.16.17" />
+    <!-- 固定到已修复 CVE-2026-49451 的版本（<2.7.5 存在循环引用栈溢出漏洞） -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageReference Include="Compose.NET" Version="0.1.0" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />

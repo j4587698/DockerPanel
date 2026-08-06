@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using DockerPanel.API.Models.Acme;
 using DockerPanel.API.Data;
+using DockerPanel.API.Serialization;
 using Microsoft.Extensions.Logging;
 using TinyDb;
 
@@ -21,12 +22,12 @@ namespace DockerPanel.API.Services.Acme
             _logger = logger;
         }
 
-        public async Task<string> EnqueueAsync(string jobType, object payload)
+        public async Task<string> EnqueueAsync<T>(string jobType, T payload)
         {
             var job = new AcmeJobRecord
             {
                 JobType = jobType,
-                Payload = JsonSerializer.Serialize(payload),
+                Payload = JsonSerializer.Serialize(payload, JsonSerializers.Options),
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow

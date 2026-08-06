@@ -6,7 +6,8 @@ using System.Text.Json.Serialization;
 namespace DockerPanel.API.Serialization
 {
     /// <summary>
-    /// 自定义JSON转换器，用于处理Dictionary<string, object>中的复杂对象序列化
+    /// 自定义JSON转换器，用于处理Dictionary&lt;string, object&gt;的 AOT 安全序列化/反序列化。
+    /// 不使用反射，值对象按运行时类型分派，保证 NativeAOT 下可用。
     /// </summary>
     public class DictionaryObjectConverter : JsonConverter<Dictionary<string, object>>
     {
@@ -31,20 +32,14 @@ namespace DockerPanel.API.Serialization
                     throw new JsonException($"Expected PropertyName token but got {reader.TokenType}");
                 }
 
-                var propertyName = reader.GetString();
-
-                if (propertyName == null)
-                {
-                    throw new JsonException("Property name is null");
-                }
+                var propertyName = reader.GetString() ?? throw new JsonException("Property name is null");
 
                 if (!reader.Read())
                 {
                     throw new JsonException("Unexpected end of JSON");
                 }
 
-                var value = ReadValue(ref reader, options);
-                dictionary[propertyName] = value;
+                dictionary[propertyName] = ReadValue(ref reader);
             }
 
             return dictionary;
@@ -58,89 +53,64 @@ namespace DockerPanel.API.Serialization
                 return;
             }
 
-            writer.WriteStartObject();
-
-            foreach (var kvp in value)
-            {
-                writer.WritePropertyName(kvp.Key);
-                WriteValue(writer, kvp.Value, options);
-            }
-
-            writer.WriteEndObject();
+            JsonValueWriter.WriteDictionary(writer, value, options);
         }
 
-        private object ReadValue(ref Utf8JsonReader reader, JsonSerializerOptions options)
+        private static object? ReadValue(ref Utf8JsonReader reader)
         {
             switch (reader.TokenType)
             {
                 case JsonTokenType.String:
-                    return reader.GetString()!;
+                    return reader.GetString();
                 case JsonTokenType.Number:
                     if (reader.TryGetInt64(out var longValue))
                         return longValue;
-                    if (reader.TryGetDouble(out var doubleValue))
-                        return doubleValue;
-                    return reader.GetDecimal();
+                    return reader.GetDouble();
                 case JsonTokenType.True:
+                    return true;
                 case JsonTokenType.False:
-                    return reader.GetBoolean();
+                    return false;
                 case JsonTokenType.Null:
-                    return null!;
+                    return null;
                 case JsonTokenType.StartArray:
                     var list = new List<object>();
                     while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
                     {
-                        list.Add(ReadValue(ref reader, options));
+                        list.Add(ReadValue(ref reader)!);
                     }
                     return list;
                 case JsonTokenType.StartObject:
-                    return Read(ref reader, typeof(Dictionary<string, object>), options);
+                    return ReadObject(ref reader);
                 default:
                     throw new JsonException($"Unsupported token type: {reader.TokenType}");
             }
         }
 
-        private void WriteValue(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
+        private static Dictionary<string, object> ReadObject(ref Utf8JsonReader reader)
         {
-            switch (value)
+            var dictionary = new Dictionary<string, object>();
+            while (reader.Read())
             {
-                case string stringValue:
-                    writer.WriteStringValue(stringValue);
+                if (reader.TokenType == JsonTokenType.EndObject)
+                {
                     break;
-                case bool boolValue:
-                    writer.WriteBooleanValue(boolValue);
+                }
+
+                if (reader.TokenType != JsonTokenType.PropertyName)
+                {
+                    continue;
+                }
+
+                var propertyName = reader.GetString() ?? string.Empty;
+                if (!reader.Read())
+                {
                     break;
-                case int intValue:
-                    writer.WriteNumberValue(intValue);
-                    break;
-                case long longValue:
-                    writer.WriteNumberValue(longValue);
-                    break;
-                case double doubleValue:
-                    writer.WriteNumberValue(doubleValue);
-                    break;
-                case decimal decimalValue:
-                    writer.WriteNumberValue(decimalValue);
-                    break;
-                case null:
-                    writer.WriteNullValue();
-                    break;
-                case List<object> list:
-                    writer.WriteStartArray();
-                    foreach (var item in list)
-                    {
-                        WriteValue(writer, item, options);
-                    }
-                    writer.WriteEndArray();
-                    break;
-                case Dictionary<string, object> dict:
-                    Write(writer, dict, options);
-                    break;
-                default:
-                    // 对于其他复杂对象，尝试序列化为字符串
-                    writer.WriteStringValue(value.ToString());
-                    break;
+                }
+
+                dictionary[propertyName] = ReadValue(ref reader)!;
             }
+
+            return dictionary;
         }
     }
 }

@@ -17,7 +17,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using DockerPanel.API.Serialization;
 
 namespace DockerPanel.API.Services.Acme
 {
@@ -1055,7 +1055,7 @@ namespace DockerPanel.API.Services.Acme
                 }
 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                var dnsResponse = JsonSerializer.Deserialize<DohResponse>(responseContent);
+                var dnsResponse = JsonSerializer.Deserialize<DohResponse>(responseContent, DockerPanelJsonContext.Default.DohResponse);
 
                 if (dnsResponse?.Answer == null || !dnsResponse.Answer.Any())
                 {
@@ -1119,7 +1119,7 @@ namespace DockerPanel.API.Services.Acme
                     }
 
                     var responseContent = await response.Content.ReadAsStringAsync();
-                    var dnsResponse = JsonSerializer.Deserialize<DohResponse>(responseContent);
+var dnsResponse = JsonSerializer.Deserialize<DohResponse>(responseContent, DockerPanelJsonContext.Default.DohResponse);
 
                     if (dnsResponse?.Answer == null || !dnsResponse.Answer.Any())
                     {
@@ -1331,7 +1331,7 @@ namespace DockerPanel.API.Services.Acme
         /// <summary>
         /// DNS over HTTPS 响应模型
         /// </summary>
-        private class DohResponse
+        internal class DohResponse
         {
             public int Status { get; set; }
             public bool TC { get; set; }
@@ -1341,11 +1341,11 @@ namespace DockerPanel.API.Services.Acme
             public bool CD { get; set; }
             public List<DohAnswer>? Answer { get; set; }
             public List<DohAuthority>? Authority { get; set; }
-            public List<object>? Additional { get; set; }
+            public List<JsonElement>? Additional { get; set; }
             public List<DohQuestion>? Question { get; set; }
         }
 
-        private class DohAnswer
+        internal class DohAnswer
         {
             public string name { get; set; } = string.Empty;
             public int type { get; set; }
@@ -1353,7 +1353,7 @@ namespace DockerPanel.API.Services.Acme
             public string data { get; set; } = string.Empty;
         }
 
-        private class DohAuthority
+        internal class DohAuthority
         {
             public string name { get; set; } = string.Empty;
             public int type { get; set; }
@@ -1361,7 +1361,7 @@ namespace DockerPanel.API.Services.Acme
             public string data { get; set; } = string.Empty;
         }
 
-        private class DohQuestion
+        internal class DohQuestion
         {
             public string name { get; set; } = string.Empty;
             public int type { get; set; }

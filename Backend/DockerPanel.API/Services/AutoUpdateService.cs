@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using DockerPanel.API.Data;
 using DockerPanel.API.Models;
 using DockerPanel.API.Hubs;
+using DockerPanel.API.Serialization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 
@@ -677,10 +678,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var tagsResult = JsonSerializer.Deserialize<DockerTagsResponse>(content, new JsonSerializerOptions 
-                    { 
-                        PropertyNameCaseInsensitive = true 
-                    });
+                    var tagsResult = JsonSerializer.Deserialize<DockerTagsResponse>(content, JsonSerializers.Options);
                     return tagsResult?.Tags?.OrderByDescending(t => t).ToList() ?? new List<string>();
                 }
             }
@@ -692,10 +690,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var tagsResult = JsonSerializer.Deserialize<DockerTagsResponse>(content, new JsonSerializerOptions 
-                    { 
-                        PropertyNameCaseInsensitive = true 
-                    });
+                    var tagsResult = JsonSerializer.Deserialize<DockerTagsResponse>(content, JsonSerializers.Options);
                     return tagsResult?.Tags?.OrderByDescending(t => t).ToList() ?? new List<string>();
                 }
             }

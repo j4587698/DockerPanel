@@ -212,7 +212,7 @@ namespace DockerPanel.API.Services.Acme
                 // 🚀 将自动验证流程移至基于 TinyDb 的持久化后台任务队列，避免重启导致任务丢失
                 _logger.LogInformation("将自动验证挑战加入持久化后台队列: OrderId={OrderId}", order.Id);
 
-                await _jobQueue.EnqueueAsync("AutoValidation", new
+                await _jobQueue.EnqueueAsync("AutoValidation", new AutoValidationJobPayload
                 {
                     OrderId = order.Id,
                     ProgressId = progressId

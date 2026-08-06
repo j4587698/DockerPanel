@@ -50,6 +50,8 @@ builder.Services.AddControllers(options =>
     {
         // 将枚举序列化为字符串而不是整数值
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        // 手写转换器接管 Dictionary<string, object>（AOT 下源生成无法直接支持该类型）
+        options.JsonSerializerOptions.Converters.Add(new DockerPanel.API.Serialization.DictionaryObjectConverter());
     });
 
 // 放宽 multipart 表单上传限制（默认仅 128MB，大文件上传会直接断开）

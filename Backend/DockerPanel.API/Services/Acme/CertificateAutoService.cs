@@ -1112,7 +1112,7 @@ namespace DockerPanel.API.Services.Acme
                     using var scope = _scopeFactory.CreateScope();
                     var jobQueue = scope.ServiceProvider.GetRequiredService<AcmeJobQueueService>();
                     
-                    await jobQueue.EnqueueAsync("AutoRenewal", new
+                    await jobQueue.EnqueueAsync("AutoRenewal", new AutoRenewalJobPayload
                     {
                         CertificateId = certificate.CertificateId
                     });

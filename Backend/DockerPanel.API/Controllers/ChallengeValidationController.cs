@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DockerPanel.API.Models.Acme;
+using DockerPanel.API.Serialization;
 using DockerPanel.API.Services;
 using DockerPanel.API.Services.Acme;
 using Microsoft.AspNetCore.Authorization;
@@ -360,7 +361,7 @@ namespace DockerPanel.API.Controllers
             {
                 await foreach (var update in _challengeValidationService.MonitorChallengeStatusAsync(challengeId, cancellationToken))
                 {
-                    var eventData = $"data: {System.Text.Json.JsonSerializer.Serialize(update)}\n\n";
+                    var eventData = $"data: {System.Text.Json.JsonSerializer.Serialize(update, DockerPanelJsonContext.Default.ChallengeStatusUpdate)}\n\n";
                     await Response.WriteAsync(eventData, cancellationToken);
                     await Response.Body.FlushAsync(cancellationToken);
                 }
@@ -379,7 +380,7 @@ namespace DockerPanel.API.Controllers
                     Timestamp = DateTime.UtcNow,
                     Message = $"监控出错: {ex.Message}"
                 };
-                var eventData = $"data: {System.Text.Json.JsonSerializer.Serialize(errorUpdate)}\n\n";
+                var eventData = $"data: {System.Text.Json.JsonSerializer.Serialize(errorUpdate, DockerPanelJsonContext.Default.ChallengeStatusUpdate)}\n\n";
                 await Response.WriteAsync(eventData);
                 await Response.Body.FlushAsync();
             }

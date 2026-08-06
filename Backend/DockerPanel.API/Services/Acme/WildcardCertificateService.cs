@@ -11,6 +11,7 @@ using DnsClient;
 using DockerPanel.API.Data;
 using DockerPanel.API.Models;
 using DockerPanel.API.Models.Acme;
+using DockerPanel.API.Serialization;
 using DockerPanel.API.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -2150,11 +2151,7 @@ namespace DockerPanel.API.Services.Acme
 
         private string FormatCertificateAsJson(WildcardCertificateInfo certificateInfo)
         {
-            return System.Text.Json.JsonSerializer.Serialize(certificateInfo, new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-            });
+            return System.Text.Json.JsonSerializer.Serialize(certificateInfo, JsonSerializers.Indented);
         }
 
         private CertificateValidationResult ValidateImportedCertificate(string certificateData, string format, string? privateKeyData = null)

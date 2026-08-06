@@ -187,6 +187,8 @@ public static class ServiceCollectionExtensions
             // 使用源生成的 JsonSerializerContext 替代运行反射，保证 AOT 兼容
             // camelCase 命名约定与前端 JavaScript 保持一致（由 JsonSourceGenerationOptions 保证）
             options.PayloadSerializerOptions.TypeInfoResolver = Serialization.DockerPanelSignalRJsonContext.Default;
+            // 兜底处理载荷中可能出现的 Dictionary<string, object>（源生成不支持的手写转换器）
+            options.PayloadSerializerOptions.Converters.Add(new Serialization.DictionaryObjectConverter());
         });
 
         return services;

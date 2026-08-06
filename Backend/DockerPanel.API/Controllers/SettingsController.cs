@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using DockerPanel.API.Services;
 using DockerPanel.API.Models;
+using DockerPanel.API.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using System.Diagnostics;
 using System.Reflection;
@@ -17,10 +18,7 @@ namespace DockerPanel.API.Controllers;
 [Authorize(Roles = AuthRoles.Admin)]
 public class SettingsController : ControllerBase
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = true
-    };
+    private static readonly JsonSerializerOptions JsonOptions = JsonSerializers.Indented;
 
     private readonly ISettingsService _settingsService;
     private readonly ILogger<SettingsController> _logger;

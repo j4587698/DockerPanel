@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Threading.Tasks;
 using DockerPanel.API.Models.Acme;
+using DockerPanel.API.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace DockerPanel.API.Services.Acme
@@ -32,7 +33,7 @@ namespace DockerPanel.API.Services.Acme
 
         private async Task ProcessAutoValidationJobAsync(string payloadJson)
         {
-            var payload = JsonSerializer.Deserialize<AutoValidationJobPayload>(payloadJson);
+            var payload = JsonSerializer.Deserialize<AutoValidationJobPayload>(payloadJson, DockerPanelJsonContext.Default.AutoValidationJobPayload);
             if (payload == null || string.IsNullOrEmpty(payload.OrderId))
             {
                 throw new ArgumentException("AutoValidation 任务的 Payload 无效");
@@ -94,12 +95,14 @@ namespace DockerPanel.API.Services.Acme
                 throw;
             }
         }
-        
-        // 定义 Payload 结构
-        private class AutoValidationJobPayload
-        {
-            public string OrderId { get; set; } = string.Empty;
-            public string? ProgressId { get; set; }
-        }
+    }
+
+    /// <summary>
+    /// 自动验证任务载荷
+    /// </summary>
+    internal class AutoValidationJobPayload
+    {
+        public string OrderId { get; set; } = string.Empty;
+        public string? ProgressId { get; set; }
     }
 }

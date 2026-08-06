@@ -1,9 +1,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using DockerPanel.API.Serialization;
 
 namespace DockerPanel.API.Services.Acme
 {
@@ -65,7 +67,7 @@ namespace DockerPanel.API.Services.Acme
                 else if (job.JobType == "AutoRenewal")
                 {
                     var autoService = scope.ServiceProvider.GetRequiredService<ICertificateAutoService>();
-                    var payload = System.Text.Json.JsonSerializer.Deserialize<AutoRenewalJobPayload>(job.Payload);
+                    var payload = JsonSerializer.Deserialize<AutoRenewalJobPayload>(job.Payload, DockerPanelJsonContext.Default.AutoRenewalJobPayload);
                     if (payload != null && !string.IsNullOrEmpty(payload.CertificateId))
                     {
                         await autoService.AutoRenewCertificateAsync(payload.CertificateId, stoppingToken);
@@ -88,10 +90,13 @@ namespace DockerPanel.API.Services.Acme
                 await queueService.MarkAsFailedAsync(job.Id, ex.Message);
             }
         }
+    }
 
-        private class AutoRenewalJobPayload
-        {
-            public string CertificateId { get; set; } = string.Empty;
-        }
+    /// <summary>
+    /// 自动续期任务载荷
+    /// </summary>
+    internal class AutoRenewalJobPayload
+    {
+        public string CertificateId { get; set; } = string.Empty;
     }
 }

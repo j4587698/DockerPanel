@@ -1967,7 +1967,7 @@ namespace DockerPanel.API.Controllers
                             // 数组类型，序列化为JSON字符串
                             try
                             {
-                                var serialized = System.Text.Json.JsonSerializer.Serialize(jsonElement);
+                                var serialized = jsonElement.GetRawText();
                                 _logger.LogDebug("JsonElement(Array): 序列化长度={0}", serialized.Length);
                                 result[providerKey] = serialized;
                             }
@@ -2013,7 +2013,7 @@ namespace DockerPanel.API.Controllers
                             {
                                 list.Add(ProcessListItemValue(item));
                             }
-                            result[providerKey] = System.Text.Json.JsonSerializer.Serialize(list);
+                            result[providerKey] = Serialization.JsonValueWriter.ToJsonString(list, Serialization.JsonSerializers.Options);
                             break;
                         default:
                             // 其他类型转换为字符串
@@ -2071,7 +2071,7 @@ namespace DockerPanel.API.Controllers
                         {
                             list.Add(ProcessListItemValue(item));
                         }
-                        result[key] = System.Text.Json.JsonSerializer.Serialize(list);
+                        result[key] = Serialization.JsonValueWriter.ToJsonString(list, Serialization.JsonSerializers.Options);
                         break;
                     default:
                         result[key] = value.ToString();

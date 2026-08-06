@@ -272,12 +272,12 @@ public class LogStreamingService : IHostedService
     {
         if (_containerSubscribers.TryGetValue(containerId, out var subscribers) && subscribers.Count > 0)
         {
-            await _hubContext.Clients.Group($"logs:{containerId}").SendAsync("logs", new
+            await _hubContext.Clients.Group($"logs:{containerId}").SendAsync("logs", new Serialization.LogStreamMessage
             {
-                containerId,
-                message = logEntry.Message,
-                timestamp = logEntry.Timestamp.ToString("o"),
-                level = logEntry.Level
+                ContainerId = containerId,
+                Message = logEntry.Message,
+                Timestamp = logEntry.Timestamp.ToString("o"),
+                Level = logEntry.Level
             });
         }
     }

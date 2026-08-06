@@ -32,7 +32,7 @@ export interface SystemStatusUpdate {
 }
 
 export interface LogEntry {
-  container: string
+  containerId: string
   level: 'info' | 'warning' | 'error' | 'debug'
   message: string
   timestamp: string

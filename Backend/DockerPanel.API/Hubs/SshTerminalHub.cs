@@ -50,7 +50,7 @@ public class SshTerminalHub : Hub
             {
                 if (!File.Exists(request.PrivateKeyPath))
                 {
-                    await Clients.Caller.SendAsync("Error", new { code = "ssh.privateKey.notFound", message = "SSH private key file not found" });
+                    await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "ssh.privateKey.notFound", Message = "SSH private key file not found" });
                     return;
                 }
 
@@ -68,7 +68,7 @@ public class SshTerminalHub : Hub
             }
             else
             {
-                await Clients.Caller.SendAsync("Error", new { code = "ssh.auth.missing", message = "SSH password or private key is required" });
+                await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "ssh.auth.missing", Message = "SSH password or private key is required" });
                 return;
             }
 
@@ -79,7 +79,7 @@ public class SshTerminalHub : Hub
 
             if (!client.IsConnected)
             {
-                await Clients.Caller.SendAsync("Error", new { code = "ssh.connect.failed", message = "SSH connection failed" });
+                await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "ssh.connect.failed", Message = "SSH connection failed" });
                 return;
             }
 
@@ -103,7 +103,7 @@ public class SshTerminalHub : Hub
             var hubContext = _hubContext;
             _ = Task.Run(async () => await ReadShellOutput(connectionId, shellStream, hubContext));
 
-            await Clients.Caller.SendAsync("Connected", new
+            await Clients.Caller.SendAsync("Connected", new SshConnectedMessage
             {
                 Host = request.Host,
                 Port = request.Port,
@@ -116,7 +116,7 @@ public class SshTerminalHub : Hub
         catch (Exception ex)
         {
             _logger.LogError(ex, "SSH 连接失败: {ConnectionId}", connectionId);
-            await Clients.Caller.SendAsync("Error", new { code = "ssh.connect.failed", message = ex.Message });
+            await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "ssh.connect.failed", Message = ex.Message });
         }
     }
 
@@ -137,12 +137,12 @@ public class SshTerminalHub : Hub
             catch (Exception ex)
             {
                 _logger.LogError(ex, "发送输入失败: {ConnectionId}", connectionId);
-                await Clients.Caller.SendAsync("Error", new { code = "ssh.send.failed", message = ex.Message });
+                await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "ssh.send.failed", Message = ex.Message });
             }
         }
         else
         {
-            await Clients.Caller.SendAsync("Error", new { code = "ssh.session.not_found", message = "Session not found or disconnected" });
+            await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "ssh.session.not_found", Message = "Session not found or disconnected" });
         }
     }
 
@@ -230,7 +230,7 @@ public class SshTerminalHub : Hub
             {
                 try
                 {
-                    await hubContext.Clients.Client(connectionId).SendAsync("Error", new { code = "ssh.connection.disconnected", message = "Connection disconnected" });
+                    await hubContext.Clients.Client(connectionId).SendAsync("Error", new TerminalErrorMessage { Code = "ssh.connection.disconnected", Message = "Connection disconnected" });
                     await hubContext.Clients.Client(connectionId).SendAsync("Disconnected");
                 }
                 catch { /* 忽略发送错误 */ }

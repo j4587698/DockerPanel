@@ -121,10 +121,10 @@
         <el-table-column :label="t('common.actions')" width="154" align="center" fixed="right">
           <template #default="{ row }">
             <div class="actions-cell">
-              <el-button circle size="small" :icon="Connection" :title="t('node.testConnection')" @click="testConnection(row)" />
-              <el-button circle size="small" :icon="Star" :title="t('node.setDefault')" @click="setDefaultNode(row)" :disabled="row.isDefault" />
-              <el-button circle size="small" type="primary" plain :icon="Edit" :title="t('common.edit')" @click="editNode(row)" />
-              <el-button circle size="small" type="danger" plain :icon="Delete" :title="t('common.delete')" :disabled="isLocalNode(row)" @click="deleteNode(row)" />
+              <el-button class="table-action-btn test" :icon="Connection" :title="t('node.testConnection')" @click="testConnection(row)" />
+              <el-button class="table-action-btn warning" :icon="Star" :title="t('node.setDefault')" @click="setDefaultNode(row)" :disabled="row.isDefault" />
+              <el-button class="table-action-btn edit" :icon="Edit" :title="t('common.edit')" @click="editNode(row)" />
+              <el-button class="table-action-btn danger" :icon="Delete" :title="t('common.delete')" :disabled="isLocalNode(row)" @click="deleteNode(row)" />
             </div>
           </template>
         </el-table-column>

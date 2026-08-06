@@ -9,6 +9,7 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Net.Http;
 using System.Text.Json;
+using DockerPanel.API.Serialization;
 
 namespace DockerPanel.API.Services;
 
@@ -952,7 +953,7 @@ public class DockerEngine : IContainerEngine, IDisposable
         }
         
         // 调试：输出 AuthConfig JSON
-        var authJson = System.Text.Json.JsonSerializer.Serialize(authConfig);
+        var authJson = System.Text.Json.JsonSerializer.Serialize(authConfig, DockerPanelJsonContext.Default.AuthConfig);
         _logger.LogInformation("AuthConfig JSON: {AuthJson}", authJson);
         
         var actualTag = imageRef.Tag;
@@ -1829,7 +1830,7 @@ public class DockerEngine : IContainerEngine, IDisposable
             Labels = n.Labels != null ? new Dictionary<string, string>(n.Labels) : new Dictionary<string, string>(),
             Options = n.Options != null ? new Dictionary<string, string>(n.Options) : new Dictionary<string, string>(),
             CreatedAt = n.Created.ToString("o"),
-            IPAM = n.IPAM != null ? JsonSerializer.Serialize(n.IPAM) : null,
+            IPAM = n.IPAM != null ? JsonSerializer.Serialize(n.IPAM, DockerPanelJsonContext.Default.IPAM) : null,
             Containers = n.Containers?.Select(c => new NetworkContainer
             {
                 Id = c.Key,
@@ -1867,7 +1868,7 @@ public class DockerEngine : IContainerEngine, IDisposable
                 Labels = network.Labels != null ? new Dictionary<string, string>(network.Labels) : new Dictionary<string, string>(),
                 Options = network.Options != null ? new Dictionary<string, string>(network.Options) : new Dictionary<string, string>(),
                 CreatedAt = network.Created.ToString("o"),
-                IPAM = network.IPAM != null ? JsonSerializer.Serialize(network.IPAM) : null,
+                IPAM = network.IPAM != null ? JsonSerializer.Serialize(network.IPAM, DockerPanelJsonContext.Default.IPAM) : null,
                 Containers = network.Containers?.Select(c => new NetworkContainer
                 {
                     Id = c.Key,

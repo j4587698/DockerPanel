@@ -17,6 +17,10 @@ namespace DockerPanel.API.Serialization
     [JsonSerializable(typeof(DockerPanel.API.Services.Acme.ChallengeStatusUpdate))]
     [JsonSerializable(typeof(DockerPanel.API.Services.Acme.WildcardCertificateInfo))]
     [JsonSerializable(typeof(DockerPanel.API.Models.SystemSettingsDto))]
+    [JsonSerializable(typeof(Docker.DotNet.Models.ContainerInspectResponse))]
+    [JsonSerializable(typeof(Docker.DotNet.Models.NetworkResponse))]
+    [JsonSerializable(typeof(Docker.DotNet.Models.IPAM))]
+    [JsonSerializable(typeof(Docker.DotNet.Models.AuthConfig))]
     internal sealed partial class DockerPanelJsonContext : JsonSerializerContext
     {
     }

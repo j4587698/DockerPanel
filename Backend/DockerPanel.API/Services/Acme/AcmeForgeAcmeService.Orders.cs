@@ -260,6 +260,8 @@ namespace DockerPanel.API.Services.Acme
                 if (acme == null)
                 {
                     _logger.LogError("无法获取ACME客户端进行自动验证: OrderId={OrderId}", order.Id);
+                    // 清理可能残留的挑战证书，防止 SNI 一直返回挑战证书
+                    _tlsAlpnChallengeService.CleanupAll();
                     return false;
                 }
 
@@ -267,6 +269,8 @@ namespace DockerPanel.API.Services.Acme
                 if (accountKey == null)
                 {
                     _logger.LogError("无法解析账户密钥进行自动验证: OrderId={OrderId}", order.Id);
+                    // 清理可能残留的挑战证书，防止 SNI 一直返回挑战证书
+                    _tlsAlpnChallengeService.CleanupAll();
                     return false;
                 }
 
@@ -279,6 +283,8 @@ namespace DockerPanel.API.Services.Acme
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "无法获取订单资源进行自动验证: OrderId={OrderId}", order.Id);
+                    // 清理可能残留的挑战证书，防止 SNI 一直返回挑战证书
+                    _tlsAlpnChallengeService.CleanupAll();
                     return false;
                 }
 

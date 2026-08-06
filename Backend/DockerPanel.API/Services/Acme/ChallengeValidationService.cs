@@ -30,6 +30,7 @@ namespace DockerPanel.API.Services.Acme
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IBackgroundTaskQueue _taskQueue;
+        private readonly TlsAlpnChallengeService _tlsAlpnChallengeService;
         private readonly Dictionary<string, ChallengeStatus> _challengeStatuses;
         private readonly Dictionary<string, DnsProvider> _dnsProviders;
         private readonly Dictionary<string, AcmeForge.Dns.IDnsProvider> _dnsProviderServices;
@@ -40,6 +41,7 @@ namespace DockerPanel.API.Services.Acme
             IConfiguration configuration,
             IHttpClientFactory httpClientFactory,
             IBackgroundTaskQueue taskQueue,
+            TlsAlpnChallengeService tlsAlpnChallengeService,
             CloudflareDnsProvider cloudflareProvider,
             AliyunDnsProvider aliyunProvider,
             TencentDnsProvider tencentProvider,
@@ -53,6 +55,7 @@ namespace DockerPanel.API.Services.Acme
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
             _taskQueue = taskQueue;
+            _tlsAlpnChallengeService = tlsAlpnChallengeService;
             _challengeStatuses = new Dictionary<string, ChallengeStatus>();
             _dnsProviders = InitializeDnsProviders();
             _dnsProviderServices = new Dictionary<string, AcmeForge.Dns.IDnsProvider>(StringComparer.OrdinalIgnoreCase)
@@ -1149,9 +1152,9 @@ namespace DockerPanel.API.Services.Acme
         {
             try
             {
-                // 生成TLS-ALPN-01挑战所需的证书
-                // 这里是简化的实现
-                await Task.Delay(200);
+                // 真正生成 TLS-ALPN-01 挑战证书并放入内存（SNI 握手时返回给 acme-tls/1 验证）
+                // 验证结束后由 CleanupChallengeAsync -> CleanupTlsAlpnChallenge 清理
+                _tlsAlpnChallengeService.PrepareChallengeCertificate(domain, keyAuthorization);
 
                 _logger.LogInformation("TLS-ALPN证书生成成功: {Domain}", domain);
                 return true;
@@ -1270,7 +1273,9 @@ namespace DockerPanel.API.Services.Acme
         {
             try
             {
-                // 清理TLS-ALPN证书
+                // 真正清理内存中的 TLS-ALPN 挑战证书，防止残留导致 SNI 一直返回挑战证书
+                _tlsAlpnChallengeService.CleanupChallenge(domain);
+
                 await Task.Delay(100);
 
                 _logger.LogInformation("TLS-ALPN证书清理完成: {Domain}", domain);

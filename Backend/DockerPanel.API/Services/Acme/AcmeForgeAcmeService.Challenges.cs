@@ -522,20 +522,10 @@ namespace DockerPanel.API.Services.Acme
                     }
                     else if (challengeType == "tls-alpn-01")
                     {
-                        // TLS-ALPN-01 挑战 - 需要在 443 端口提供特殊证书
-                        // 直接在内存中生成并缓存验证证书，无需持久化
-                        if (_tlsAlpnChallengeService != null)
-                        {
-                            try
-                            {
-                                _tlsAlpnChallengeService.PrepareChallengeCertificate(domain, keyAuthorization);
-                                _logger.LogInformation("已生成 TLS-ALPN-01 验证证书: Domain={Domain}", domain);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "生成 TLS-ALPN-01 证书失败: Domain={Domain}", domain);
-                            }
-                        }
+                        // TLS-ALPN-01 挑战 - 无需在此预生成验证证书
+                        // 避免订单选择 http-01/dns-01 时也残留 TLS-ALPN 挑战证书
+                        // （该证书有效期仅 1 小时且 SNI 优先级最高，残留会导致浏览器拿到自签证书）
+                        // 验证证书仅在真正执行 tls-alpn-01 验证时按需生成（AcmeForgeAcmeService 自动验证 / ChallengeValidationService 手动配置）
 
                         challenges.Add(new AcmeChallenge
                         {

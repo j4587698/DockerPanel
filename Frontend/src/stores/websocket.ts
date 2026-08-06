@@ -242,7 +242,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
     if (logEntry.level === 'error') {
       ElNotification({
         title: '错误日志',
-        message: `${logEntry.container}: ${logEntry.message}`,
+        message: `${logEntry.containerId}: ${logEntry.message}`,
         type: 'error',
         duration: 5000
       })

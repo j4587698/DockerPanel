@@ -92,7 +92,7 @@ public class DockerPanelHub : Hub
         var language = GetConnectionLanguage(connectionId);
         var welcomeMessage = LocalizationService.GetTranslatedMessage("signalr.welcome", language, "Welcome to DockerPanel real-time service");
 
-        await Clients.Caller.SendAsync("Welcome", new
+        await Clients.Caller.SendAsync("Welcome", new WelcomeMessage
         {
             Message = welcomeMessage,
             ConnectionId = connectionId,
@@ -152,7 +152,7 @@ public class DockerPanelHub : Hub
             var language = GetConnectionLanguage(connectionId);
             var errorMessage = LocalizationService.GetTranslatedMessage("signalr.error.containerList", language, "Failed to get container list");
             _logger.LogError(ex, "获取容器列表失败");
-            await Clients.Caller.SendAsync("Error", new { Message = errorMessage });
+            await Clients.Caller.SendAsync("Error", new HubErrorMessage { Message = errorMessage });
         }
     }
 
@@ -199,7 +199,7 @@ public class DockerPanelHub : Hub
             _logger.LogError(ex, "获取系统统计失败");
             var language = GetConnectionLanguage(connectionId);
             var errorMessage = LocalizationService.GetTranslatedMessage("signalr.error.systemStats", language, "Failed to get system statistics");
-            await Clients.Caller.SendAsync("Error", new { Message = errorMessage });
+            await Clients.Caller.SendAsync("Error", new HubErrorMessage { Message = errorMessage });
         }
     }
 
@@ -246,7 +246,7 @@ public class DockerPanelHub : Hub
             var language = GetConnectionLanguage(connectionId);
             var errorMessage = LocalizationService.GetTranslatedMessage("signalr.error.imageList", language, "Failed to get image list");
             _logger.LogError(ex, "获取镜像列表失败");
-            await Clients.Caller.SendAsync("Error", new { Message = errorMessage });
+            await Clients.Caller.SendAsync("Error", new HubErrorMessage { Message = errorMessage });
         }
     }
 
@@ -293,7 +293,7 @@ public class DockerPanelHub : Hub
             _logger.LogError(ex, "获取容器列表失败");
             var language = GetConnectionLanguage(connectionId);
             var errorMessage = LocalizationService.GetTranslatedMessage("signalr.error.containerList", language, "Failed to get container list");
-            await Clients.Caller.SendAsync("Error", new { Message = errorMessage });
+            await Clients.Caller.SendAsync("Error", new HubErrorMessage { Message = errorMessage });
         }
     }
 
@@ -337,7 +337,7 @@ public class DockerPanelHub : Hub
         await _logStreamingService.SubscribeToLogsAsync(connectionId, containerId, tailLines);
 
         // 发送订阅确认
-        await Clients.Caller.SendAsync("LogsSubscribed", new { ContainerId = containerId, TailLines = tailLines });
+        await Clients.Caller.SendAsync("LogsSubscribed", new LogsSubscribedMessage { ContainerId = containerId, TailLines = tailLines });
     }
     
     /// <summary>
@@ -366,7 +366,7 @@ public class DockerPanelHub : Hub
     /// </summary>
     public async Task Ping()
     {
-        await Clients.Caller.SendAsync("Pong", new
+        await Clients.Caller.SendAsync("Pong", new PongMessage
         {
             Timestamp = DateTime.UtcNow,
             ServerTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
@@ -378,7 +378,7 @@ public class DockerPanelHub : Hub
     /// </summary>
     public async Task GetConnectionStatus()
     {
-        await Clients.Caller.SendAsync("ConnectionStatus", new
+        await Clients.Caller.SendAsync("ConnectionStatus", new ConnectionStatusMessage
         {
             ConnectionId = Context.ConnectionId,
             IsConnected = true,
@@ -451,7 +451,7 @@ public class DockerPanelHub : Hub
     /// <summary>
     /// 广播系统状态更新给所有订阅的客户端
     /// </summary>
-    public static async Task BroadcastSystemStatsUpdate(IHubContext<DockerPanelHub> hubContext, object stats)
+    public static async Task BroadcastSystemStatsUpdate(IHubContext<DockerPanelHub> hubContext, Services.ClusterResourceStats stats)
     {
         var connections = _subscriptions.Where(kvp => kvp.Value.Contains("systemstats")).Select(kvp => kvp.Key);
 
@@ -464,21 +464,21 @@ public class DockerPanelHub : Hub
     /// <summary>
     /// 广播日志给特定容器的订阅者
     /// </summary>
-    public static async Task BroadcastLogUpdate(IHubContext<DockerPanelHub> hubContext, string containerId, object logEntry)
+    public static async Task BroadcastLogUpdate(IHubContext<DockerPanelHub> hubContext, string containerId, Serialization.LogStreamMessage logEntry)
     {
         var subscriptionKey = $"logs:{containerId}";
         var connections = _subscriptions.Where(kvp => kvp.Value.Contains(subscriptionKey)).Select(kvp => kvp.Key);
 
         foreach (var connectionId in connections)
         {
-            await hubContext.Clients.Client(connectionId).SendAsync("LogUpdated", new { ContainerId = containerId, Log = logEntry });
+            await hubContext.Clients.Client(connectionId).SendAsync("LogUpdated", logEntry);
         }
     }
 
     /// <summary>
     /// 广播日志给所有连接的客户端（用于实时日志页面）
     /// </summary>
-    public static async Task BroadcastLogToAll(IHubContext<DockerPanelHub> hubContext, object logEntry)
+    public static async Task BroadcastLogToAll(IHubContext<DockerPanelHub> hubContext, Serialization.LogStreamMessage logEntry)
     {
         await hubContext.Clients.All.SendAsync("logs", logEntry);
     }
@@ -496,12 +496,12 @@ public class DockerPanelHub : Hub
     /// </summary>
     public static async Task BroadcastDeployProgress(IHubContext<DockerPanelHub> hubContext, string projectId, string step, int progress, string? detail = null)
     {
-        await hubContext.Clients.All.SendAsync("ComposeDeployProgress", new
+        await hubContext.Clients.All.SendAsync("ComposeDeployProgress", new ComposeDeployProgressMessage
         {
             ProjectId = projectId,
             Step = step,
-            StepKey = step, // 消息键，前端用于翻译
-            Status = GetStatusFromStep(step), // 状态：preparing, running, completed, failed
+            StepKey = step,
+            Status = GetStatusFromStep(step),
             Progress = progress,
             Detail = detail,
             Timestamp = DateTime.UtcNow
@@ -513,7 +513,7 @@ public class DockerPanelHub : Hub
     /// </summary>
     public static async Task BroadcastOperationProgress(IHubContext<DockerPanelHub> hubContext, string projectName, string step, int progress, string? detail = null)
     {
-        await hubContext.Clients.All.SendAsync("ComposeOperationProgress", new
+        await hubContext.Clients.All.SendAsync("ComposeOperationProgress", new ComposeOperationProgressMessage
         {
             ProjectName = projectName,
             Step = step,
@@ -530,7 +530,7 @@ public class DockerPanelHub : Hub
     /// </summary>
     public static async Task BroadcastVolumeArchiveProgress(IHubContext<DockerPanelHub> hubContext, string volumeId, string step, int progress, string? detail = null)
     {
-        await hubContext.Clients.All.SendAsync("VolumeArchiveProgress", new
+        await hubContext.Clients.All.SendAsync("VolumeArchiveProgress", new VolumeArchiveProgressMessage
         {
             VolumeId = volumeId,
             Step = step,
@@ -547,7 +547,7 @@ public class DockerPanelHub : Hub
     /// </summary>
     public static async Task BroadcastImagePullProgress(IHubContext<DockerPanelHub> hubContext, string pullId, string imageName, string step, int progress, string? detail = null, PullLayerInfo? layer = null)
     {
-        await hubContext.Clients.All.SendAsync("ImagePullProgress", new
+        await hubContext.Clients.All.SendAsync("ImagePullProgress", new ImagePullProgressMessage
         {
             PullId = pullId,
             ImageName = imageName,
@@ -556,7 +556,7 @@ public class DockerPanelHub : Hub
             Status = GetStatusFromStep(step),
             Progress = progress,
             Detail = detail,
-            Layer = layer == null ? null : new
+            Layer = layer == null ? null : new ImagePullLayerMessage
             {
                 LayerId = layer.LayerId,
                 Status = layer.Status,
@@ -666,7 +666,7 @@ public class DockerPanelHub : Hub
     /// </summary>
     public static async Task BroadcastImagePushProgress(IHubContext<DockerPanelHub> hubContext, string pushId, string imageName, string step, int progress, string? detail = null)
     {
-        await hubContext.Clients.All.SendAsync("ImagePushProgress", new
+        await hubContext.Clients.All.SendAsync("ImagePushProgress", new ImagePushProgressMessage
         {
             PushId = pushId,
             ImageName = imageName,
@@ -718,7 +718,7 @@ public class DockerPanelHub : Hub
     /// </summary>
     public static async Task BroadcastImageBuildProgress(IHubContext<DockerPanelHub> hubContext, string buildId, string step, int progress, string? detail = null, string? stream = null, bool isError = false)
     {
-        await hubContext.Clients.All.SendAsync("ImageBuildProgress", new
+        await hubContext.Clients.All.SendAsync("ImageBuildProgress", new ImageBuildProgressMessage
         {
             BuildId = buildId,
             Step = step,

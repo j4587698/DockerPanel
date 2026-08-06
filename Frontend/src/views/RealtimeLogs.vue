@@ -151,7 +151,7 @@
                 <span class="log-timestamp" v-if="showTimestamps">
                   {{ formatTimestamp(log.timestamp) }}
                 </span>
-                <span class="log-container-name">{{ log.container }}</span>
+                <span class="log-container-name">{{ log.containerId }}</span>
                 <el-tag
                   :type="getLevelTagType(log.level)"
                   size="small"
@@ -214,7 +214,7 @@ const filteredLogs = computed(() => {
 
   // 按容器过滤
   if (selectedContainer.value) {
-    filteredLogs = filteredLogs.filter(log => log.container === selectedContainer.value)
+    filteredLogs = filteredLogs.filter(log => log.containerId === selectedContainer.value)
   }
 
   // 按关键词搜索
@@ -222,7 +222,7 @@ const filteredLogs = computed(() => {
     const keyword = searchKeyword.value.toLowerCase()
     filteredLogs = filteredLogs.filter(log =>
       log.message.toLowerCase().includes(keyword) ||
-      log.container.toLowerCase().includes(keyword)
+      log.containerId.toLowerCase().includes(keyword)
     )
   }
 
@@ -236,7 +236,7 @@ const infoCount = computed(() => logs.value.filter(log => log.level === 'info').
 
 // 容器名称列表
 const containerNames = computed(() => {
-  const containers = new Set(logs.value.map(log => log.container))
+  const containers = new Set(logs.value.map(log => log.containerId))
   return Array.from(containers).sort()
 })
 
@@ -286,7 +286,7 @@ const exportLogs = () => {
   }
 
   const logContent = filteredLogs.value.map(log =>
-    `${log.timestamp} [${log.level.toUpperCase()}] ${log.container}: ${log.message}`
+    `${log.timestamp} [${log.level.toUpperCase()}] ${log.containerId}: ${log.message}`
   ).join('\n')
 
   const blob = new Blob([logContent], { type: 'text/plain' })

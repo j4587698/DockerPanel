@@ -45,7 +45,7 @@ public class ContainerTerminalHub : Hub
             
             if (dockerEngine == null)
             {
-                await Clients.Caller.SendAsync("Error", new { code = "container.docker.unavailable", message = "Docker engine unavailable" });
+                await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "container.docker.unavailable", Message = "Docker engine unavailable" });
                 return;
             }
 
@@ -70,7 +70,7 @@ public class ContainerTerminalHub : Hub
             
             if (execCreateResponse == null || string.IsNullOrEmpty(execCreateResponse.ID))
             {
-                await Clients.Caller.SendAsync("Error", new { code = "container.exec.create_failed", message = "Failed to create exec instance" });
+                await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "container.exec.create_failed", Message = "Failed to create exec instance" });
                 return;
             }
 
@@ -120,7 +120,7 @@ public class ContainerTerminalHub : Hub
             // 启动读取输出的任务
             _ = Task.Run(async () => await ReadTerminalOutput(connectionId, stream, cts.Token));
 
-            await Clients.Caller.SendAsync("Connected", new
+            await Clients.Caller.SendAsync("Connected", new ContainerTerminalConnectedMessage
             {
                 ContainerId = request.ContainerId,
                 Shell = shell,
@@ -133,7 +133,7 @@ public class ContainerTerminalHub : Hub
         catch (Exception ex)
         {
             _logger.LogError(ex, "容器终端连接失败: {ConnectionId}", connectionId);
-            await Clients.Caller.SendAsync("Error", new { code = "terminal.connect.failed", message = ex.Message });
+            await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "terminal.connect.failed", Message = ex.Message });
         }
     }
 
@@ -157,12 +157,12 @@ public class ContainerTerminalHub : Hub
             catch (Exception ex)
             {
                 _logger.LogError(ex, "发送输入失败: {ConnectionId}", connectionId);
-                await Clients.Caller.SendAsync("Error", new { code = "terminal.send.failed", message = ex.Message });
+                await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "terminal.send.failed", Message = ex.Message });
             }
         }
         else
         {
-            await Clients.Caller.SendAsync("Error", new { code = "terminal.session.not_found", message = "Session not found or disconnected" });
+            await Clients.Caller.SendAsync("Error", new TerminalErrorMessage { Code = "terminal.session.not_found", Message = "Session not found or disconnected" });
         }
     }
 

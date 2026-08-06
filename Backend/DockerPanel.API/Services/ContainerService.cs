@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TinyDb;
 using System.Text.Json;
 using DockerPanel.API.Data;
+using DockerPanel.API.Serialization;
 
 namespace DockerPanel.API.Services;
 
@@ -762,7 +763,10 @@ public class ContainerService : IContainerService
     private static Dictionary<string, object> ToObjectDictionary(object? value)
     {
         if (value == null) return new Dictionary<string, object>();
-        return JsonSerializer.Deserialize<Dictionary<string, object>>(JsonSerializer.Serialize(value)) ?? new Dictionary<string, object>();
+        // 运行时类型需为 DockerPanelJsonContext 中注册的类型（ContainerInspectResponse 及其嵌套），
+        // 否则在 AOT 下会因缺少元数据抛异常而非走反射序列化。
+        var json = JsonSerializer.Serialize(value, value.GetType(), JsonSerializers.Options);
+        return JsonSerializer.Deserialize<Dictionary<string, object>>(json, JsonSerializers.Options) ?? new Dictionary<string, object>();
     }
 
     private static long? ParseNullableLong(string? value)

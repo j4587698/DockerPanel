@@ -97,7 +97,17 @@
           <template #default="{ row }">
             <div class="td-image">
               <span class="image-text">{{ row.image }}</span>
-              <span v-if="hasUpdateAvailable(row.id)" class="update-badge" :title="t('container.update.newVersionAvailable')">
+              <template v-if="isUpgrading(row.id)">
+                <el-progress
+                  class="upgrade-progress"
+                  :percentage="upgradeProgressOf(row.id).progress"
+                  :stroke-width="6"
+                  :text-inside="false"
+                  :status="upgradeProgressOf(row.id).progress >= 100 ? 'success' : ''"
+                />
+                <span class="upgrade-detail">{{ upgradeProgressOf(row.id).detail }}</span>
+              </template>
+              <span v-else-if="hasUpdateAvailable(row.id)" class="update-badge" :title="t('container.update.newVersionAvailable')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="7 10 12 15 17 10"></polyline>
@@ -325,6 +335,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { VideoPlay, VideoPause, Document, Delete } from '@element-plus/icons-vue'
 import CreateContainerDialog from '@/components/container/CreateContainerDialog.vue'
 import { autoUpdateApi, AutoUpdateStatus } from '@/api/autoUpdate'
+import { signalrService } from '@/services/signalr'
 import { formatLocalizedDate } from '@/utils/date'
 
 const { t } = useI18n()
@@ -339,6 +350,17 @@ const selected = ref<any[]>([])
 const showCreate = ref(false)
 const upgradingContainers = ref<Set<string>>(new Set())
 const updateStatusMap = ref<Map<string, AutoUpdateStatus>>(new Map())
+
+// 批量升级时每行容器的实时进度（由后端 update-{containerId} 广播驱动）
+const upgradingProgress = ref<Map<string, { progress: number; detail: string }>>(new Map())
+let upgradeProgressUnsubscribe: (() => void) | null = null
+
+const isUpgrading = (containerId: string) => upgradingContainers.value.has(containerId)
+
+const upgradeProgressOf = (containerId: string) => {
+  const item = upgradingProgress.value.get(containerId)
+  return item || { progress: 0, detail: t('container.upgrade.waiting') }
+}
 
 // Pagination
 const currentPage = ref(1)
@@ -637,7 +659,10 @@ const batchUpgrade = async () => {
     )
     
     // 标记正在升级的容器
-    containersWithUpdates.forEach((c: any) => upgradingContainers.value.add(c.id))
+    containersWithUpdates.forEach((c: any) => {
+      upgradingContainers.value.add(c.id)
+      upgradingProgress.value.set(c.id, { progress: 0, detail: t('container.upgrade.waiting') })
+    })
     
     // 并行执行升级
     const results = await Promise.allSettled(
@@ -658,6 +683,7 @@ const batchUpgrade = async () => {
       if (r.value?.success) successCount++
       else failCount++
       upgradingContainers.value.delete(r.value?.containerId)
+      upgradingProgress.value.delete(r.value?.containerId)
     })
     
     if (successCount > 0) {
@@ -717,11 +743,24 @@ onMounted(() => {
   store.startStatsMonitoring()
   store.startContainerListSync()
   loadUpdateStatuses().then(() => checkAllUpdates())
+
+  // 订阅批量升级的实时镜像拉取进度（后端以 update-{containerId} 为 pullId 广播）
+  upgradeProgressUnsubscribe = signalrService.subscribe('image-pull-progress', (message: any) => {
+    const data = message?.data
+    if (!data?.pullId?.startsWith('update-')) return
+    const containerId = data.pullId.substring('update-'.length)
+    if (!upgradingProgress.value.has(containerId)) return
+    upgradingProgress.value.set(containerId, {
+      progress: Math.max(0, Math.min(100, data.progress ?? 0)),
+      detail: data.detail || data.step || upgradingProgress.value.get(containerId)?.detail || ''
+    })
+  })
 })
 
 onUnmounted(() => {
   store.stopStatsMonitoring()
   store.stopContainerListSync()
+  upgradeProgressUnsubscribe?.()
 })
 </script>
 
@@ -969,6 +1008,22 @@ onUnmounted(() => {
 
 .update-badge svg {
   flex-shrink: 0;
+}
+
+.upgrade-progress {
+  margin-top: 6px;
+  max-width: 220px;
+}
+
+.upgrade-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
 }
 
 @keyframes pulse {

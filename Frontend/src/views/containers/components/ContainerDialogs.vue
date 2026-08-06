@@ -85,6 +85,7 @@
       <div v-if="recreatePhase === 'running'" class="recreate-progress-area">
         <el-progress 
           :percentage="recreateProgress" 
+          :indeterminate="recreateIndeterminate"
           :stroke-width="8"
           :status="recreateProgress >= 100 ? 'success' : ''"
           style="margin: 16px 0"
@@ -166,6 +167,8 @@ const props = defineProps<{
   recreatePhase?: 'idle' | 'running' | 'completed' | 'failed'
   recreateProgress?: number
   recreateDetail?: string
+  /** 无拉取阶段（如不拉最新镜像直接重建）时展示 indeterminate 动画 */
+  recreateIndeterminate?: boolean
 }>()
 
 const emit = defineEmits<{

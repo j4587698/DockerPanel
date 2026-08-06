@@ -182,7 +182,8 @@ export default {
     noUpdatesAvailable: '所选容器中没有需要更新的，请先检查更新',
     successCount: '成功升级 {count} 个容器',
     failCount: '{count} 个容器升级失败',
-    checkFailed: '检查更新失败'
+    checkFailed: '检查更新失败',
+    waiting: '等待开始...'
   },
   // 删除相关
   delete: {
@@ -231,7 +232,9 @@ export default {
     actionCheck: '检测',
     actionPull: '拉取',
     actionRestart: '重启',
-    actionFullUpdate: '完整升级'
+    actionFullUpdate: '完整升级',
+    pullingInProgress: '正在拉取最新镜像...',
+    rollingBackInProgress: '正在拉取目标版本镜像...'
   },
   // 对话框
   dialogs: {

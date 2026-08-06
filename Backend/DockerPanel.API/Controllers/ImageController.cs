@@ -94,23 +94,7 @@ public class ImageController : ControllerBase
                 {
                     await DockerPanelHub.BroadcastImagePullProgress(_hubContext, pullId, fullImageName, "准备中", 5, "正在连接仓库...");
 
-                    var aggregator = new DockerPanelHub.ImagePullProgressAggregator();
-                    var progress = new Progress<ImagePullProgress>(p =>
-                    {
-                        var layerId = p.Id ?? "layer";
-                        var status = p.Status ?? "";
-                        aggregator.Update(layerId, status, p.Current, p.Total);
-
-                        var layer = aggregator.Layers.First(l => l.LayerId == layerId);
-                        DockerPanelHub.BroadcastImagePullProgress(
-                            _hubContext,
-                            pullId,
-                            fullImageName,
-                            "拉取中",
-                            aggregator.OverallProgress,
-                            $"{aggregator.Layers.Count} 个层 · {status}",
-                            layer).Wait();
-                    });
+                    var progress = DockerPanelHub.CreatePullProgressBroadcaster(_hubContext, pullId, fullImageName);
 
                     await _imageService.PullImageAsync(request.ImageName, request.Tag, request.NodeId, progress, request.Registry);
                     

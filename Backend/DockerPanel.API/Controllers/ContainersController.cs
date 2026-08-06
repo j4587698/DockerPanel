@@ -387,15 +387,8 @@ public class ContainersController : ControllerBase
             if (request.PullLatest && !string.IsNullOrEmpty(imageName))
             {
                 await DockerPanelHub.BroadcastImagePullProgress(_hubContext, recreateId, imageName, "准备中", 5, "正在拉取最新镜像...");
-                pullProgress = new Progress<ImagePullProgress>(p =>
-                {
-                    var status = p.Status ?? "";
-                    var detail = p.Id != null ? $"{p.Id}: {status}" : status;
-                    var progressValue = p.Current > 0 && p.Total > 0
-                        ? (int)((double)p.Current / p.Total * 80) + 10
-                        : 20;
-                    DockerPanelHub.BroadcastImagePullProgress(_hubContext, recreateId, imageName!, "拉取中", progressValue, detail).Wait();
-                });
+                // 使用按层聚合 + 单调递增的广播器，避免多个层并发导致整体进度来回跳动
+                pullProgress = DockerPanelHub.CreatePullProgressBroadcaster(_hubContext, recreateId, imageName);
             }
 
             var newContainer = await _containerService.RecreateContainerAsync(

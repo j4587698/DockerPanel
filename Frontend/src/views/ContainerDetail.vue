@@ -165,6 +165,7 @@
       :recreate-phase="recreatePhase"
       :recreate-progress="recreateProgress"
       :recreate-detail="recreateDetail"
+      :recreate-indeterminate="recreateIndeterminate"
       @save-edit="saveEdit"
       @confirm-recreate="confirmRecreate"
       @connect-network="connectToNetworkById"
@@ -212,6 +213,7 @@ import ContainerAutoUpdate from '@/components/container/ContainerAutoUpdate.vue'
 import ContainerFiles from './containers/components/ContainerFiles.vue'
 import { formatLocalizedTime } from '@/utils/date'
 import CreateContainerDialog from '@/components/container/CreateContainerDialog.vue'
+import { useImagePullProgress } from '@/composables/useImagePullProgress'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -637,19 +639,11 @@ const saveEdit = async (payload: { name: string; pullLatest: boolean }) => {
       if (newName !== currentName) {
         await containerApi.renameContainer(container.value.id, newName)
       }
-      
-      // 拉取最新镜像并重建容器（使用原配置，应用新镜像）
-      const result = await containerApi.recreateContainer(container.value.id, {
-        pullLatest: true,
-        autoStart: true
-      })
+
+      // 关闭编辑弹窗，改用重建弹窗展示「拉取最新镜像 + 重建」的实时进度
       editDialogVisible.value = false
-      ElMessage.success(t('container.containerDetail.recreateSuccess'))
-      if (result.newId) {
-        router.push(`/containers/${result.newId}`)
-      } else {
-        await loadContainerDetail()
-      }
+      recreateDialogVisible.value = true
+      await runRecreate({ pullLatest: true, autoStart: true })
     } else {
       await containerApi.renameContainer(container.value.id, newName)
       editDialogVisible.value = false
@@ -666,16 +660,42 @@ const recreateLoading = ref(false)
 const recreatePhase = ref<'idle' | 'running' | 'completed' | 'failed'>('idle')
 const recreateProgress = ref(0)
 const recreateDetail = ref('')
-let recreateUnsubscribe: (() => void) | null = null
+const recreateIndeterminate = ref(false)
+
+// 重建进度订阅：后端会以 recreate-{id} 为 pullId 广播按层聚合、单调递增的进度
+const recreateTracking = useImagePullProgress(
+  (pullId) => pullId === `recreate-${container.value?.id}`,
+  false
+)
+
+watch(recreateTracking.hasData, (hasData) => {
+  if (hasData && recreateTracking.progress.value > 0) {
+    recreateIndeterminate.value = false
+  }
+})
+
+watch(recreateTracking.progress, (p) => {
+  recreateProgress.value = p
+})
+
+watch([recreateTracking.detail, recreateTracking.step], ([d, s]) => {
+  const text = d || s
+  if (text) recreateDetail.value = text
+})
 
 const recreateContainer = () => {
   recreatePhase.value = 'idle'
   recreateProgress.value = 0
   recreateDetail.value = ''
+  recreateIndeterminate.value = false
   recreateDialogVisible.value = true
 }
 
-const confirmRecreate = async (options: { pullLatest: boolean; autoStart: boolean; keepVolumes: boolean }) => {
+/**
+ * 执行重建容器并实时展示进度。
+ * 供「重建】按钮与「编辑配置并拉取最新镜像」两个入口复用。
+ */
+const runRecreate = async (options: { pullLatest: boolean; autoStart: boolean }) => {
   if (!container.value) return
 
   recreatePhase.value = 'running'
@@ -683,13 +703,13 @@ const confirmRecreate = async (options: { pullLatest: boolean; autoStart: boolea
   recreateDetail.value = t('container.dialogs.recreatePreparing')
   recreateLoading.value = true
 
+  // pullLatest=true 时会收到后端按层聚合的进度；pullLatest=false 没有拉取阶段，
+  // 进度条保持 indeterminate 动画直到重建完成
+  recreateIndeterminate.value = true
+  recreateTracking.clear()
+  recreateTracking.start()
+
   const containerId = container.value.id
-  recreateUnsubscribe = signalrService.subscribe('image-pull-progress', (message: any) => {
-    const data = message.data
-    if (!data.pullId?.includes(containerId)) return
-    if (data.progress != null) recreateProgress.value = data.progress
-    if (data.detail || data.step) recreateDetail.value = data.detail || data.step
-  })
 
   try {
     const result = await containerApi.recreateContainer(containerId, {
@@ -699,15 +719,19 @@ const confirmRecreate = async (options: { pullLatest: boolean; autoStart: boolea
 
     recreatePhase.value = 'completed'
     recreateProgress.value = 100
+    recreateIndeterminate.value = false
     recreateDetail.value = t('container.containerDetail.recreateSuccess')
+
+    recreateTracking.stop()
 
     setTimeout(() => {
       recreateDialogVisible.value = false
       recreatePhase.value = 'idle'
       recreateProgress.value = 0
       recreateDetail.value = ''
+      recreateIndeterminate.value = false
 
-      if (result.newId) {
+      if (result.newId && result.newId !== containerId) {
         router.push(`/containers/${result.newId}`)
       } else {
         loadContainerDetail()
@@ -723,10 +747,15 @@ const confirmRecreate = async (options: { pullLatest: boolean; autoStart: boolea
       recreatePhase.value = 'idle'
       recreateProgress.value = 0
       recreateDetail.value = ''
+      recreateIndeterminate.value = false
     }, 3000)
   } finally {
     recreateLoading.value = false
   }
+}
+
+const confirmRecreate = (options: { pullLatest: boolean; autoStart: boolean; keepVolumes: boolean }) => {
+  runRecreate({ pullLatest: options.pullLatest, autoStart: options.autoStart })
 }
 
 // 导出容器
@@ -980,7 +1009,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  recreateUnsubscribe?.()
   stopSignalRSubscriptions()
   stopLogStream()
   terminalResizeObserver?.disconnect()

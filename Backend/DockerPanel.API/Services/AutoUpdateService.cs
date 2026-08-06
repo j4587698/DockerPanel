@@ -11,6 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using DockerPanel.API.Data;
 using DockerPanel.API.Models;
+using DockerPanel.API.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 
 namespace DockerPanel.API.Services;
@@ -119,6 +121,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
     private readonly IContainerService _containerService;
     private readonly IRegistryService _registryService;
     private readonly ILogger<AutoUpdateService> _logger;
+    private readonly IHubContext<DockerPanelHub> _hubContext;
     private readonly HttpClient _httpClient;
 
     public AutoUpdateService(
@@ -126,13 +129,15 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
         IContainerEngine containerEngine,
         IContainerService containerService,
         IRegistryService registryService,
-        ILogger<AutoUpdateService> logger)
+        ILogger<AutoUpdateService> logger,
+        IHubContext<DockerPanelHub> hubContext)
     {
         _db = db;
         _containerEngine = containerEngine;
         _containerService = containerService;
         _registryService = registryService;
         _logger = logger;
+        _hubContext = hubContext;
         
         // 创建独立的 HttpClient，完全禁用代理
         var handler = new HttpClientHandler
@@ -288,7 +293,10 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
     {
         var result = new UpdateResult { ContainerId = containerId };
         var startTime = DateTime.UtcNow;
-        
+
+        // 广播用的操作标识：前端据此关联对应容器的实时进度
+        var pullId = $"update-{containerId}";
+
         try
         {
             var container = await _containerEngine.GetContainerAsync(containerId);
@@ -314,18 +322,19 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             config.Status = AutoUpdateStatus.Pulling;
             config.UpdatedAt = DateTime.UtcNow;
             _db.AutoUpdateConfigs.Update(config);
-            
+
+            // 广播进度：开始拉取
+            await PushPullProgressAsync(pullId, container.Image ?? "", "准备中", 5, "正在拉取最新镜像...");
+
             // 拉取新镜像
             var imageName = container.Image ?? string.Empty;
             var imageParts = imageName.Split(':');
             var name = imageParts[0];
             var tag = imageParts.Length > 1 ? imageParts[1] : "latest";
-            
-            await _containerEngine.PullImageAsync(name, tag, new Progress<ImagePullProgress>(p =>
-            {
-                _logger.LogInformation("拉取进度: {Status}", p.Status);
-            }));
-            
+
+            var pullProgress = DockerPanelHub.CreatePullProgressBroadcaster(_hubContext, pullId, imageName);
+            await _containerEngine.PullImageAsync(name, tag, pullProgress);
+
             // 获取新镜像摘要
             var newImage = await _containerEngine.GetImageAsync(imageName);
             result.NewDigest = newImage?.Id;
@@ -336,6 +345,9 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 // 更新状态为正在重启
                 config.Status = AutoUpdateStatus.Restarting;
                 _db.AutoUpdateConfigs.Update(config);
+
+                // 广播进度：重新创建容器
+                await PushPullProgressAsync(pullId, container.Image ?? "", "重启中", 90, "正在重建容器并重新启动...");
 
                 // 重建容器（删除并使用相同配置重新创建），使容器真正使用刚拉取的新镜像
                 await _containerService.RecreateContainerAsync(containerId, pullLatest: false, autoStart: true);
@@ -363,7 +375,10 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             
             result.Success = true;
             result.DurationMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
-            
+
+            // 广播进度：完成
+            await PushPullProgressAsync(pullId, container.Image ?? "", "完成", 100, pullOnly ? "镜像拉取完成" : "升级完成");
+
             return result;
         }
         catch (Exception ex)
@@ -371,7 +386,10 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             _logger.LogError(ex, "更新容器 {ContainerId} 失败", containerId);
             result.ErrorMessage = ex.Message;
             result.DurationMs = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
-            
+
+            // 广播失败状态，让前端收起进度
+            await PushPullProgressAsync($"update-{containerId}", "", "失败", 100, $"升级失败: {ex.Message}");
+
             // 更新失败状态
             var config = await GetConfigAsync(containerId);
             if (config != null)
@@ -415,6 +433,16 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
     public async Task<List<ContainerAutoUpdateConfig>> GetAllConfigsAsync()
     {
         return _db.AutoUpdateConfigs.FindAll().ToList();
+    }
+
+    /// <summary>
+    /// 向前端广播自动更新/回滚过程中的镜像拉取进度（复用 image-pull-progress 通道）。
+    /// </summary>
+    private async Task PushPullProgressAsync(string? pullId, string imageName, string step, int progress, string detail)
+    {
+        if (string.IsNullOrEmpty(pullId))
+            return;
+        await DockerPanelHub.BroadcastImagePullProgress(_hubContext, pullId, imageName, step, progress, detail);
     }
 
     private async Task UpdateCheckConfigAsync(string containerId, ImageUpdateCheckResult result, AutoUpdateStatus status, string? statusMessage)
@@ -885,20 +913,29 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             var imageParts = imageName.Split(':');
             var name = imageParts[0];
             
+            var pullId = $"rollback-{containerId}";
+
+            // 广播进度：开始拉取目标标签镜像
+            await PushPullProgressAsync(pullId, $"{name}:{targetTag}", "准备中", 5, $"正在拉取镜像 {targetTag}...");
+
             // 拉取目标标签的镜像
             _logger.LogInformation("回滚容器 {ContainerId} 到镜像 {Image}:{Tag}", containerId, name, targetTag);
-            await _containerEngine.PullImageAsync(name, targetTag, new Progress<ImagePullProgress>(p =>
-            {
-                _logger.LogInformation("拉取进度: {Status}", p.Status);
-            }));
+            var pullProgress = DockerPanelHub.CreatePullProgressBroadcaster(_hubContext, pullId, $"{name}:{targetTag}");
+            await _containerEngine.PullImageAsync(name, targetTag, pullProgress);
             
             // 获取新镜像摘要
             var newImage = await _containerEngine.GetImageAsync($"{name}:{targetTag}");
             result.NewDigest = newImage?.Id;
             result.OldDigest = config?.CurrentLocalDigest;
 
+            // 广播进度：重新创建容器
+            await PushPullProgressAsync(pullId, $"{name}:{targetTag}", "重启中", 90, "正在重建容器并重新启动...");
+
             // 真正回滚：删除原容器并用 targetTag 镜像按原配置重建，使容器切换到目标版本
             await _containerService.RecreateContainerAsync(containerId, pullLatest: false, autoStart: true, overrideImage: $"{name}:{targetTag}");
+
+            // 广播进度：完成
+            await PushPullProgressAsync(pullId, $"{name}:{targetTag}", "完成", 100, "回滚完成");
             
             // 更新配置
             if (config != null)
@@ -930,6 +967,9 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
         {
             _logger.LogError(ex, "回滚容器失败: {ContainerId}", containerId);
             result.ErrorMessage = ex.Message;
+
+            // 广播失败状态，让前端收起进度
+            await PushPullProgressAsync($"rollback-{containerId}", "", "失败", 100, $"回滚失败: {ex.Message}");
             
             // 更新状态
             var config = await GetConfigAsync(containerId);

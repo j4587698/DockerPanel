@@ -182,7 +182,8 @@ export default {
     noUpdatesAvailable: 'No containers need updating, please check for updates first',
     successCount: 'Successfully upgraded {count} containers',
     failCount: '{count} containers failed to upgrade',
-    checkFailed: 'Check for updates failed'
+    checkFailed: 'Check for updates failed',
+    waiting: 'Waiting to start...'
   },
   // Delete related
   delete: {
@@ -231,7 +232,9 @@ export default {
     actionCheck: 'Check',
     actionPull: 'Pull',
     actionRestart: 'Restart',
-    actionFullUpdate: 'Full Update'
+    actionFullUpdate: 'Full Update',
+    pullingInProgress: 'Pulling the latest image...',
+    rollingBackInProgress: 'Pulling target version image...'
   },
   // Dialogs
   dialogs: {

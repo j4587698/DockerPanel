@@ -441,7 +441,7 @@ public class ImagePruneOptions
 /// <summary>
 /// 批量删除镜像请求
 /// </summary>
-public class BatchRemoveImagesRequest
+public class BatchRemoveImagesRequest : INodeIdRequest
 {
     public List<string> ImageIds { get; set; } = new();
     public bool Force { get; set; } = false;
@@ -451,7 +451,7 @@ public class BatchRemoveImagesRequest
 /// <summary>
 /// 清理镜像请求
 /// </summary>
-public class PruneImagesRequest
+public class PruneImagesRequest : INodeIdRequest
 {
     public bool Dangling { get; set; } = true;
     public bool All { get; set; } = false;

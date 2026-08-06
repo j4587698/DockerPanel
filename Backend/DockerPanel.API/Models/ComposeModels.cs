@@ -197,7 +197,7 @@ public class ComposeVolumeInfo
 /// <summary>
 /// 创建Compose文件请求
 /// </summary>
-public class CreateComposeFileRequest
+public class CreateComposeFileRequest : INodeIdRequest
 {
     [Required]
     public string Name { get; set; } = string.Empty;
@@ -224,7 +224,7 @@ public class UpdateComposeFileRequest
 /// <summary>
 /// 部署Compose项目请求
 /// </summary>
-public class DeployComposeRequest
+public class DeployComposeRequest : INodeIdRequest
 {
     [Required]
     public string ComposeFileId { get; set; } = string.Empty;
@@ -244,7 +244,7 @@ public class DeployComposeRequest
 /// <summary>
 /// Compose操作请求
 /// </summary>
-public class ComposeOperationRequest
+public class ComposeOperationRequest : INodeIdRequest
 {
     [Required]
     public string ComposeFileId { get; set; } = string.Empty;
@@ -257,7 +257,7 @@ public class ComposeOperationRequest
 /// <summary>
 /// Compose日志请求
 /// </summary>
-public class ComposeLogsRequest
+public class ComposeLogsRequest : INodeIdRequest
 {
     [Required]
     public string ComposeFileId { get; set; } = string.Empty;

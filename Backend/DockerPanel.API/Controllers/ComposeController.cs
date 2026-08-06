@@ -689,7 +689,7 @@ public class ComposeController : ControllerBase
 /// <summary>
 /// 导入Compose文件请求
 /// </summary>
-public class ImportComposeFileRequest
+public class ImportComposeFileRequest : DockerPanel.API.Models.INodeIdRequest
 {
     /// <summary>
     /// 文件内容

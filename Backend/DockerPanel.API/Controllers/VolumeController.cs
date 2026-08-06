@@ -551,7 +551,7 @@ public class VolumeController : ControllerBase
 /// <summary>
 /// 清理卷请求
 /// </summary>
-public class PruneVolumesRequest
+public class PruneVolumesRequest : DockerPanel.API.Models.INodeIdRequest
 {
     public bool Filters { get; set; } = false;
     public string? LabelFilter { get; set; }

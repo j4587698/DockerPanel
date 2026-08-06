@@ -802,7 +802,7 @@ public class ImageController : ControllerBase
 /// <summary>
 /// 拉取镜像请求
 /// </summary>
-public class PullImageRequest
+public class PullImageRequest : DockerPanel.API.Models.INodeIdRequest
 {
     public string ImageName { get; set; } = string.Empty;
     public string? Tag { get; set; }
@@ -817,7 +817,7 @@ public class PullImageRequest
 /// <summary>
 /// 标记镜像请求
 /// </summary>
-public class TagImageRequest
+public class TagImageRequest : DockerPanel.API.Models.INodeIdRequest
 {
     public string TargetRepository { get; set; } = string.Empty;
     public string? TargetTag { get; set; }
@@ -827,7 +827,7 @@ public class TagImageRequest
 /// <summary>
 /// 推送镜像请求
 /// </summary>
-public class PushImageRequest
+public class PushImageRequest : DockerPanel.API.Models.INodeIdRequest
 {
     public string? Tag { get; set; }
     public string? NodeId { get; set; }

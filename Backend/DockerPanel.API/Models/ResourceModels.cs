@@ -6,7 +6,7 @@ namespace DockerPanel.API.Models;
 /// <summary>
 /// 创建资源警报规则请求
 /// </summary>
-public class CreateResourceAlertRuleRequest
+public class CreateResourceAlertRuleRequest : INodeIdRequest
 {
     [Required]
     public string Name { get; set; } = string.Empty;

@@ -22,7 +22,7 @@ public class VolumeUsageInfo
 /// <summary>
 /// 卷备份请求
 /// </summary>
-public class VolumeBackupRequest
+public class VolumeBackupRequest : INodeIdRequest
 {
     [Required]
     public string VolumeName { get; set; } = string.Empty;
@@ -252,7 +252,7 @@ public class VolumeSpaceMetric
 /// <summary>
 /// 创建卷请求
 /// </summary>
-public class CreateVolumeRequest
+public class CreateVolumeRequest : INodeIdRequest
 {
     /// <summary>
     /// 卷名称，为空时 Docker 自动生成随机名称

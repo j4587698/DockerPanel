@@ -419,7 +419,7 @@ namespace DockerPanel.API.Controllers
                 var accounts = await _acmeService.GetAccountsAsync();
                 var accountDict = accounts.ToDictionary(a => a.Id, a => a);
 
-                var certificates = new List<object>();
+                var certificates = new List<DockerPanel.API.Models.Acme.CertificateListItemDto>();
 
                 // 1. 从证书订单集合获取未完成的证书订单
                 _logger.LogInformation("从证书订单集合获取未完成的证书订单");
@@ -482,34 +482,34 @@ namespace DockerPanel.API.Controllers
                         orderStatus = "pending";
                     }
 
-                    return new
+                    return new Models.Acme.CertificateListItemDto
                     {
-                        id = order.Id,
-                        name = order.Domains?.FirstOrDefault() ?? "Unknown",
-                        domain = order.Domains?.FirstOrDefault() ?? "Unknown",
-                        domains = order.Domains ?? new List<string>(),
-                        status = orderStatus,
-                        issuer = "Let's Encrypt",
-                        subject = order.Domains?.FirstOrDefault() ?? "Unknown",
-                        acmeProvider = account?.Provider ?? "letsencrypt",
-                        provider = account?.Provider ?? "letsencrypt",
-                        challengeType = order.Metadata != null && order.Metadata.TryGetValue("challengeType", out var ct) ? ct?.ToString() ?? "http-01" : "http-01",
-                        dnsProvider = order.Metadata != null && order.Metadata.TryGetValue("dnsProvider", out var dp) ? dp?.ToString() : null,
-                        dnsConfigFields = dnsConfigFields,
-                        autoRenew = order.Metadata != null && order.Metadata.TryGetValue("autoRenew", out var ar) && ar is bool b && b,
-                        isAutoRenewal = order.Metadata != null && order.Metadata.TryGetValue("autoRenew", out var ar2) && ar2 is bool b2 && b2,
-                        createdAt = order.CreatedAt,
-                        updatedAt = order.CreatedAt,
-                        issuedAt = order.CompletedAt,
-                        expiresAt = order.ExpiresAt,
-                        daysUntilExpiry = order.ExpiresAt.HasValue ?
+                        Id = order.Id,
+                        Name = order.Domains?.FirstOrDefault() ?? "Unknown",
+                        Domain = order.Domains?.FirstOrDefault() ?? "Unknown",
+                        Domains = order.Domains ?? new List<string>(),
+                        Status = orderStatus,
+                        Issuer = "Let's Encrypt",
+                        Subject = order.Domains?.FirstOrDefault() ?? "Unknown",
+                        AcmeProvider = account?.Provider ?? "letsencrypt",
+                        Provider = account?.Provider ?? "letsencrypt",
+                        ChallengeType = order.Metadata != null && order.Metadata.TryGetValue("challengeType", out var ct) ? ct?.ToString() ?? "http-01" : "http-01",
+                        DnsProvider = order.Metadata != null && order.Metadata.TryGetValue("dnsProvider", out var dp) ? dp?.ToString() : null,
+                        DnsConfigFields = dnsConfigFields,
+                        AutoRenew = order.Metadata != null && order.Metadata.TryGetValue("autoRenew", out var ar) && ar is bool b && b,
+                        IsAutoRenewal = order.Metadata != null && order.Metadata.TryGetValue("autoRenew", out var ar2) && ar2 is bool b2 && b2,
+                        CreatedAt = order.CreatedAt,
+                        UpdatedAt = order.CreatedAt,
+                        IssuedAt = order.CompletedAt,
+                        ExpiresAt = order.ExpiresAt,
+                        DaysUntilExpiry = order.ExpiresAt.HasValue ?
                             (int)((order.ExpiresAt.Value - DateTime.UtcNow).TotalDays) : 0,
-                        serialNumber = string.Empty,
-                        fingerprint = string.Empty,
-                        email = account?.Email,
-                        description = $"Certificate for {string.Join(", ", order.Domains ?? new List<string>())}",
-                        logs = new object[0],
-                        error = order.Error
+                        SerialNumber = string.Empty,
+                        Fingerprint = string.Empty,
+                        Email = account?.Email,
+                        Description = $"Certificate for {string.Join(", ", order.Domains ?? new List<string>())}",
+                        Logs = new List<object>(),
+                        Error = order.Error
                     };
                 }).ToList();
 
@@ -554,33 +554,33 @@ namespace DockerPanel.API.Controllers
                     var dnsCredentials = cert.Metadata != null && cert.Metadata.TryGetValue("dnsCredentials", out var dc) ? dc as Dictionary<string, object> : null;
                     var dnsConfigFields = dnsCredentials?.Keys.ToList() ?? new List<string>();
 
-                    return new
+                    return new Models.Acme.CertificateListItemDto
                     {
-                        id = cert.Id.ToString(),
-                        name = cert.Name,
-                        domain = cert.Domains?.FirstOrDefault() ?? "Unknown",
-                        domains = cert.Domains ?? new List<string>(),
-                        status = certStatus,
-                        issuer = cert.Issuer,
-                        subject = cert.Domains?.FirstOrDefault() ?? "Unknown",
-                        acmeProvider = account?.Provider ?? "letsencrypt",
-                        provider = account?.Provider ?? "letsencrypt",
-                        challengeType = cert.Metadata != null && cert.Metadata.TryGetValue("challengeType", out var ct2) ? ct2?.ToString() ?? "http-01" : "http-01",
-                        dnsProvider = cert.Metadata != null && cert.Metadata.TryGetValue("dnsProvider", out var dp2) ? dp2?.ToString() : null,
-                        dnsConfigFields = dnsConfigFields,
-                        autoRenew = cert.AutoRenewalEnabled,
-                        isAutoRenewal = cert.AutoRenewalEnabled,
-                        createdAt = cert.CreatedAt,
-                        updatedAt = cert.CreatedAt,
-                        issuedAt = cert.IssuedAt,
-                        expiresAt = cert.ExpiresAt,
-                        daysUntilExpiry = daysUntilExpiry,
-                        serialNumber = cert.SerialNumber,
-                        fingerprint = cert.Fingerprint,
-                        email = account?.Email,
-                        description = $"Certificate for {string.Join(", ", cert.Domains ?? new List<string>())}",
-                        logs = new object[0],
-                        error = string.Empty
+                        Id = cert.Id.ToString(),
+                        Name = cert.Name,
+                        Domain = cert.Domains?.FirstOrDefault() ?? "Unknown",
+                        Domains = cert.Domains ?? new List<string>(),
+                        Status = certStatus,
+                        Issuer = cert.Issuer,
+                        Subject = cert.Domains?.FirstOrDefault() ?? "Unknown",
+                        AcmeProvider = account?.Provider ?? "letsencrypt",
+                        Provider = account?.Provider ?? "letsencrypt",
+                        ChallengeType = cert.Metadata != null && cert.Metadata.TryGetValue("challengeType", out var ct2) ? ct2?.ToString() ?? "http-01" : "http-01",
+                        DnsProvider = cert.Metadata != null && cert.Metadata.TryGetValue("dnsProvider", out var dp2) ? dp2?.ToString() : null,
+                        DnsConfigFields = dnsConfigFields,
+                        AutoRenew = cert.AutoRenewalEnabled,
+                        IsAutoRenewal = cert.AutoRenewalEnabled,
+                        CreatedAt = cert.CreatedAt,
+                        UpdatedAt = cert.CreatedAt,
+                        IssuedAt = cert.IssuedAt,
+                        ExpiresAt = cert.ExpiresAt,
+                        DaysUntilExpiry = daysUntilExpiry,
+                        SerialNumber = cert.SerialNumber,
+                        Fingerprint = cert.Fingerprint,
+                        Email = account?.Email,
+                        Description = $"Certificate for {string.Join(", ", cert.Domains ?? new List<string>())}",
+                        Logs = new List<object>(),
+                        Error = string.Empty
                     };
                 });
 
@@ -590,23 +590,21 @@ namespace DockerPanel.API.Controllers
                     certificates.Count, orderCertificates.Count(), finalCertificates.Count());
 
                 // 按创建时间倒序排列
-                certificates = certificates.OrderByDescending(c => ((dynamic)c).createdAt).ToList();
+                certificates = certificates.OrderByDescending(c => c.CreatedAt).ToList();
 
                 // 应用高级过滤
                 if (!string.IsNullOrEmpty(status))
                 {
                     _logger.LogInformation("应用状态过滤: {Status}", status);
-                    certificates = certificates.Where(c => ((dynamic)c).status == status).ToList();
+                    certificates = certificates.Where(c => c.Status == status).ToList();
                 }
 
                 if (!string.IsNullOrEmpty(domain))
                 {
                     _logger.LogInformation("应用域名过滤: {Domain}", domain);
-                    certificates = certificates.Where(c => 
-                    {
-                        var domains = ((dynamic)c).domains as List<string>;
-                        return domains != null && domains.Any(d => d.Contains(domain, StringComparison.OrdinalIgnoreCase));
-                    }).ToList();
+                    certificates = certificates.Where(c =>
+                        c.Domains.Any(d => d.Contains(domain, StringComparison.OrdinalIgnoreCase))
+                    ).ToList();
                 }
 
                 // 应用分页
@@ -1564,9 +1562,7 @@ namespace DockerPanel.API.Controllers
                 debugInfo["allOrderIdsInDb"] = allOrders.Select(o => new {
                     id = o.Id,
                     status = o.Status,
-                    domains = o.Domains,
-                    // 检查数据库中的其他可能字段
-                    _id = o.GetType().GetProperty("_id")?.GetValue(o)?.ToString()
+                    domains = o.Domains
                 }).ToList();
 
                 foreach (var order in orders)
@@ -1900,7 +1896,7 @@ namespace DockerPanel.API.Controllers
                     ProcessDnsCredentialValue(kvp.Value, result, kvp.Key);
 
                     _logger.LogDebug("ConvertDnsCredentialsForSave: 处理键 {Key}，值类型: {ValueType}",
-                        kvp.Key, kvp.Value.GetType().Name);
+                        kvp.Key, kvp.Value.GetType().FullName);
                 }
 
                 _logger.LogInformation("ConvertDnsCredentialsForSave: 转换完成，结果键数量={0}", result.Count);

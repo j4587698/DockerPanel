@@ -50,9 +50,20 @@
             <el-button 
               v-if="config?.hasUpdateAvailable"
               type="warning"
-              :loading="updating"
+              :loading="updating && !showProgress"
               @click="handleOneClickUpdate"
              :icon="Download">{{ t('container.upgrade.oneClick') }}</el-button>
+          </div>
+
+          <!-- 更新/回滚实时进度 -->
+          <div v-if="showProgress" class="progress-area">
+            <PullProgressPanel
+              :progress="pullProgress"
+              :step="pullStep"
+              :detail="pullDetail"
+              :image="pullImage"
+              :indeterminate="pullProgressIndeterminate"
+            />
           </div>
           
           <!-- 回滚功能 -->
@@ -78,7 +89,7 @@
               </el-select>
               <el-button 
                 type="warning" 
-                :loading="rollingBack"
+                :loading="rollingBack && !showProgress"
                 :disabled="!selectedTag"
                 @click="handleRollback"
                :icon="Back">{{ t('container.confirmRollback') }}</el-button>
@@ -207,6 +218,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Search, Download, Setting, Clock, Back } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { formatLocalizedDateTime } from '@/utils/date'
+import PullProgressPanel from '@/components/common/PullProgressPanel.vue'
+import { useImagePullProgress } from '@/composables/useImagePullProgress'
 
 const { t } = useI18n()
 import { 
@@ -231,6 +244,27 @@ const config = ref<ContainerAutoUpdateConfig | null>(null)
 const checking = ref(false)
 const updating = ref(false)
 const saving = ref(false)
+
+// 进度跟踪（复用后端 image-pull-progress 广播）
+const pullTracking = useImagePullProgress(
+  (pullId) => pullId === `update-${props.containerId}` || pullId === `rollback-${props.containerId}`,
+  false
+)
+
+const showProgress = computed(() => updating.value || rollingBack.value)
+const pullProgress = computed(() => Math.max(0, Math.min(100, pullTracking.progress.value)))
+const pullStep = computed(() => pullTracking.step.value)
+const pullDetail = computed(() => {
+  if (pullTracking.detail.value) return pullTracking.detail.value
+  if (updating.value && !pullTracking.hasData.value) return t('container.autoUpdateStatus.pullingInProgress')
+  if (rollingBack.value && !pullTracking.hasData.value) return t('container.autoUpdateStatus.rollingBackInProgress')
+  return ''
+})
+const pullImage = computed(() => pullTracking.imageName.value || props.containerImage)
+const pullProgressIndeterminate = computed(() => {
+  if (!(updating.value || rollingBack.value)) return false
+  return !pullTracking.hasData.value
+})
 
 // 回滚相关
 const availableTags = ref<string[]>([])
@@ -317,6 +351,7 @@ const handleCheckUpdate = async () => {
 // 更新容器
 const handleUpdate = async () => {
   updating.value = true
+  pullTracking.start()
   try {
     const res = await autoUpdateApi.updateContainer(props.containerId, false)
     const result = res as any
@@ -412,6 +447,7 @@ const handleRollback = async () => {
     )
     
     rollingBack.value = true
+    pullTracking.start()
     const res = await autoUpdateApi.rollbackContainer(props.containerId, selectedTag.value)
     const result = res as any
     
@@ -516,6 +552,14 @@ watch(() => props.containerId, () => {
   flex-wrap: wrap;
   padding-top: 16px;
   border-top: 1px solid var(--border-color);
+}
+
+.progress-area {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-subtle);
 }
 
 /* 回滚区域 */

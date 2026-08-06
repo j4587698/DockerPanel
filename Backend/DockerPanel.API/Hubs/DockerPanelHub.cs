@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using DockerPanel.API.Services;
+using DockerPanel.API.Models;
 using System.Collections.Concurrent;
 
 namespace DockerPanel.API.Hubs;
@@ -580,12 +581,13 @@ public class DockerPanelHub : Hub
 
     /// <summary>
     /// 按层聚合镜像拉取进度，避免多个层并发推送导致整体进度来回跳动。
-    /// 整体进度 = 各层完成度平均值；已完成的层记为 100。
+    /// 整体进度 = 各层完成度平均值，且只增不减（单调），保证 UI 进度条不会倒退。
     /// </summary>
     public class ImagePullProgressAggregator
     {
         private readonly Dictionary<string, PullLayerInfo> _layers = new();
         private readonly object _lock = new();
+        private int _lastOverall;
 
         public void Update(string layerId, string status, long current, long total)
         {
@@ -610,7 +612,10 @@ public class DockerPanelHub : Hub
                     if (_layers.Count == 0)
                         return 0;
                     var sum = _layers.Values.Sum(l => l.Total > 0 ? (int)((double)l.Current / l.Total * 100) : (l.Status.Contains("Pull complete", StringComparison.OrdinalIgnoreCase) ? 100 : 0));
-                    return Math.Min(100, sum / _layers.Count);
+                    var computed = Math.Min(100, sum / _layers.Count);
+                    if (computed > _lastOverall)
+                        _lastOverall = computed;
+                    return _lastOverall;
                 }
             }
         }
@@ -625,6 +630,35 @@ public class DockerPanelHub : Hub
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 创建「按层聚合 + 单调递增」的镜像拉取进度广播器。
+    /// 统一所有需要重新拉取镜像的入口（镜像拉取/重建/自动更新/回滚/compose 部署）的进度输出格式，
+    /// 前端订阅 image-pull-progress 即可得到一致的进度表现。
+    /// </summary>
+    public static IProgress<ImagePullProgress> CreatePullProgressBroadcaster(
+        IHubContext<DockerPanelHub> hubContext,
+        string pullId,
+        string imageName)
+    {
+        var aggregator = new ImagePullProgressAggregator();
+        return new Progress<ImagePullProgress>(p =>
+        {
+            var layerId = p.Id ?? "layer";
+            var status = p.Status ?? "";
+            aggregator.Update(layerId, status, p.Current, p.Total);
+
+            var layer = aggregator.Layers.FirstOrDefault(l => l.LayerId == layerId);
+            BroadcastImagePullProgress(
+                hubContext,
+                pullId,
+                imageName,
+                "拉取中",
+                aggregator.OverallProgress,
+                $"{aggregator.Layers.Count} 个层 · {status}",
+                layer).Wait();
+        });
     }
 
     /// <summary>

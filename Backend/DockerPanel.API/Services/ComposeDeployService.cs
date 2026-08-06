@@ -441,7 +441,11 @@ public class ComposeDeployService : IComposeDeployService
             try
             {
                 _logger.LogInformation("拉取镜像: {Image}", image);
-                await _dockerEngine.PullImageAsync(image, null, options.PullProgress);
+
+                // 为每个镜像广播独立的 image-pull-progress（按层聚合、单调递增）
+                var pullId = $"compose-pull-{image.Replace("/", "__").Replace(":", "__")}";
+                var pullProgress = DockerPanelHub.CreatePullProgressBroadcaster(_hubContext, pullId, image);
+                await _dockerEngine.PullImageAsync(image, null, pullProgress);
             }
             catch (Exception ex)
             {

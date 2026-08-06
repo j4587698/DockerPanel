@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DockerPanel.API.Extensions;
 using DockerPanel.API.Models.Acme;
+using DockerPanel.API.Services;
 using TinyDb;
 using TinyDb.Attributes;
 using TinyDb.Bson;
@@ -683,6 +684,9 @@ namespace DockerPanel.API.Services.Acme
                     }
 
                     await RecordOperationAsync(certificateRecord.Id.ToString(), "import", "证书导入成功", true);
+
+                    // 清除 SNI 证书缓存，确保新导入的证书立即生效
+                    SniCertificateSelectorLocator.Instance?.ClearCache();
 
                     var importedCertificate = ConvertToDetails(certificateRecord);
 

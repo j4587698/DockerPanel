@@ -192,10 +192,10 @@ public class SniCertificateSelector
             
             var collection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
             
-            // 查找精确匹配的证书
+            // 查找精确匹配的证书（Status 兼容历史数据的大小写变体: valid/Active/active）
             var record = collection.FindOne(r => 
                 r.Domains.Contains(domain) && 
-                (r.Status == "valid" || r.Status == "Active") &&
+                (r.Status == "valid" || r.Status == "Active" || r.Status == "active") &&
                 r.ExpiresAt > DateTime.UtcNow &&
                 r.CertificateData != null && r.CertificateData != "" &&
                 r.PrivateKeyData != null && r.PrivateKeyData != "");
@@ -228,7 +228,7 @@ public class SniCertificateSelector
             
             // 获取所有有效的通配符证书
             var wildcardRecords = collection.Find(r => 
-                (r.Status == "valid" || r.Status == "Active") &&
+                (r.Status == "valid" || r.Status == "Active" || r.Status == "active") &&
                 r.ExpiresAt > DateTime.UtcNow &&
                 r.CertificateData != null && r.CertificateData != "" &&
                 r.PrivateKeyData != null && r.PrivateKeyData != "" &&
@@ -349,7 +349,7 @@ public class SniCertificateSelector
             
             var collection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
             var records = collection.Find(r => 
-                (r.Status == "valid" || r.Status == "Active") &&
+                (r.Status == "valid" || r.Status == "Active" || r.Status == "active") &&
                 r.ExpiresAt > DateTime.UtcNow &&
                 r.CertificateData != null && r.CertificateData != "" &&
                 r.PrivateKeyData != null && r.PrivateKeyData != "");

@@ -11,6 +11,7 @@ using DnsClient;
 using DockerPanel.API.Data;
 using DockerPanel.API.Models;
 using DockerPanel.API.Models.Acme;
+using DockerPanel.API.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -1340,6 +1341,9 @@ namespace DockerPanel.API.Services.Acme
                 var certificatesCollection = _dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
                 certificatesCollection.Insert(certificateRecord);
                 _certificateCache[certificateInfo.Id] = certificateInfo;
+
+                // 清除 SNI 证书缓存，确保新导入的通配符证书立即生效
+                SniCertificateSelectorLocator.Instance?.ClearCache();
 
                 var result = new WildcardCertificateImportResult
                 {

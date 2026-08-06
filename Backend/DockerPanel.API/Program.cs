@@ -5,6 +5,7 @@ using DockerPanel.API.Serialization;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using Scalar.AspNetCore;
 using Yarp.ReverseProxy.Configuration;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
@@ -59,7 +60,7 @@ builder.Services.Configure<FormOptions>(options =>
 
 // 添加Swagger/OpenAPI支持
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddDockerPanelSwagger();
+builder.Services.AddDockerPanelOpenApi();
 
 // 添加CORS支持
 builder.Services.AddDockerPanelCors(builder.Configuration);
@@ -433,16 +434,9 @@ var app = builder.Build();
 // 配置请求管道
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "DockerPanel API V1");
-        c.RoutePrefix = "swagger";
-        c.DisplayRequestDuration();
-        c.EnableDeepLinking();
-        c.ShowExtensions();
-        c.ShowCommonExtensions();
-    });
+    // 内置 OpenAPI 文档端点 + Scalar UI（AOT 兼容，替代 Swashbuckle）
+    app.MapOpenApi();
+    app.MapScalarApiReference();
 
     // 开发环境允许详细错误页面
     app.UseDeveloperExceptionPage();

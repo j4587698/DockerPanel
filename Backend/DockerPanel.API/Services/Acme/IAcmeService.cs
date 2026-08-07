@@ -146,7 +146,6 @@ namespace DockerPanel.API.Services.Acme
         Task<int> CheckCertificateExpiryAsync(string certificateId);
 
         /// <summary>
-        /// <summary>
         /// 处理由队列投递的 ACME 后台任务
         /// </summary>
         Task ProcessJobAsync(AcmeJobRecord job);

@@ -1010,7 +1010,7 @@ namespace DockerPanel.API.Services.Acme
                     return false;
                 }
 
-                var result = await dnsProviderService.CreateTxtRecordAsync("", recordName, recordValue, credentials);
+                var result = await dnsProviderService.CreateTxtRecordAsync("", recordName, recordValue, credentials?.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value));
 
                 if (result.Success)
                 {

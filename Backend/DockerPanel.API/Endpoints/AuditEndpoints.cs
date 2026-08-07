@@ -23,8 +23,33 @@ namespace DockerPanel.API.Endpoints
             return app;
         }
 
-        private static async Task<Ok<OperationAuditLogPage>> GetLogs([FromQuery] OperationAuditLogFilter filter, IOperationAuditService auditService)
+        private static async Task<Ok<OperationAuditLogPage>> GetLogs(
+            IOperationAuditService auditService,
+            string? search,
+            string? operationType,
+            string? resourceType,
+            string? resourceId,
+            string? status,
+            string? nodeId,
+            DateTime? startDate,
+            DateTime? endDate,
+            int page = 1,
+            int pageSize = 50)
         {
+            var filter = new OperationAuditLogFilter
+            {
+                Search = search,
+                OperationType = operationType,
+                ResourceType = resourceType,
+                ResourceId = resourceId,
+                Status = status,
+                NodeId = nodeId,
+                StartDate = startDate,
+                EndDate = endDate,
+                Page = page,
+                PageSize = pageSize
+            };
+
             var result = await auditService.GetLogsAsync(filter);
             return TypedResults.Ok(result);
         }

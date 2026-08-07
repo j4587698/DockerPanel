@@ -734,6 +734,8 @@ app.MapSettingsEndpoints();
 app.MapTaskEndpoints();
 app.MapAuditEndpoints();
 app.MapAuthEndpoints();
+app.MapTemplateEndpoints();
+app.MapAutoUpdateEndpoints();
 
 // 映射SignalR Hub
 app.MapHub<DockerPanel.API.Hubs.DockerPanelHub>("/dockerpanelHub").RequireAuthorization();

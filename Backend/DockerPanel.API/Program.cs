@@ -2,6 +2,7 @@ using DockerPanel.API.Extensions;
 using DockerPanel.API.Services;
 using DockerPanel.API.Services.Acme;
 using DockerPanel.API.Serialization;
+using DockerPanel.API.Endpoints;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
@@ -53,6 +54,13 @@ builder.Services.AddControllers(options =>
         // 手写转换器接管 Dictionary<string, object>（AOT 下源生成无法直接支持该类型）
         options.JsonSerializerOptions.Converters.Add(new DockerPanel.API.Serialization.DictionaryObjectConverter());
     });
+
+// Minimal API 全局 JSON：源生成上下文（camelCase + 字符串枚举）+ 字典转换器
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.TypeInfoResolver = WebJsonContext.Default;
+    options.SerializerOptions.Converters.Add(new DictionaryObjectConverter());
+});
 
 // 放宽 multipart 表单上传限制（默认仅 128MB，大文件上传会直接断开）
 builder.Services.Configure<FormOptions>(options =>
@@ -708,11 +716,16 @@ app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChal
     }
 
     logger.LogWarning("未找到 Token 对应的挑战数据: {Token}", token);
-    return Results.NotFound(new { error = "挑战文件不存在", token });
+    return Results.NotFound(new DockerPanel.API.Endpoints.ApiErrorResponse
+    {
+        Error = "挑战文件不存在",
+        Message = token
+    });
 });
 
 // 映射控制器
 app.MapControllers();
+        app.MapSettingsEndpoints();
 
 // 映射SignalR Hub
 app.MapHub<DockerPanel.API.Hubs.DockerPanelHub>("/dockerpanelHub").RequireAuthorization();
@@ -736,13 +749,13 @@ var applicationVersion = Assembly.GetExecutingAssembly()
     ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
     ?? "unknown";
 
-app.MapGet("/api/info", (IConfiguration config) => new
+app.MapGet("/api/info", (IConfiguration config) => new DockerPanel.API.Endpoints.SystemInfoResponse
 {
     Application = "DockerPanel API",
     Version = applicationVersion,
     Environment = app.Environment.EnvironmentName,
     Timestamp = DateTime.UtcNow,
-    Configuration = new
+    Configuration = new DockerPanel.API.Endpoints.SystemInfoConfiguration
     {
         Logging = config["Logging:LogLevel:Default"],
         AllowedHosts = config["AllowedHosts"]

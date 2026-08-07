@@ -605,7 +605,11 @@ app.Use(async (context, next) =>
                     ?? "CSRF Protection: Missing X-DockerPanel-Api header";
                 context.Response.StatusCode = 403;
                 context.Response.ContentType = "application/json";
-                await context.Response.WriteAsJsonAsync(new { code = "CSRF_INVALID", message = csrfMessage });
+                await context.Response.WriteAsJsonAsync(new DockerPanel.API.Endpoints.ApiErrorResponse
+                {
+                    Code = "CSRF_INVALID",
+                    Message = csrfMessage
+                });
                 return;
             }
         }
@@ -631,12 +635,13 @@ app.Use(async (context, next) =>
         var errorMessage = localizationService?.GetMessage("error.serverError", "服务器内部错误") ?? "服务器内部错误";
         var defaultMessage = localizationService?.GetMessage("error.contactAdmin", "请联系管理员") ?? "请联系管理员";
 
-        var errorResponse = new
+        var errorResponse = new DockerPanel.API.Endpoints.ApiErrorResponse
         {
-            error = errorMessage,
-            message = app.Environment.IsDevelopment() ? ex.Message : defaultMessage,
-            timestamp = DateTime.UtcNow,
-            path = context.Request.Path
+            Code = "SERVER_ERROR",
+            Error = errorMessage,
+            Message = app.Environment.IsDevelopment() ? ex.Message : defaultMessage,
+            Timestamp = DateTime.UtcNow,
+            Path = context.Request.Path
         };
 
         await context.Response.WriteAsJsonAsync(errorResponse);
@@ -725,7 +730,9 @@ app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChal
 
 // 映射控制器
 app.MapControllers();
-        app.MapSettingsEndpoints();
+app.MapSettingsEndpoints();
+app.MapTaskEndpoints();
+app.MapAuditEndpoints();
 
 // 映射SignalR Hub
 app.MapHub<DockerPanel.API.Hubs.DockerPanelHub>("/dockerpanelHub").RequireAuthorization();

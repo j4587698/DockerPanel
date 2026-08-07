@@ -31,6 +31,17 @@ namespace DockerPanel.API.Serialization
     [JsonSerializable(typeof(DockerPanel.API.Models.CreateUserRequest))]
     [JsonSerializable(typeof(DockerPanel.API.Models.UpdateUserRequest))]
     [JsonSerializable(typeof(DockerPanel.API.Models.ResetUserPasswordRequest))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.ContainerTemplate))]
+    [JsonSerializable(typeof(List<DockerPanel.API.Models.ContainerTemplate>))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.CreateTemplateRequest))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.UpdateTemplateRequest))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.ContainerAutoUpdateConfig))]
+    [JsonSerializable(typeof(List<DockerPanel.API.Models.ContainerAutoUpdateConfig>))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.GlobalAutoUpdateSettings))]
+    [JsonSerializable(typeof(DockerPanel.API.Services.ImageUpdateCheckResult))]
+    [JsonSerializable(typeof(List<DockerPanel.API.Services.ImageUpdateCheckResult>))]
+    [JsonSerializable(typeof(DockerPanel.API.Services.UpdateResult))]
+    [JsonSerializable(typeof(List<string>))]
     public sealed partial class WebJsonContext : JsonSerializerContext
     {
     }

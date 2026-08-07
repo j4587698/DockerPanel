@@ -40,7 +40,7 @@ public class ContainerTemplate
 public class TemplatePortMapping
 {
     public string? HostIp { get; set; }
-    public ushort? HostPort { get; set; }
+    public ushort HostPort { get; set; }
     public ushort ContainerPort { get; set; }
     public string Protocol { get; set; } = "tcp";
 }

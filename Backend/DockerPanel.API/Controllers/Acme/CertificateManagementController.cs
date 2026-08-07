@@ -594,8 +594,6 @@ namespace DockerPanel.API.Controllers.Acme
         /// 下载证书文件
         /// </summary>
         /// <param name="id">证书ID</param>
-        /// <param name="format">导出格式</param>
-        /// <param name="includePrivateKey">是否包含私钥</param>
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns>证书 ZIP 包（包含 cert.pem、privkey.pem、fullchain.pem）</returns>
         [HttpGet("{id}/download")]

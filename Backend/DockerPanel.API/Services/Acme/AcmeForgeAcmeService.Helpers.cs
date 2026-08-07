@@ -712,9 +712,9 @@ namespace DockerPanel.API.Services.Acme
                     {
                         Success = true,
                         Message = "挑战验证成功",
-                        ChallengeType = targetChallenge.Type,
+                        ChallengeType = targetChallenge.Type ?? string.Empty,
                         Status = challengeStatus,
-                        Token = targetChallenge.Token,
+                        Token = targetChallenge.Token ?? string.Empty,
                         ValidatedAt = validatedAt,
                         ErrorType = "success"
                     };
@@ -725,9 +725,9 @@ namespace DockerPanel.API.Services.Acme
                     {
                         Success = false,
                         Message = "挑战验证中，请稍后再次查询",
-                        ChallengeType = targetChallenge.Type,
+                        ChallengeType = targetChallenge.Type ?? string.Empty,
                         Status = challengeStatus,
-                        Token = targetChallenge.Token,
+                        Token = targetChallenge.Token ?? string.Empty,
                         ErrorType = "challenge_pending"
                     };
                 }
@@ -738,9 +738,9 @@ namespace DockerPanel.API.Services.Acme
                     {
                         Success = false,
                         Message = $"挑战验证失败: {errorDetails}",
-                        ChallengeType = targetChallenge.Type,
+                        ChallengeType = targetChallenge.Type ?? string.Empty,
                         Status = challengeStatus,
-                        Token = targetChallenge.Token,
+                        Token = targetChallenge.Token ?? string.Empty,
                         ErrorType = "challenge_failed",
                         ErrorDetails = errorDetails
                     };
@@ -751,9 +751,9 @@ namespace DockerPanel.API.Services.Acme
                     {
                         Success = false,
                         Message = $"未知挑战状态: {challengeStatus}",
-                        ChallengeType = targetChallenge.Type,
+                        ChallengeType = targetChallenge.Type ?? string.Empty,
                         Status = challengeStatus,
-                        Token = targetChallenge.Token,
+                        Token = targetChallenge.Token ?? string.Empty,
                         ErrorType = "unknown_status"
                     };
                 }
@@ -1105,7 +1105,7 @@ namespace DockerPanel.API.Services.Acme
             {
                 _logger.LogInformation("清理DNS记录: {RecordName} = {RecordValue}", recordName, recordValue);
 
-                var deleteResult = await provider.DeleteTxtRecordAsync(domain, recordName, recordValue, dnsCredentials);
+                var deleteResult = await provider.DeleteTxtRecordAsync(domain, recordName, recordValue, dnsCredentials.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value));
                 if (deleteResult.Success)
                 {
                     _logger.LogInformation("DNS记录清理成功: {RecordName}", recordName);

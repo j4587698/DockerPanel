@@ -197,7 +197,7 @@ namespace DockerPanel.API.Services.Acme
                 AcmeForge.Resources.AcmeChallenge challengeResult;
                 try
                 {
-                    challengeResult = await acmeContextFinal.ValidateChallengeAsync(new Uri(targetChallenge.Url));
+                    challengeResult = await acmeContextFinal.ValidateChallengeAsync(new Uri(targetChallenge.Url!));
                 }
                 catch (Exception ex)
                 {
@@ -221,9 +221,9 @@ namespace DockerPanel.API.Services.Acme
                     {
                         Success = true,
                         Message = "挑战验证成功",
-                        ChallengeType = targetChallenge.Type,
+                        ChallengeType = targetChallenge.Type ?? string.Empty,
                         Status = "valid",
-                        Token = targetChallenge.Token,
+                        Token = targetChallenge.Token ?? string.Empty,
                         ValidationUrl = targetChallenge.Url,
                         ValidatedAt = DateTime.UtcNow
                     };
@@ -236,9 +236,9 @@ namespace DockerPanel.API.Services.Acme
                     {
                         Success = false,
                         Message = "挑战验证仍在处理中",
-                        ChallengeType = targetChallenge.Type,
+                        ChallengeType = targetChallenge.Type ?? string.Empty,
                         Status = "pending",
-                        Token = targetChallenge.Token,
+                        Token = targetChallenge.Token ?? string.Empty,
                         ErrorType = "challenge_pending"
                     };
                 }
@@ -251,9 +251,9 @@ namespace DockerPanel.API.Services.Acme
                     {
                         Success = false,
                         Message = $"挑战验证失败: {challengeResult.Error?.Detail}",
-                        ChallengeType = targetChallenge.Type,
+                        ChallengeType = targetChallenge.Type ?? string.Empty,
                         Status = statusString ?? "unknown",
-                        Token = targetChallenge.Token,
+                        Token = targetChallenge.Token ?? string.Empty,
                         ErrorType = "challenge_failed",
                         ErrorDetails = challengeResult.Error?.Detail
                     };

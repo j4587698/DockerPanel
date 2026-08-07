@@ -39,7 +39,7 @@ namespace DockerPanel.API.Serialization
                     throw new JsonException("Unexpected end of JSON");
                 }
 
-                dictionary[propertyName] = ReadValue(ref reader);
+                dictionary[propertyName] = ReadValue(ref reader)!;
             }
 
             return dictionary;

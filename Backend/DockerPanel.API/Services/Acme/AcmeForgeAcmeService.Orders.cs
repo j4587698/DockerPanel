@@ -344,7 +344,7 @@ namespace DockerPanel.API.Services.Acme
                                 $"正在创建DNS TXT记录: {recordName}");
                         }
 
-                        var createResult = await provider.CreateTxtRecordAsync(domain, recordName, recordValue, dnsCredentials);
+                        var createResult = await provider.CreateTxtRecordAsync(domain, recordName, recordValue, dnsCredentials?.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value));
                         if (!createResult.Success)
                         {
                             _logger.LogError("创建DNS TXT记录失败: {Domain}, {Message}", domain, createResult.Message);
@@ -410,7 +410,7 @@ namespace DockerPanel.API.Services.Acme
 
                         _logger.LogInformation("通知ACME服务器验证DNS-01挑战: {Domain}", domain);
                         var challengeResult = await acme.WaitForChallengeValidAsync(
-                            new Uri(dnsChallenge.Url),
+                            new Uri(dnsChallenge.Url!),
                             TimeSpan.FromSeconds(90)); // 30次 * 3秒
 
                         var finalStatus = challengeResult.Status?.ToLowerInvariant();
@@ -440,7 +440,7 @@ namespace DockerPanel.API.Services.Acme
                     {
                         try
                         {
-                            var deleteResult = await provider.DeleteAllTxtRecordsByNameAsync(domain, recordName, dnsCredentials);
+                            var deleteResult = await provider.DeleteAllTxtRecordsByNameAsync(domain, recordName, dnsCredentials?.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value));
                             if (deleteResult.Success)
                             {
                                 _logger.LogInformation("DNS记录清理成功: {RecordName}, {Message}", recordName, deleteResult.Message);
@@ -560,7 +560,7 @@ namespace DockerPanel.API.Services.Acme
                         {
                             try
                             {
-                                await provider.DeleteAllTxtRecordsByNameAsync(domain, recordName, dnsCredentials);
+                                await provider.DeleteAllTxtRecordsByNameAsync(domain, recordName, dnsCredentials?.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value));
                             }
                             catch (Exception cleanupEx)
                             {
@@ -619,7 +619,7 @@ namespace DockerPanel.API.Services.Acme
                 try
                 {
                     var challengeResult = await acme.WaitForChallengeValidAsync(
-                        new Uri(httpChallenge.Url),
+                        new Uri(httpChallenge.Url!),
                         TimeSpan.FromSeconds(180)); // 60次 * 3秒，最多3分钟
                     var currentStatus = challengeResult.Status?.ToLowerInvariant();
 
@@ -764,7 +764,7 @@ namespace DockerPanel.API.Services.Acme
                 try
                 {
                     var challengeResult = await acme.WaitForChallengeValidAsync(
-                        new Uri(tlsAlpnChallenge.Url),
+                        new Uri(tlsAlpnChallenge.Url!),
                         TimeSpan.FromSeconds(180)); // 60次 * 3秒
                     var currentStatus = challengeResult.Status?.ToLowerInvariant();
 

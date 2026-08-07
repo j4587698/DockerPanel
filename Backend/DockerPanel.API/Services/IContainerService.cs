@@ -20,6 +20,7 @@ public interface IContainerService
     /// 根据ID获取容器
     /// </summary>
     /// <param name="id">容器ID</param>
+    /// <param name="nodeId">节点ID</param>
     /// <returns>容器信息</returns>
     Task<ContainerInfo?> GetContainerAsync(string id, string? nodeId = null);
 
@@ -35,6 +36,7 @@ public interface IContainerService
     /// 启动容器
     /// </summary>
     /// <param name="id">容器ID</param>
+    /// <param name="nodeId">节点ID</param>
     Task StartContainerAsync(string id, string? nodeId = null);
 
     /// <summary>
@@ -42,6 +44,7 @@ public interface IContainerService
     /// </summary>
     /// <param name="id">容器ID</param>
     /// <param name="timeout">超时时间</param>
+    /// <param name="nodeId">节点ID</param>
     Task StopContainerAsync(string id, int timeout = 30, string? nodeId = null);
 
     /// <summary>
@@ -49,6 +52,7 @@ public interface IContainerService
     /// </summary>
     /// <param name="id">容器ID</param>
     /// <param name="timeout">超时时间</param>
+    /// <param name="nodeId">节点ID</param>
     Task RestartContainerAsync(string id, int timeout = 30, string? nodeId = null);
 
     /// <summary>
@@ -57,6 +61,7 @@ public interface IContainerService
     /// <param name="id">容器ID</param>
     /// <param name="force">是否强制删除</param>
     /// <param name="removeVolumes">是否删除关联卷</param>
+    /// <param name="nodeId">节点ID</param>
     Task RemoveContainerAsync(string id, bool force = false, bool removeVolumes = false, string? nodeId = null);
 
     /// <summary>
@@ -67,6 +72,7 @@ public interface IContainerService
     /// <param name="until">结束时间</param>
     /// <param name="tail">显示最后N行</param>
     /// <param name="follow">是否跟踪日志</param>
+    /// <param name="nodeId">节点ID</param>
     /// <returns>容器日志</returns>
     Task<ContainerLogs> GetContainerLogsAsync(string id, DateTime? since = null, DateTime? until = null, int tail = 100, bool follow = false, string? nodeId = null);
 
@@ -74,6 +80,7 @@ public interface IContainerService
     /// 获取容器统计信息
     /// </summary>
     /// <param name="id">容器ID</param>
+    /// <param name="nodeId">节点ID</param>
     /// <returns>统计信息</returns>
     Task<ContainerStats> GetContainerStatsAsync(string id, string? nodeId = null);
 
@@ -82,6 +89,7 @@ public interface IContainerService
     /// </summary>
     /// <param name="id">容器ID</param>
     /// <param name="command">执行命令请求</param>
+    /// <param name="nodeId">节点ID</param>
     /// <returns>执行结果</returns>
     Task<ExecResult> ExecuteCommandAsync(string id, ExecCommandRequest command, string? nodeId = null);
 
@@ -186,6 +194,7 @@ public interface IContainerService
     /// </summary>
     /// <param name="id">容器ID</param>
     /// <param name="path">目录路径</param>
+    /// <param name="nodeId">节点ID</param>
     /// <returns>文件列表响应</returns>
     Task<ContainerFileListResponse> GetContainerFilesAsync(string id, string path, string? nodeId = null);
 
@@ -194,6 +203,7 @@ public interface IContainerService
     /// </summary>
     /// <param name="id">容器ID</param>
     /// <param name="path">文件路径</param>
+    /// <param name="nodeId">节点ID</param>
     /// <returns>文件内容</returns>
     Task<byte[]> DownloadContainerFileAsync(string id, string path, string? nodeId = null);
 
@@ -204,6 +214,7 @@ public interface IContainerService
     /// <param name="path">目标目录路径</param>
     /// <param name="fileName">文件名</param>
     /// <param name="content">文件内容</param>
+    /// <param name="nodeId">节点ID</param>
     Task UploadContainerFileAsync(string id, string path, string fileName, byte[] content, string? nodeId = null);
 
     /// <summary>
@@ -212,6 +223,7 @@ public interface IContainerService
     /// <param name="id">容器ID</param>
     /// <param name="path">目录路径</param>
     /// <param name="name">文件夹名称</param>
+    /// <param name="nodeId">节点ID</param>
     Task CreateContainerFolderAsync(string id, string path, string name, string? nodeId = null);
 
     /// <summary>
@@ -221,6 +233,7 @@ public interface IContainerService
     /// <param name="path">文件所在目录</param>
     /// <param name="oldName">原文件名</param>
     /// <param name="newName">新文件名</param>
+    /// <param name="nodeId">节点ID</param>
     Task RenameContainerFileAsync(string id, string path, string oldName, string newName, string? nodeId = null);
 
     /// <summary>
@@ -229,12 +242,14 @@ public interface IContainerService
     /// <param name="id">容器ID</param>
     /// <param name="path">文件路径</param>
     /// <param name="recursive">是否递归删除</param>
+    /// <param name="nodeId">节点ID</param>
     Task DeleteContainerFileAsync(string id, string path, bool recursive = false, string? nodeId = null);
 
     /// <summary>
     /// 获取容器挂载点信息
     /// </summary>
     /// <param name="id">容器ID</param>
+    /// <param name="nodeId">节点ID</param>
     /// <returns>挂载点列表</returns>
     Task<List<ContainerMountInfo>> GetContainerMountsAsync(string id, string? nodeId = null);
 
@@ -243,6 +258,7 @@ public interface IContainerService
     /// </summary>
     /// <param name="id">容器ID</param>
     /// <param name="path">文件路径</param>
+    /// <param name="nodeId">节点ID</param>
     /// <returns>文件内容</returns>
     Task<string> GetContainerFileContentAsync(string id, string path, string? nodeId = null);
 
@@ -252,6 +268,7 @@ public interface IContainerService
     /// <param name="id">容器ID</param>
     /// <param name="path">文件路径</param>
     /// <param name="content">文件内容</param>
+    /// <param name="nodeId">节点ID</param>
     Task WriteContainerFileContentAsync(string id, string path, string content, string? nodeId = null);
 
     /// <summary>
@@ -260,6 +277,7 @@ public interface IContainerService
         /// <param name="id">容器ID</param>
         /// <param name="path">文件路径</param>
         /// <param name="permissions">权限字符串（如 755, 644）</param>
+        /// <param name="nodeId">节点ID</param>
         Task ChangeContainerFilePermissionsAsync(string id, string path, string permissions, string? nodeId = null);
 
         /// <summary>

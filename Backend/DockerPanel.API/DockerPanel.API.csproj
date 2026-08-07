@@ -13,11 +13,10 @@
     <!--
       警告抑制说明：
       1591    - 缺少 XML 注释(不强制每个成员补文档)
-      1711/1712 - TinyDb 源生成器生成的访问器 XML 注释不规范（生成代码不可改）
       SYSLIB1220 - Docker.DotNet 类型上的 JsonConverterAttribute 指向内部转换器，
                     AOT 下无法由反射解析；已验证 fork 自带运行时转换器工作正常
     -->
-    <NoWarn>$(NoWarn);1591;1711;1712;SYSLIB1220</NoWarn>
+    <NoWarn>$(NoWarn);1591;SYSLIB1220</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,7 +33,7 @@
     <PackageReference Include="AcmeForge" Version="0.1.1" />
     <PackageReference Include="DnsClient" Version="1.8.0" />
     <PackageReference Include="Docker.DotNet.Enhanced" Version="4.3.3" />
-    <PackageReference Include="TinyDb" Version="0.6.1" />
+    <PackageReference Include="TinyDb" Version="0.6.2" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />

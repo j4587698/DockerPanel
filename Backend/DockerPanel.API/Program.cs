@@ -725,7 +725,9 @@ app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChal
 
 // 映射控制器
 app.MapControllers();
-        app.MapSettingsEndpoints();
+app.MapSettingsEndpoints();
+app.MapTaskEndpoints();
+app.MapAuditEndpoints();
 
 // 映射SignalR Hub
 app.MapHub<DockerPanel.API.Hubs.DockerPanelHub>("/dockerpanelHub").RequireAuthorization();

@@ -13,6 +13,11 @@ namespace DockerPanel.API.Serialization
     [JsonSerializable(typeof(DockerPanel.API.Endpoints.ApiErrorResponse))]
     [JsonSerializable(typeof(DockerPanel.API.Endpoints.SettingsHealthResponse))]
     [JsonSerializable(typeof(DockerPanel.API.Endpoints.SystemInfoResponse))]
+    [JsonSerializable(typeof(DockerPanel.API.Endpoints.TaskActionResponse))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.OperationAuditLog))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.OperationAuditLogPage))]
+    [JsonSerializable(typeof(DockerPanel.API.Services.BackgroundTask))]
+    [JsonSerializable(typeof(List<DockerPanel.API.Services.BackgroundTask>))]
     public sealed partial class WebJsonContext : JsonSerializerContext
     {
     }

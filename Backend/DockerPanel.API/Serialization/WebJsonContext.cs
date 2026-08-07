@@ -14,10 +14,23 @@ namespace DockerPanel.API.Serialization
     [JsonSerializable(typeof(DockerPanel.API.Endpoints.SettingsHealthResponse))]
     [JsonSerializable(typeof(DockerPanel.API.Endpoints.SystemInfoResponse))]
     [JsonSerializable(typeof(DockerPanel.API.Endpoints.TaskActionResponse))]
+    [JsonSerializable(typeof(DockerPanel.API.Endpoints.MessageResponse))]
     [JsonSerializable(typeof(DockerPanel.API.Models.OperationAuditLog))]
     [JsonSerializable(typeof(DockerPanel.API.Models.OperationAuditLogPage))]
     [JsonSerializable(typeof(DockerPanel.API.Services.BackgroundTask))]
     [JsonSerializable(typeof(List<DockerPanel.API.Services.BackgroundTask>))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.AuthStatusResponse))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.LoginResponse))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.AuthUserDto))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.UserAccountDto))]
+    [JsonSerializable(typeof(IReadOnlyList<DockerPanel.API.Models.UserAccountDto>))]
+    [JsonSerializable(typeof(List<DockerPanel.API.Models.UserAccountDto>))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.SetupAdminRequest))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.LoginRequest))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.ChangePasswordRequest))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.CreateUserRequest))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.UpdateUserRequest))]
+    [JsonSerializable(typeof(DockerPanel.API.Models.ResetUserPasswordRequest))]
     public sealed partial class WebJsonContext : JsonSerializerContext
     {
     }

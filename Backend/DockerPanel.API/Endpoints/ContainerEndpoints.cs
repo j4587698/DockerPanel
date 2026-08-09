@@ -404,7 +404,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> DownloadContainerFile(string id, IContainerService containerService, ILocalizationService localization, ILogger<LoggingTag> logger, string path, string? nodeId = null)
+        private static async Task<IResult> DownloadContainerFile(string id, string path, IContainerService containerService, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null)
         {
             try
             {
@@ -483,7 +483,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> GetContainerFileContent(string id, IContainerService containerService, ILocalizationService localization, ILogger<LoggingTag> logger, string path, string? nodeId = null)
+        private static async Task<IResult> GetContainerFileContent(string id, IContainerService containerService, string path, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null)
         {
             try
             {

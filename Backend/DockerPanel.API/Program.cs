@@ -665,6 +665,11 @@ app.Use(async (context, next) =>
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Minimal API 统一访问策略：未显式声明授权元数据的 /api 端点要求登录（401），
+// 写操作要求 Admin/Operator（403），与 MVC 侧 AuthorizeFilter + RoleWriteAccessFilter 语义一致。
+// 必须放在 UseAuthentication/UseAuthorization 之后才能读取用户身份。
+app.UseMiddleware<ApiAccessPolicyMiddleware>();
+
 // 强制 HTTPS 重定向中间件 (针对 YARP 代理路由)
 app.Use(async (context, next) =>
 {
@@ -697,7 +702,7 @@ app.Use(async (context, next) =>
 // 启用YARP反向代理 - 使用数据库配置的路由
 app.MapReverseProxy();
 
-// 添加直接的ACME挑战端点映射
+// 添加直接的ACME挑战端点映射（ACME CA 服务器调用，必须匿名）
 app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChallengeStore challengeStore, ILogger<Program> logger) =>
 {
     logger.LogInformation("收到 ACME HTTP-01 挑战请求，Token: {Token}", token);
@@ -716,7 +721,7 @@ app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChal
         Error = "挑战文件不存在",
         Message = token
     });
-});
+}).AllowAnonymous();
 
 // 映射控制器
 app.MapControllers();

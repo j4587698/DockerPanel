@@ -3,6 +3,7 @@ using Docker.DotNet;
 using Microsoft.Extensions.DependencyInjection;
 using TinyDb;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using DockerPanel.API.Data;
 using DockerPanel.API.Serialization;
 
@@ -760,13 +761,23 @@ public class ContainerService : IContainerService
         return index >= 0 && index < row.Count ? row[index] : string.Empty;
     }
 
-    private static Dictionary<string, object> ToObjectDictionary(object? value)
+    private static Dictionary<string, object> ToObjectDictionary(Docker.DotNet.Models.ContainerConfig? value) =>
+        ToObjectDictionaryCore(value, DockerPanelJsonContext.Default.ContainerConfig);
+
+    private static Dictionary<string, object> ToObjectDictionary(Docker.DotNet.Models.HostConfig? value) =>
+        ToObjectDictionaryCore(value, DockerPanelJsonContext.Default.HostConfig);
+
+    private static Dictionary<string, object> ToObjectDictionary(Docker.DotNet.Models.NetworkSettings? value) =>
+        ToObjectDictionaryCore(value, DockerPanelJsonContext.Default.NetworkSettings);
+
+    private static Dictionary<string, object> ToObjectDictionaryCore<T>(T? value, JsonTypeInfo<T> typeInfo)
     {
         if (value == null) return new Dictionary<string, object>();
-        // 运行时类型需为 DockerPanelJsonContext 中注册的类型（ContainerInspectResponse 及其嵌套），
-        // 否则在 AOT 下会因缺少元数据抛异常而非走反射序列化。
-        var json = JsonSerializer.Serialize(value, value.GetType(), JsonSerializers.Options);
-        return JsonSerializer.Deserialize<Dictionary<string, object>>(json, JsonSerializers.Options) ?? new Dictionary<string, object>();
+        // 静态 JsonTypeInfo 分派：运行时类型必须是 DockerPanelJsonContext 中注册的类型，
+        // 避免 AOT 下无元数据崩溃；反序列化直接复用 DictionaryObjectConverter（AOT 安全，不经过反射解析器）。
+        var json = JsonSerializer.Serialize(value, typeInfo);
+        var reader = new Utf8JsonReader(System.Text.Encoding.UTF8.GetBytes(json));
+        return DictionaryObjectConverter.ReadInstance(ref reader, JsonSerializers.Options) ?? new Dictionary<string, object>();
     }
 
     private static long? ParseNullableLong(string? value)

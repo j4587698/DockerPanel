@@ -1,6 +1,7 @@
 using System.Reflection;
 using Docker.DotNet;
 using Docker.DotNet.Models;
+using DockerPanel.API.Serialization;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -62,7 +63,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取系统信息失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "获取系统信息失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "获取系统信息失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -307,7 +308,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取系统状态失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "获取系统状态失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "获取系统状态失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -357,7 +358,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取系统性能指标失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "获取系统性能指标失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "获取系统性能指标失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -419,7 +420,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "系统健康检查失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "系统健康检查失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "系统健康检查失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
     }

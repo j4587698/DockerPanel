@@ -17,26 +17,26 @@ public class ProxyRouteConfig
     /// 路由ID
     /// </summary>
     [Required]
-    [MaxLength(256)]
+    [StringLength(256)]
     public string RouteId { get; set; } = string.Empty;
 
     /// <summary>
     /// 域名
     /// </summary>
-    [MaxLength(512)]
+    [StringLength(512)]
     public string Host { get; set; } = string.Empty;
 
     /// <summary>
     /// 路径匹配模式
     /// </summary>
-    [MaxLength(512)]
+    [StringLength(512)]
     public string? PathPattern { get; set; }
 
     /// <summary>
     /// 关联的集群ID
     /// </summary>
     [Required]
-    [MaxLength(256)]
+    [StringLength(256)]
     public string ClusterId { get; set; } = string.Empty;
 
     /// <summary>
@@ -88,13 +88,13 @@ public class ProxyClusterConfig
     /// 集群ID
     /// </summary>
     [Required]
-    [MaxLength(256)]
+    [StringLength(256)]
     public string ClusterId { get; set; } = string.Empty;
 
     /// <summary>
     /// 负载均衡策略
     /// </summary>
-    [MaxLength(64)]
+    [StringLength(64)]
     public string LoadBalancingPolicy { get; set; } = "RoundRobin";
 
     /// <summary>
@@ -120,7 +120,7 @@ public class ProxyClusterConfig
     /// <summary>
     /// 强制使用的 HTTP 版本 (如 "1.1", "2")
     /// </summary>
-    [MaxLength(16)]
+    [StringLength(16)]
     public string? HttpVersion { get; set; }
 
     /// <summary>
@@ -143,14 +143,14 @@ public class ProxyDestinationConfig
     /// 目的地ID
     /// </summary>
     [Required]
-    [MaxLength(256)]
+    [StringLength(256)]
     public string DestinationId { get; set; } = string.Empty;
 
     /// <summary>
     /// 地址 (http://host:port)
     /// </summary>
     [Required]
-    [MaxLength(512)]
+    [StringLength(512)]
     public string Address { get; set; } = string.Empty;
 
     /// <summary>
@@ -177,7 +177,7 @@ public class ProxyHealthCheckConfig
     /// <summary>
     /// 健康检查路径
     /// </summary>
-    [MaxLength(512)]
+    [StringLength(512)]
     public string? ActivePath { get; set; }
 
     /// <summary>
@@ -214,19 +214,19 @@ public class ProxySessionAffinityConfig
     /// <summary>
     /// 亲和性策略
     /// </summary>
-    [MaxLength(64)]
+    [StringLength(64)]
     public string Policy { get; set; } = "Cookie";
 
     /// <summary>
     /// Cookie 名称
     /// </summary>
-    [MaxLength(128)]
+    [StringLength(128)]
     public string? CookieName { get; set; }
 
     /// <summary>
     /// Cookie 路径
     /// </summary>
-    [MaxLength(256)]
+    [StringLength(256)]
     public string? CookiePath { get; set; }
 
     /// <summary>
@@ -237,7 +237,7 @@ public class ProxySessionAffinityConfig
     /// <summary>
     /// Cookie 是否 SameSite
     /// </summary>
-    [MaxLength(32)]
+    [StringLength(32)]
     public string CookieSameSite { get; set; } = "Lax";
 
     /// <summary>
@@ -271,19 +271,19 @@ public class ProxyHeaderTransformConfig
     /// 头名称
     /// </summary>
     [Required]
-    [MaxLength(256)]
+    [StringLength(256)]
     public string HeaderName { get; set; } = string.Empty;
 
     /// <summary>
     /// 操作类型
     /// </summary>
-    [MaxLength(32)]
+    [StringLength(32)]
     public string Action { get; set; } = "Set"; // Set, Remove, Append
 
     /// <summary>
     /// 值（用于 Set/Append）
     /// </summary>
-    [MaxLength(512)]
+    [StringLength(512)]
     public string? Value { get; set; }
 }
 
@@ -300,21 +300,21 @@ public class DomainMapping
     /// 关联的容器ID
     /// </summary>
     [Required]
-    [MaxLength(256)]
+    [StringLength(256)]
     [Index]
     public string ContainerId { get; set; } = string.Empty;
 
     /// <summary>
     /// 关联的容器名称
     /// </summary>
-    [MaxLength(256)]
+    [StringLength(256)]
     public string ContainerName { get; set; } = string.Empty;
 
     /// <summary>
     /// 域名
     /// </summary>
     [Required]
-    [MaxLength(512)]
+    [StringLength(512)]
     [Index]
     public string Domain { get; set; } = string.Empty;
 
@@ -322,7 +322,7 @@ public class DomainMapping
     /// 目标地址 (host:port 或 ip:port)
     /// </summary>
     [Required]
-    [MaxLength(512)]
+    [StringLength(512)]
     public string DestinationAddress { get; set; } = string.Empty;
 
     /// <summary>
@@ -333,13 +333,13 @@ public class DomainMapping
     /// <summary>
     /// 路径前缀
     /// </summary>
-    [MaxLength(512)]
+    [StringLength(512)]
     public string? PathPrefix { get; set; }
 
     /// <summary>
     /// 协议 (http/https)
     /// </summary>
-    [MaxLength(8)]
+    [StringLength(8)]
     public string Protocol { get; set; } = "http";
 
     /// <summary>
@@ -350,13 +350,13 @@ public class DomainMapping
     /// <summary>
     /// SSL证书ID
     /// </summary>
-    [MaxLength(256)]
+    [StringLength(256)]
     public string? CertificateId { get; set; }
 
     /// <summary>
     /// ACME账户ID（用于自动申请证书）
     /// </summary>
-    [MaxLength(256)]
+    [StringLength(256)]
     public string? AccountId { get; set; }
 
     /// <summary>
@@ -387,7 +387,7 @@ public class DomainMapping
     /// <summary>
     /// 强制使用的目标 HTTP 版本 ("1.1", "2")
     /// </summary>
-    [MaxLength(16)]
+    [StringLength(16)]
     public string? HttpVersion { get; set; }
 
     /// <summary>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
+using DockerPanel.API.Serialization;
 using DockerPanel.API.Data;
 using DockerPanel.API.Models;
 using DockerPanel.API.Models.Acme;
@@ -180,7 +181,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取ACME统计信息失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("acme.statsFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("acme.statsFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -194,7 +195,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取ACME提供商列表失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.providersFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.providersFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -208,7 +209,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "测试ACME提供商连接失败: {Provider}", provider);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.testConnectionFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.testConnectionFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -222,7 +223,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取ACME账户列表失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.accountsFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.accountsFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -240,7 +241,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取ACME账户失败: {AccountId}", accountId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.getAccountFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.getAccountFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -254,7 +255,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "创建ACME账户失败: {Email}, {Provider}", request.Email, request.Provider);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.accountCreateFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.accountCreateFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -272,7 +273,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "删除ACME账户失败: {AccountId}", accountId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.accountDeleteFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.accountDeleteFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -349,7 +350,7 @@ namespace DockerPanel.API.Endpoints
                 var order = await acmeService.OrderCertificateAsync(acmeRequest);
                 if (order == null)
                 {
-                    return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("acme.orderCreateFailed") }, statusCode: 500);
+                    return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("acme.orderCreateFailed") }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
                 }
                 return TypedResults.Created($"/api/acme/certificates/orders/{order.Id}", order);
             }
@@ -362,7 +363,7 @@ namespace DockerPanel.API.Endpoints
                     domains.AddRange(request.AlternativeNames);
 
                 logger.LogError(ex, "申请证书失败: {Domains}", string.Join(",", domains));
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.applyCertificateFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.applyCertificateFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -579,7 +580,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取证书列表失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.certificatesFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.certificatesFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -593,7 +594,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取证书订单列表失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.ordersFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.ordersFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -611,7 +612,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取证书订单失败: {OrderId}", orderId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.getOrderFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.getOrderFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -649,7 +650,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "取消证书申请失败: {OrderId}", orderId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.orderCancelFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.orderCancelFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -669,7 +670,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "完成挑战验证失败: OrderId: {OrderId}, AuthId: {AuthId}", orderId, authorizationId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.challengeCompleteFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.challengeCompleteFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -692,7 +693,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "查询挑战状态失败: OrderId={OrderId}, AuthorizationId={AuthorizationId}", orderId, authorizationId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.challengeStatusFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.challengeStatusFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -714,7 +715,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "下载证书失败: {OrderId}", orderId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.downloadFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.downloadFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -806,7 +807,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "下载证书ZIP包失败: {OrderId}", orderId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.downloadFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.downloadFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -892,7 +893,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "下载证书ZIP包失败: {CertificateId}", id);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.downloadFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.downloadFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -906,7 +907,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取待处理挑战失败: {OrderId}", orderId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.pendingChallengesFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.pendingChallengesFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -922,7 +923,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "续期证书失败: {CertificateId}", certificateId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.renewFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.renewFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -960,7 +961,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "启用自动续期失败: {CertificateId}", certificateId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.autoRenewEnableFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.autoRenewEnableFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -998,7 +999,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "禁用自动续期失败: {CertificateId}", certificateId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.autoRenewDisableFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.autoRenewDisableFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1047,7 +1048,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "重试证书申请失败: {CertificateId}", certificateId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.retryFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.retryFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1065,7 +1066,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "撤销证书失败: {CertificateId}", certificateId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.revokeFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.revokeFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1262,7 +1263,7 @@ namespace DockerPanel.API.Endpoints
                     CertificateId = certificateId,
                     DeletedAt = DateTime.UtcNow,
                     Errors = new List<string> { ex.Message }
-                }, statusCode: 500);
+                }, WebJsonContext.Default.CertificateDeletionResult, statusCode: 500);
             }
         }
 
@@ -1276,7 +1277,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取ACME操作日志失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.logsFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.logsFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1290,7 +1291,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "检查证书到期时间失败: {CertificateId}", certificateId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.expiryCheckFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.expiryCheckFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1305,7 +1306,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "自动续期证书失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.autoRenewRunFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.autoRenewRunFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1411,7 +1412,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "修复证书状态失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.fixStatusFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.fixStatusFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1425,7 +1426,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "验证域名所有权失败: {Domain}, Type: {Type}", domain, challengeType);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.domainValidateFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.domainValidateFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1439,7 +1440,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "生成CSR失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.csrGenerateFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.csrGenerateFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1453,7 +1454,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "验证证书失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.certificateValidateFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.certificateValidateFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1467,7 +1468,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取账户密钥信息失败: {AccountId}", accountId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.keyInfoFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.keyInfoFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1481,7 +1482,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "生成密钥对失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.keyGenerateFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.keyGenerateFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1495,7 +1496,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "导出账户密钥失败: {AccountId}", accountId);
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.keyExportFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.keyExportFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1509,7 +1510,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "导入账户密钥失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.keyImportFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.keyImportFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1533,7 +1534,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "处理 ACME 挑战请求失败: {Token}", token);
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("error.serverError") }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("error.serverError") }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1550,7 +1551,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "存储测试挑战失败: {Token}", request.Token);
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("error.serverError") }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("error.serverError") }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -1610,7 +1611,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "批量续期证书失败");
-                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.batchRenewFailed"), Error = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Message = localization.GetMessage("acme.batchRenewFailed"), Error = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 

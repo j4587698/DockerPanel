@@ -1,4 +1,3 @@
-using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using DockerPanel.API.Models;
 using DockerPanel.API.Services;
@@ -9,7 +8,6 @@ namespace DockerPanel.API.Controllers;
 /// Docker Compose管理控制器
 /// </summary>
 [ApiController]
-[ApiVersion("1.0")]
 [Route("api/compose")]
 [Produces("application/json")]
 public class ComposeController : ControllerBase

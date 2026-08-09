@@ -2151,7 +2151,7 @@ namespace DockerPanel.API.Services.Acme
 
         private string FormatCertificateAsJson(WildcardCertificateInfo certificateInfo)
         {
-            return System.Text.Json.JsonSerializer.Serialize(certificateInfo, JsonSerializers.Indented);
+            return System.Text.Json.JsonSerializer.Serialize(certificateInfo, DockerPanel.API.Serialization.DockerPanelJsonContext.Default.WildcardCertificateInfo);
         }
 
         private CertificateValidationResult ValidateImportedCertificate(string certificateData, string format, string? privateKeyData = null)

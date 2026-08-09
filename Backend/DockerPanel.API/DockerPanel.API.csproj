@@ -10,6 +10,11 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- 生成 XML 文档，供内置 OpenAPI 源生成器读取注释生成接口文档 -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- 配置绑定源生成：Configure<T>(IConfiguration)/Get<T> 生成 AOT 安全绑定代码 -->
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+    <!-- 请求委托生成器：编译期把 Map* 路由处理器编译为 RequestDelegate，
+         消除 IL2026/IL3050 并提前暴露 AOT 不兼容的处理器模式（RDG 诊断） -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <!--
       警告抑制说明：
       1591    - 缺少 XML 注释(不强制每个成员补文档)
@@ -28,8 +33,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Asp.Versioning.Mvc" Version="10.0.0" />
-    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.0.0" />
     <PackageReference Include="AcmeForge" Version="0.1.1" />
     <PackageReference Include="DnsClient" Version="1.8.0" />
     <PackageReference Include="Docker.DotNet.Enhanced" Version="4.3.3" />

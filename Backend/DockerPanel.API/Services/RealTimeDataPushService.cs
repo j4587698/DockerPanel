@@ -203,7 +203,7 @@ public class RealTimeDataPushService : IHostedService
             long networkRxSnapshot = 0;
             long networkTxSnapshot = 0;
             
-            var containerStatsList = new List<object>();
+            var containerStatsList = new List<Hubs.ContainerStatsPushMessage>();
 
             // 串行获取容器统计（避免并行给 Docker daemon 造成压力）
             foreach (var container in runningContainers)
@@ -228,41 +228,41 @@ public class RealTimeDataPushService : IHostedService
                     totalMemUsed += containerMemory;
 
                     // 网络统计列表
-                    var networkList = new List<object>();
+                    var networkList = new List<Hubs.ContainerStatsPushNetworkItem>();
                     if (stats.Networks != null)
                     {
                         foreach (var network in stats.Networks)
                         {
                             networkRxSnapshot += network.RxBytes;
                             networkTxSnapshot += network.TxBytes;
-                            networkList.Add(new
+                            networkList.Add(new Hubs.ContainerStatsPushNetworkItem
                             {
-                                name = network.Name,
-                                rxBytes = network.RxBytes,
-                                txBytes = network.TxBytes,
-                                rxPackets = network.RxPackets,
-                                txPackets = network.TxPackets
+                                Name = network.Name,
+                                RxBytes = network.RxBytes,
+                                TxBytes = network.TxBytes,
+                                RxPackets = network.RxPackets,
+                                TxPackets = network.TxPackets
                             });
                         }
                     }
 
-                    containerStatsList.Add(new
+                    containerStatsList.Add(new Hubs.ContainerStatsPushMessage
                     {
-                        containerId = container.ID,
-                        name = container.Names?.FirstOrDefault()?.TrimStart('/') ?? "unknown",
-                        cpuStats = new
+                        ContainerId = container.ID,
+                        Name = container.Names?.FirstOrDefault()?.TrimStart('/') ?? "unknown",
+                        CpuStats = new Hubs.ContainerStatsPushCpu
                         {
-                            percentCpu = Math.Round(containerCpu, 2),
-                            cpuUsage = stats.CpuStats?.CpuUsage ?? 0,
-                            systemUsage = stats.CpuStats?.SystemUsage ?? 0
+                            PercentCpu = Math.Round(containerCpu, 2),
+                            CpuUsage = stats.CpuStats?.CpuUsage ?? 0,
+                            SystemUsage = stats.CpuStats?.SystemUsage ?? 0
                         },
-                        memoryStats = new
+                        MemoryStats = new Hubs.ContainerStatsPushMemory
                         {
-                            usage = containerMemory,
-                            limit = stats.MemoryStats?.Limit ?? 0,
-                            percentMemory = stats.MemoryStats?.PercentMemory ?? 0
+                            Usage = stats.MemoryStats?.Usage ?? 0,
+                            Limit = stats.MemoryStats?.Limit ?? 0,
+                            PercentMemory = stats.MemoryStats?.PercentMemory ?? 0
                         },
-                        networks = networkList
+                        Networks = networkList
                     });
                 }
                 catch (Exception ex)
@@ -277,31 +277,31 @@ public class RealTimeDataPushService : IHostedService
             var (rxSpeed, txSpeed) = CalculateNetworkSpeed(networkRxSnapshot, networkTxSnapshot);
 
             // 推送系统统计
-            var systemStats = new
+            var systemStats = new Hubs.DockerStatsPushMessage
             {
-                Docker = new
+                Docker = new Hubs.DockerStatsPushDocker
                 {
                     Status = "running",
                     NCPU = _systemNCpu
                 },
-                Containers = new
+                Containers = new Hubs.DockerStatsPushContainers
                 {
                     Running = runningContainers.Count,
                     Stopped = containers.Count - runningContainers.Count,
                     Total = containers.Count
                 },
-                Resources = new
+                Resources = new Hubs.DockerStatsPushResources
                 {
                     CpuUsagePercent = Math.Round(SafeDouble(totalCpuPercent), 2),
                     MemoryUsed = totalMemUsed,
                     MemoryLimit = _systemMemTotal,
-                    MemoryPercent = _systemMemTotal > 0 
-                        ? Math.Round(SafeDouble((double)totalMemUsed / _systemMemTotal * 100), 2) 
+                    MemoryPercent = _systemMemTotal > 0
+                        ? Math.Round(SafeDouble((double)totalMemUsed / _systemMemTotal * 100), 2)
                         : 0,
                     MemoryUsedFormatted = FormatBytes(totalMemUsed),
                     MemoryLimitFormatted = FormatBytes(_systemMemTotal)
                 },
-                Network = new
+                Network = new Hubs.DockerStatsPushNetwork
                 {
                     RxBytesPerSec = rxSpeed,
                     TxBytesPerSec = txSpeed,
@@ -354,11 +354,11 @@ public class RealTimeDataPushService : IHostedService
 
     private async Task PushEmptyStats(int totalContainers)
     {
-        var systemStats = new
+        var systemStats = new Hubs.DockerStatsPushMessage
         {
-            Docker = new { Status = "running", NCPU = _systemNCpu },
-            Containers = new { Running = 0, Stopped = totalContainers, Total = totalContainers },
-            Resources = new
+            Docker = new Hubs.DockerStatsPushDocker { Status = "running", NCPU = _systemNCpu },
+            Containers = new Hubs.DockerStatsPushContainers { Running = 0, Stopped = totalContainers, Total = totalContainers },
+            Resources = new Hubs.DockerStatsPushResources
             {
                 CpuUsagePercent = 0.0,
                 MemoryUsed = 0L,
@@ -367,7 +367,7 @@ public class RealTimeDataPushService : IHostedService
                 MemoryUsedFormatted = "0 B",
                 MemoryLimitFormatted = FormatBytes(_systemMemTotal)
             },
-            Network = new
+            Network = new Hubs.DockerStatsPushNetwork
             {
                 RxBytesPerSec = 0L,
                 TxBytesPerSec = 0L,

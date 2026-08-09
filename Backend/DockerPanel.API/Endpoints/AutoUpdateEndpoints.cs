@@ -1,4 +1,5 @@
 using DockerPanel.API.Models;
+using DockerPanel.API.Serialization;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -42,7 +43,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取自动升级配置失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.getConfigFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.getConfigFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -69,7 +70,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取容器 {ContainerId} 的自动升级配置失败", containerId);
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.getContainerConfigFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.getContainerConfigFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -83,7 +84,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "设置容器 {ContainerId} 的自动升级配置失败", containerId);
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.setContainerConfigFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.setContainerConfigFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -97,7 +98,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "删除容器 {ContainerId} 的自动升级配置失败", containerId);
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.deleteContainerConfigFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.deleteContainerConfigFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -111,7 +112,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "检查容器 {ContainerId} 的镜像更新失败", containerId);
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.checkFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.checkFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -125,7 +126,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "检查所有容器更新失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.checkAllFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.checkAllFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -139,7 +140,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取可用更新列表失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.availableUpdatesFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.availableUpdatesFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -153,7 +154,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "更新容器 {ContainerId} 失败", containerId);
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.updateFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.updateFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -167,7 +168,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取全局设置失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.getGlobalSettingsFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.getGlobalSettingsFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -181,7 +182,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "设置全局设置失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.setGlobalSettingsFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.setGlobalSettingsFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -195,7 +196,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取镜像标签失败: {ImageName}", imageName);
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.imageTagsFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.imageTagsFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -214,7 +215,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "回滚容器 {ContainerId} 失败", containerId);
-                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.rollbackFailed"), Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("autoUpdate.rollbackFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
     }

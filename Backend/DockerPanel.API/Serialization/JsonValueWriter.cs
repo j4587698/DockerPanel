@@ -119,7 +119,20 @@ namespace DockerPanel.API.Serialization
                     writer.WriteEndArray();
                     break;
                 default:
-                    JsonSerializer.Serialize(writer, value, value.GetType(), options);
+                    // 优先走源生成上下文（AOT 安全）；非 AOT 回退到 options 的反射解析
+                    var typeInfo = DockerPanelJsonContext.Default.GetTypeInfo(value.GetType());
+                    if (typeInfo != null)
+                    {
+                        JsonSerializer.Serialize(writer, value, typeInfo);
+                    }
+                    else if (System.Runtime.CompilerServices.RuntimeFeature.IsDynamicCodeSupported)
+                    {
+                        DockerPanel.API.Extensions.AotSafeHelpers.SerializeDynamicValue(writer, value, options);
+                    }
+                    else
+                    {
+                        throw new JsonException($"类型 {value.GetType()} 未注册到 DockerPanelJsonContext，NativeAOT 下无法序列化");
+                    }
                     break;
             }
         }

@@ -569,9 +569,9 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 ? $"https://auth.docker.io/token?service=registry.docker.io&scope=repository:{name}:pull"
                 : $"https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/{name}:pull";
             
-            var tokenResponse = await _httpClient.GetFromJsonAsync<DockerAuthToken>(tokenUrl);
+            var tokenResponse = await FetchDockerAuthTokenAsync(tokenUrl);
             if (tokenResponse?.Token == null) return null;
-            
+
             // 获取 manifest
             var manifestUrl = name.Contains('/')
                 ? $"https://registry.hub.docker.com/v2/{name}/manifests/{tag}"
@@ -597,6 +597,16 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             _logger.LogWarning(ex, "直连 Docker Hub 获取镜像摘要失败");
             return null;
         }
+    }
+
+    /// <summary>
+    /// 获取 Docker Hub 认证 Token（源生成上下文 + 大小写不敏感，AOT 兼容）。
+    /// </summary>
+    private async Task<DockerAuthToken?> FetchDockerAuthTokenAsync(string tokenUrl)
+    {
+        var content = await _httpClient.GetStringAsync(tokenUrl);
+        return JsonSerializer.Deserialize<DockerAuthToken>(content,
+            Serialization.DockerHubJsonContext.Default.DockerAuthToken);
     }
 
     /// <summary>
@@ -663,7 +673,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                     ? $"https://auth.docker.io/token?service=registry.docker.io&scope=repository:{name}:pull"
                     : $"https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/{name}:pull";
                 
-                var tokenResponse = await _httpClient.GetFromJsonAsync<DockerAuthToken>(tokenUrl);
+                var tokenResponse = await FetchDockerAuthTokenAsync(tokenUrl);
                 if (tokenResponse?.Token == null) return new List<string>();
                 
                 // 获取标签列表
@@ -678,7 +688,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var tagsResult = JsonSerializer.Deserialize<DockerTagsResponse>(content, JsonSerializers.Options);
+                    var tagsResult = JsonSerializer.Deserialize<DockerTagsResponse>(content, Serialization.DockerHubJsonContext.Default.DockerTagsResponse);
                     return tagsResult?.Tags?.OrderByDescending(t => t).ToList() ?? new List<string>();
                 }
             }
@@ -690,7 +700,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var tagsResult = JsonSerializer.Deserialize<DockerTagsResponse>(content, JsonSerializers.Options);
+                    var tagsResult = JsonSerializer.Deserialize<DockerTagsResponse>(content, Serialization.DockerHubJsonContext.Default.DockerTagsResponse);
                     return tagsResult?.Tags?.OrderByDescending(t => t).ToList() ?? new List<string>();
                 }
             }

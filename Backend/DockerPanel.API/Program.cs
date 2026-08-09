@@ -733,6 +733,8 @@ app.MapContainerEndpoints();
 app.MapVolumeEndpoints();
 app.MapNetworkEndpoints();
 app.MapImageEndpoints();
+app.MapComposeEndpoints();
+app.MapProxyEndpoints();
 
 // 映射SignalR Hub
 app.MapHub<DockerPanel.API.Hubs.DockerPanelHub>("/dockerpanelHub").RequireAuthorization();

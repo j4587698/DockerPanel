@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -21,8 +21,6 @@ namespace DockerPanel.API.Endpoints
         public sealed class LoggingTag
         {
         }
-
-        private static readonly JsonSerializerOptions JsonOptions = JsonSerializers.Indented;
 
         public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder app)
         {
@@ -93,7 +91,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "健康检查失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "健康检查失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "健康检查失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -107,7 +105,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取公开系统设置失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "获取公开系统设置失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "获取公开系统设置失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -122,7 +120,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取系统设置失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "获取系统设置失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "获取系统设置失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -147,7 +145,7 @@ namespace DockerPanel.API.Endpoints
                 var updated = await settingsService.UpdateSettingsAsync(settingsValue);
                 if (!updated)
                 {
-                    return TypedResults.Json(new ApiErrorResponse { Message = "系统设置保存失败" }, statusCode: 500);
+                    return TypedResults.Json(new ApiErrorResponse { Message = "系统设置保存失败" }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
                 }
 
                 return TypedResults.Ok(ToDto(settingsValue));
@@ -155,7 +153,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "更新系统设置失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "更新系统设置失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "更新系统设置失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -168,7 +166,7 @@ namespace DockerPanel.API.Endpoints
                 var reset = await settingsService.ResetSettingsAsync();
                 if (!reset)
                 {
-                    return TypedResults.Json(new ApiErrorResponse { Message = "系统设置重置失败" }, statusCode: 500);
+                    return TypedResults.Json(new ApiErrorResponse { Message = "系统设置重置失败" }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
                 }
 
                 var settingsValue = await settingsService.GetSettingsAsync();
@@ -177,7 +175,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "重置系统设置失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "重置系统设置失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "重置系统设置失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -188,7 +186,7 @@ namespace DockerPanel.API.Endpoints
                 logger.LogInformation("导出系统设置");
 
                 var settingsValue = await settingsService.GetSettingsAsync();
-                var json = JsonSerializer.Serialize(ToDto(settingsValue), JsonOptions);
+                var json = JsonSerializer.Serialize(ToDto(settingsValue), WebJsonContext.Default.SystemSettingsDto);
                 var bytes = Encoding.UTF8.GetBytes(json);
                 var fileName = $"dockerpanel-settings-{DateTime.UtcNow:yyyyMMddHHmmss}.json";
                 return Results.File(bytes, "application/json", fileName);
@@ -196,7 +194,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "导出系统设置失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "导出系统设置失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "导出系统设置失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -212,7 +210,7 @@ namespace DockerPanel.API.Endpoints
                 }
 
                 await using var stream = file.OpenReadStream();
-                var imported = await JsonSerializer.DeserializeAsync<SystemSettingsDto>(stream, JsonOptions);
+                var imported = await JsonSerializer.DeserializeAsync(stream, WebJsonContext.Default.SystemSettingsDto);
                 if (imported == null)
                 {
                     return TypedResults.BadRequest(new ApiErrorResponse { Message = "设置文件格式无效" });
@@ -236,7 +234,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "导入系统设置失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "导入系统设置失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "导入系统设置失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 

@@ -216,7 +216,7 @@ namespace DockerPanel.API.Services.Acme
                 {
                     OrderId = order.Id,
                     ProgressId = progressId
-                });
+                }, DockerPanel.API.Serialization.DockerPanelJsonContext.Default.AutoValidationJobPayload);
             }
             catch (Exception ex)
             {

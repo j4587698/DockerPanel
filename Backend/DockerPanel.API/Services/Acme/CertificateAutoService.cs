@@ -1115,7 +1115,7 @@ namespace DockerPanel.API.Services.Acme
                     await jobQueue.EnqueueAsync("AutoRenewal", new AutoRenewalJobPayload
                     {
                         CertificateId = certificate.CertificateId
-                    });
+                    }, DockerPanel.API.Serialization.DockerPanelJsonContext.Default.AutoRenewalJobPayload);
                 }
             }
             catch (Exception ex)

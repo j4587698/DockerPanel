@@ -56,7 +56,13 @@ namespace DockerPanel.API.Serialization
             JsonValueWriter.WriteDictionary(writer, value, options);
         }
 
-        private static object? ReadValue(ref Utf8JsonReader reader)
+        /// <summary>
+    /// 直接复用转换器完成 Dictionary&lt;string, object&gt; 反序列化，绕过解析器查找，AOT 安全。
+    /// </summary>
+    internal static Dictionary<string, object>? ReadInstance(ref Utf8JsonReader reader, JsonSerializerOptions options)
+        => new DictionaryObjectConverter().Read(ref reader, typeof(Dictionary<string, object>), options);
+
+    private static object? ReadValue(ref Utf8JsonReader reader)
         {
             switch (reader.TokenType)
             {

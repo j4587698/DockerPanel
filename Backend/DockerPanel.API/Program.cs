@@ -8,9 +8,9 @@ using Serilog.Core;
 using Serilog.Events;
 using Scalar.AspNetCore;
 using Yarp.ReverseProxy.Configuration;
-using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Http.Json;
 using System.Net.Security;
 using System.Security.Authentication;
@@ -49,16 +49,19 @@ builder.Services.AddControllers(options =>
     })
     .AddJsonOptions(options =>
     {
-        // 将枚举序列化为字符串而不是整数值
+        // 将枚举序列化为字符串而不是整数值（MVC 即将随控制器迁移移除）
+#pragma warning disable IL3050 // JsonStringEnumConverter 无法静态分析；AOT 下 MVC 不存在
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+#pragma warning restore IL3050
         // 手写转换器接管 Dictionary<string, object>（AOT 下源生成无法直接支持该类型）
         options.JsonSerializerOptions.Converters.Add(new DockerPanel.API.Serialization.DictionaryObjectConverter());
     });
 
-// Minimal API 全局 JSON：源生成上下文（camelCase + 字符串枚举）+ 字典转换器
+// Minimal API 全局 JSON：源生成上下文（camelCase + 字符串枚举）+ 字典转换器。
+// 非 AOT 模式下叠加反射兜底，未注册类型仍可工作（逐步收敛注册列表）；AOT 下仅使用源生成上下文。
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
-    options.SerializerOptions.TypeInfoResolver = WebJsonContext.Default;
+    options.SerializerOptions.TypeInfoResolver = DockerPanel.API.Extensions.AotSafeHelpers.CreateDualModeResolver(WebJsonContext.Default);
     options.SerializerOptions.Converters.Add(new DictionaryObjectConverter());
 });
 
@@ -74,9 +77,6 @@ builder.Services.AddDockerPanelOpenApi();
 
 // 添加CORS支持
 builder.Services.AddDockerPanelCors(builder.Configuration);
-
-// 添加API版本控制
-builder.Services.AddDockerPanelApiVersioning();
 
 // 添加TinyDB数据库
 builder.Services.AddTinyDb(builder.Configuration);
@@ -382,12 +382,12 @@ builder.WebHost.ConfigureKestrel((context, options) =>
     options.Limits.MinRequestBodyDataRate = null;
 
     // HTTP 端口（始终启用）
-    var httpPort = context.Configuration.GetValue("HTTP_PORT", 80);
+    var httpPort = context.Configuration.GetInt("HTTP_PORT", 80);
     options.ListenAnyIP(httpPort);
     
     // HTTPS 端口（默认启用）
-    var httpsPort = context.Configuration.GetValue("HTTPS_PORT", 443);
-    var enableHttps = context.Configuration.GetValue("ENABLE_HTTPS", true);
+    var httpsPort = context.Configuration.GetInt("HTTPS_PORT", 443);
+    var enableHttps = context.Configuration.GetBool("ENABLE_HTTPS", true);
     
     if (enableHttps)
     {
@@ -424,20 +424,10 @@ builder.WebHost.ConfigureKestrel((context, options) =>
     }
 });
 
-// API versioning is not enabled because current routes are unversioned and YARP proxy endpoints share the same pipeline.
-// var apiVersioningBuilder = builder.Services.AddApiVersioning(options =>
-// {
-//     options.DefaultApiVersion = new Asp.Versioning.ApiVersion(1, 0);
-//     options.AssumeDefaultVersionWhenUnspecified = true;
-//     options.ReportApiVersions = true;
-// });
-
-// apiVersioningBuilder.AddApiExplorer(options =>
-// {
-//     options.GroupNameFormat = "'v'VVV";
-//     options.SubstituteApiVersionInUrl = true;
-// });
-
+// API versioning 已移除：当前路由均无版本号，YARP 代理端点与业务路由共用同一管线，
+// Asp.Versioning.Mvc 依赖 MVC 无法通过 AOT 兼容性分析。
+// （原 AddApiVersioning/AddApiExplorer 调用位于 ServiceCollectionExtensions.AddDockerPanelApiVersioning，
+//   该方法已随包引用一并删除。）
 
 var app = builder.Build();
 
@@ -609,7 +599,7 @@ app.Use(async (context, next) =>
                 {
                     Code = "CSRF_INVALID",
                     Message = csrfMessage
-                });
+                }, WebJsonContext.Default.ApiErrorResponse);
                 return;
             }
         }
@@ -644,7 +634,7 @@ app.Use(async (context, next) =>
             Path = context.Request.Path
         };
 
-        await context.Response.WriteAsJsonAsync(errorResponse);
+        await context.Response.WriteAsJsonAsync(errorResponse, WebJsonContext.Default.ApiErrorResponse);
     }
 });
 
@@ -689,7 +679,7 @@ app.Use(async (context, next) =>
             if (routeModel.Config.Metadata?.TryGetValue("ForceHttps", out var forceHttps) == true && 
                 forceHttps == "true")
             {
-                var httpsPort = context.RequestServices.GetRequiredService<IConfiguration>().GetValue("HTTPS_PORT", 443);
+                var httpsPort = context.RequestServices.GetRequiredService<IConfiguration>().GetInt("HTTPS_PORT", 443);
                 var host = context.Request.Host;
                 if (httpsPort != 443)
                 {

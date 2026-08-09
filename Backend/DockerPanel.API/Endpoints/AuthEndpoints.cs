@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using DockerPanel.API.Models;
+using DockerPanel.API.Serialization;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -75,7 +76,7 @@ namespace DockerPanel.API.Endpoints
         {
             if (!httpContext.Request.Cookies.TryGetValue("refresh_token", out var refreshToken))
             {
-                return TypedResults.Json(new ApiErrorResponse { Code = "REFRESH_INVALID", Message = "未找到刷新凭证。" }, statusCode: 401);
+                return TypedResults.Json(new ApiErrorResponse { Code = "REFRESH_INVALID", Message = "未找到刷新凭证。" }, WebJsonContext.Default.ApiErrorResponse, statusCode: 401);
             }
 
             var result = await authService.RefreshTokenAsync(
@@ -175,7 +176,7 @@ namespace DockerPanel.API.Endpoints
         /// </summary>
         private static IResult Fail<T>(AuthServiceResult<T> result)
         {
-            return TypedResults.Json(new ApiErrorResponse { Code = result.Code, Message = result.Message }, statusCode: result.StatusCode);
+            return TypedResults.Json(new ApiErrorResponse { Code = result.Code, Message = result.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: result.StatusCode);
         }
 
         private static void SetAuthCookies(HttpResponse response, LoginResponse data)

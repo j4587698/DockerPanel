@@ -22,12 +22,12 @@ namespace DockerPanel.API.Services.Acme
             _logger = logger;
         }
 
-        public async Task<string> EnqueueAsync<T>(string jobType, T payload)
+        public async Task<string> EnqueueAsync<T>(string jobType, T payload, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo)
         {
             var job = new AcmeJobRecord
             {
                 JobType = jobType,
-                Payload = JsonSerializer.Serialize(payload, JsonSerializers.Options),
+                Payload = JsonSerializer.Serialize(payload, typeInfo),
                 Status = "Pending",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow

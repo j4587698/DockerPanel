@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Text.Json.Serialization.Metadata;
 using TinyDb;
 using TinyDb.Core;
 using DockerPanel.API.Data;
@@ -102,28 +103,6 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// 添加API版本控制
-    /// </summary>
-    public static IServiceCollection AddDockerPanelApiVersioning(this IServiceCollection services)
-    {
-        services.AddApiVersioning(options =>
-        {
-            options.DefaultApiVersion = new Asp.Versioning.ApiVersion(1, 0);
-            options.AssumeDefaultVersionWhenUnspecified = true;
-            options.ApiVersionReader = Asp.Versioning.ApiVersionReader.Combine(
-                new Asp.Versioning.UrlSegmentApiVersionReader(),
-                new Asp.Versioning.QueryStringApiVersionReader("api-version"),
-                new Asp.Versioning.HeaderApiVersionReader("X-Version"));
-        }).AddApiExplorer(options =>
-        {
-            options.GroupNameFormat = "'v'VVV";
-            options.SubstituteApiVersionInUrl = true;
-        });
-
-        return services;
-    }
-
-    /// <summary>
     /// 添加 OpenAPI 文档生成（内置源生成器，AOT 兼容，替代 Swashbuckle）
     /// </summary>
     public static IServiceCollection AddDockerPanelOpenApi(this IServiceCollection services)
@@ -186,7 +165,8 @@ public static class ServiceCollectionExtensions
         {
             // 使用源生成的 JsonSerializerContext 替代运行反射，保证 AOT 兼容
             // camelCase 命名约定与前端 JavaScript 保持一致（由 JsonSourceGenerationOptions 保证）
-            options.PayloadSerializerOptions.TypeInfoResolver = Serialization.DockerPanelSignalRJsonContext.Default;
+            // 非 AOT 模式下叠加反射兜底，避免漏注册类型导致运行时静默失败；AOT 下仅使用源生成上下文
+            options.PayloadSerializerOptions.TypeInfoResolver = AotSafeHelpers.CreateDualModeResolver(Serialization.DockerPanelSignalRJsonContext.Default);
             // 兜底处理载荷中可能出现的 Dictionary<string, object>（源生成不支持的手写转换器）
             options.PayloadSerializerOptions.Converters.Add(new Serialization.DictionaryObjectConverter());
         });

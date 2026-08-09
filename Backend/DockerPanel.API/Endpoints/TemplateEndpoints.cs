@@ -1,3 +1,4 @@
+using DockerPanel.API.Serialization;
 using DockerPanel.API.Data;
 using DockerPanel.API.Models;
 using DockerPanel.API.Services;
@@ -46,7 +47,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取模板列表失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "获取模板列表失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "获取模板列表失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -65,7 +66,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "获取模板失败: {Id}", id);
-                return TypedResults.Json(new ApiErrorResponse { Error = "获取模板失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "获取模板失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -101,7 +102,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "创建模板失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "创建模板失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "创建模板失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -138,7 +139,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "更新模板失败: {Id}", id);
-                return TypedResults.Json(new ApiErrorResponse { Error = "更新模板失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "更新模板失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -159,7 +160,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "删除模板失败: {Id}", id);
-                return TypedResults.Json(new ApiErrorResponse { Error = "删除模板失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "删除模板失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -222,7 +223,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "复制模板失败: {Id}", id);
-                return TypedResults.Json(new ApiErrorResponse { Error = "复制模板失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "复制模板失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -241,7 +242,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "导出模板失败: {Id}", id);
-                return TypedResults.Json(new ApiErrorResponse { Error = "导出模板失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "导出模板失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
 
@@ -261,7 +262,7 @@ namespace DockerPanel.API.Endpoints
             catch (Exception ex)
             {
                 logger.LogError(ex, "导入模板失败");
-                return TypedResults.Json(new ApiErrorResponse { Error = "导入模板失败", Message = ex.Message }, statusCode: 500);
+                return TypedResults.Json(new ApiErrorResponse { Error = "导入模板失败", Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
             }
         }
     }

@@ -1,4 +1,5 @@
-﻿using TinyDb;
+﻿using System.Diagnostics.CodeAnalysis;
+using TinyDb;
 using TinyDb.Attributes;
 using TinyDb.Collections;
 using TinyDb.Core;
@@ -23,7 +24,7 @@ public class TinyDbContext : IDisposable
     /// <summary>
     /// 获取集合
     /// </summary>
-    public ITinyCollection<T> GetCollection<T>(string? collectionName = null) where T : class, new()
+    public ITinyCollection<T> GetCollection<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(string? collectionName = null) where T : class, new()
     {
         // TinyDb 0.4.x 在首次创建集合元数据/索引时并发访问可能触发系统目录重复写入。
         // 统一串行化集合解析，避免后台服务同时启动时损坏 __sys_catalog 或索引页。

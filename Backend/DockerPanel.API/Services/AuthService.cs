@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using DockerPanel.API.Data;
+using DockerPanel.API.Extensions;
 using DockerPanel.API.Models;
 using Microsoft.IdentityModel.Tokens;
 
@@ -584,7 +585,7 @@ public class AuthService : IAuthService
             PasswordHash = HashPassword(configuredPassword),
             Role = AuthRoles.Admin,
             IsActive = true,
-            MustChangePassword = _configuration.GetValue("Auth:AdminMustChangePassword", false),
+            MustChangePassword = _configuration.GetBool("Auth:AdminMustChangePassword", false),
             CreatedAt = now,
             UpdatedAt = now
         });
@@ -648,8 +649,8 @@ public class AuthService : IAuthService
 
     private int GetTokenExpirationMinutes()
     {
-        var configured = _configuration.GetValue<int?>("Auth:AccessTokenExpirationMinutes")
-            ?? _configuration.GetValue<int?>("Auth:JwtExpirationMinutes");
+        var configured = _configuration.GetNullableInt("Auth:AccessTokenExpirationMinutes")
+            ?? _configuration.GetNullableInt("Auth:JwtExpirationMinutes");
         if (configured.HasValue)
         {
             return Math.Clamp(configured.Value, 5, 1440);
@@ -662,8 +663,8 @@ public class AuthService : IAuthService
     private (int MaxLoginAttempts, int LockoutDurationMinutes) GetLoginPolicy()
     {
         var settings = _dbContext.Settings.FindById("default");
-        var maxLoginAttempts = _configuration.GetValue<int?>("Auth:MaxLoginAttempts") ?? settings?.MaxLoginAttempts ?? 5;
-        var lockoutDurationMinutes = _configuration.GetValue<int?>("Auth:LockoutDurationMinutes") ?? settings?.LockoutDurationMinutes ?? 15;
+        var maxLoginAttempts = _configuration.GetNullableInt("Auth:MaxLoginAttempts") ?? settings?.MaxLoginAttempts ?? 5;
+        var lockoutDurationMinutes = _configuration.GetNullableInt("Auth:LockoutDurationMinutes") ?? settings?.LockoutDurationMinutes ?? 15;
 
         return (Math.Clamp(maxLoginAttempts, 1, 20), Math.Clamp(lockoutDurationMinutes, 1, 1440));
     }

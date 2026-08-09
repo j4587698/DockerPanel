@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using DockerPanel.API.Models.Acme;
 
 namespace DockerPanel.API.Serialization;
 
@@ -25,14 +26,19 @@ namespace DockerPanel.API.Serialization;
 [JsonSerializable(typeof(Hubs.ImageBuildProgressMessage))]
 [JsonSerializable(typeof(Hubs.SshTerminalHub.SshConnectRequest))]
 [JsonSerializable(typeof(Hubs.ContainerTerminalHub.TerminalConnectRequest))]
+[JsonSerializable(typeof(Hubs.DockerStatsPushMessage))]
+[JsonSerializable(typeof(Hubs.ContainerStatsPushMessage))]
+[JsonSerializable(typeof(List<Hubs.ContainerStatsPushMessage>))]
 [JsonSerializable(typeof(Models.ContainerInfo))]
 [JsonSerializable(typeof(Models.ImageInfo))]
+[JsonSerializable(typeof(Models.ImagePullProgress))]
 [JsonSerializable(typeof(Services.ClusterResourceStats))]
 [JsonSerializable(typeof(IEnumerable<Models.ContainerInfo>))]
 [JsonSerializable(typeof(List<Models.ContainerInfo>))]
 [JsonSerializable(typeof(IEnumerable<Models.ImageInfo>))]
 [JsonSerializable(typeof(List<Models.ImageInfo>))]
 [JsonSerializable(typeof(LogStreamMessage))]
+[JsonSerializable(typeof(ProgressUpdateNotification))]
 internal partial class DockerPanelSignalRJsonContext : JsonSerializerContext
 {
 }

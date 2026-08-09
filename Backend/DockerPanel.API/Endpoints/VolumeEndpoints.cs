@@ -233,7 +233,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> VolumeExists(string volumeId, IVolumeService volumeService, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null)
+        private static async Task<IResult> VolumeExists(string volumeId, ILocalizationService localization, IVolumeService volumeService, ILogger<LoggingTag> logger, string? nodeId = null)
         {
             try
             {
@@ -247,7 +247,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> GetVolumeUsage(string volumeId, IVolumeService volumeService, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null)
+        private static async Task<IResult> GetVolumeUsage(string volumeId, ILogger<LoggingTag> logger, IVolumeService volumeService, ILocalizationService localization, string? nodeId = null)
         {
             try
             {
@@ -445,7 +445,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> DeleteVolumeFile(string volumeId, IVolumeService volumeService, ILocalizationService localization, ILogger<LoggingTag> logger, string path, bool recursive = false, string? nodeId = null)
+        private static async Task<IResult> DeleteVolumeFile(string volumeId, IVolumeService volumeService, string path, bool recursive, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null)
         {
             try
             {
@@ -459,7 +459,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> GetVolumeFileContent(string volumeId, IVolumeService volumeService, ILocalizationService localization, ILogger<LoggingTag> logger, string path, string? nodeId = null)
+        private static async Task<IResult> GetVolumeFileContent(string volumeId, IVolumeService volumeService, string path, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null)
         {
             try
             {

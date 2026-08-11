@@ -1,8 +1,10 @@
+using TinyDb.Attributes;
 namespace DockerPanel.API.Models;
 
 /// <summary>
 /// SSH连接配置实体 - 带ID用于持久化
 /// </summary>
+[Entity]
 public class SshConnectionConfigEntity
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();

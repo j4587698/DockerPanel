@@ -100,6 +100,8 @@ public class YarpProxyConfig : IProxyConfig
 {
     public List<RouteConfig> Routes { get; set; } = new();
     public List<ClusterConfig> Clusters { get; set; } = new();
+
+    [System.Text.Json.Serialization.JsonIgnore]
     public CancellationToken ChangeToken { get; set; }
 
     IReadOnlyList<RouteConfig> IProxyConfig.Routes => Routes;

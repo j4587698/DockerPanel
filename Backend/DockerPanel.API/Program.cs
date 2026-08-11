@@ -616,8 +616,29 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex)
     {
+        // BadHttpRequestException: missing required route/query parameter or invalid request body -> client error (400)
+        if (ex is BadHttpRequestException badRequest)
+        {
+            context.Response.StatusCode = badRequest.StatusCode;
+            context.Response.ContentType = "application/json";
+
+            var badRequestResponse = new DockerPanel.API.Endpoints.ApiErrorResponse
+            {
+                Code = "BAD_REQUEST",
+                Error = "请求参数无效",
+                Message = ex.Message,
+                Timestamp = DateTime.UtcNow,
+                Path = context.Request.Path
+            };
+
+            await context.Response.WriteAsJsonAsync(badRequestResponse, WebJsonContext.Default.ApiErrorResponse);
+            return;
+        }
+
         Log.Error(ex, "全局未处理异常");
 
+        // 未处理异常统一返回 500（此前遗漏设置状态码，导致错误响应错误地返回 200）
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
 
         // 尝试获取本地化服务
@@ -806,5 +827,12 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+
+/// <summary>
+/// 供集成测试(WebApplicationFactory)引用的 Program 入口标记。
+/// </summary>
+public partial class Program
+{
 }
 

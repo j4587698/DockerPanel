@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using DockerPanel.API.Models;
+using TinyDb.Attributes;
 
 namespace DockerPanel.API.Services;
 
@@ -162,6 +163,7 @@ public interface ISshService
 /// <summary>
 /// SSH密钥对
 /// </summary>
+[Entity]
 public class SshKeyPair
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();

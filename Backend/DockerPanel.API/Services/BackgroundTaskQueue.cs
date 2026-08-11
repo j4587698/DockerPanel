@@ -17,6 +17,7 @@ namespace DockerPanel.API.Services
         private readonly ILogger<BackgroundTaskQueue> _logger;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private Task? _backgroundTask;
+        private int _stopped;
 
         public BackgroundTaskQueue(ILogger<BackgroundTaskQueue> logger)
         {
@@ -82,17 +83,22 @@ namespace DockerPanel.API.Services
         }
 
         /// <summary>
-        /// 停止后台服务
+        /// 停止后台服务（幂等：可安全重复调用，如宿主 Dispose 时再次触发停止）。
         /// </summary>
         public async Task StopAsync(CancellationToken cancellationToken)
         {
+            if (Interlocked.Exchange(ref _stopped, 1) != 0)
+            {
+                return;
+            }
+
             _logger.LogInformation("停止后台任务队列服务");
 
             // 取消后台处理
             _cancellationTokenSource.Cancel();
 
-            // 等待队列完成处理
-            _queue.Writer.Complete();
+            // 等待队列完成处理（通道可能已由其他路径关闭，TryComplete 幂等）
+            _queue.Writer.TryComplete();
 
             try
             {

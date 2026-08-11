@@ -6,7 +6,6 @@ using DockerPanel.API.Models;
 using DockerPanel.API.Serialization;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 
 namespace DockerPanel.API.Endpoints
 {

@@ -11,7 +11,6 @@ using DockerPanel.API.Serialization;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using IOFile = System.IO.File;
 
@@ -45,12 +44,7 @@ namespace DockerPanel.API.Endpoints
             group.MapGet("search", SearchImages);
             group.MapGet("{imageId}/history", GetImageHistory);
             group.MapPost("build-test", BuildImageTest);
-            group.MapPost("build", BuildImage)
-                .Add(builder =>
-                {
-                    builder.Metadata.Add(new RequestSizeLimitAttribute(1_073_741_824));
-                    builder.Metadata.Add(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = 1_073_741_824 });
-                });
+            group.MapPost("build", BuildImage);
             group.MapGet("{imageId}/layers", GetImageLayers);
             group.MapGet("{imageId}/inspect", InspectImage);
             group.MapGet("{imageId}/export", ExportImage);

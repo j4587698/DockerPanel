@@ -1,7 +1,6 @@
 using DockerPanel.API.Models;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 
 namespace DockerPanel.API.Endpoints
 {

@@ -8,7 +8,6 @@ using Serilog.Core;
 using Serilog.Events;
 using Scalar.AspNetCore;
 using Yarp.ReverseProxy.Configuration;
-using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Http.Json;
@@ -41,22 +40,6 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext());
 
 // 添加服务到容器
-builder.Services.AddControllers(options =>
-    {
-        options.Filters.Add(new AuthorizeFilter());
-        options.Filters.Add<RoleWriteAccessFilter>();
-        options.Filters.AddService<OperationAuditFilter>();
-    })
-    .AddJsonOptions(options =>
-    {
-        // 将枚举序列化为字符串而不是整数值（MVC 即将随控制器迁移移除）
-#pragma warning disable IL3050 // JsonStringEnumConverter 无法静态分析；AOT 下 MVC 不存在
-        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
-#pragma warning restore IL3050
-        // 手写转换器接管 Dictionary<string, object>（AOT 下源生成无法直接支持该类型）
-        options.JsonSerializerOptions.Converters.Add(new DockerPanel.API.Serialization.DictionaryObjectConverter());
-    });
-
 // Minimal API 全局 JSON：源生成上下文（camelCase + 字符串枚举）+ 字典转换器。
 // 非 AOT 模式下叠加反射兜底，未注册类型仍可工作（逐步收敛注册列表）；AOT 下仅使用源生成上下文。
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -247,7 +230,6 @@ builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<INetworkService, NetworkService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IOperationAuditService, OperationAuditService>();
-builder.Services.AddScoped<OperationAuditFilter>();
 
 // 注册数据库服务
 builder.Services.AddSingleton<DataBaseService>();
@@ -691,6 +673,9 @@ app.UseAuthorization();
 // 必须放在 UseAuthentication/UseAuthorization 之后才能读取用户身份。
 app.UseMiddleware<ApiAccessPolicyMiddleware>();
 
+// 操作审计（替代已移除的 MVC 全局 OperationAuditFilter；写操作及 export/download 类请求记录审计日志）
+app.UseOperationAudit();
+
 // 强制 HTTPS 重定向中间件 (针对 YARP 代理路由)
 app.Use(async (context, next) =>
 {
@@ -744,8 +729,7 @@ app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChal
     });
 }).AllowAnonymous();
 
-// 映射控制器
-app.MapControllers();
+// 映射 Minimal API 端点（控制器已全部迁移完毕，MVC 框架不再启用）
 app.MapSettingsEndpoints();
 app.MapTaskEndpoints();
 app.MapAuditEndpoints();

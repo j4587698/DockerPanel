@@ -52,15 +52,15 @@ namespace DockerPanel.API.Endpoints
         }
 
         private static async Task<IResult> GetCertificates(
-            bool includeExpired,
-            string? certificateType,
-            string? statusFilter,
-            string? domainFilter,
-            int pageIndex,
-            int pageSize,
             ICertificateManagementService certificateManagementService,
             ILocalizationService localization,
-            ILogger<LoggingTag> logger)
+            ILogger<LoggingTag> logger,
+            bool includeExpired = false,
+            string? certificateType = null,
+            string? statusFilter = null,
+            string? domainFilter = null,
+            int pageIndex = 0,
+            int pageSize = 50)
         {
             try
             {
@@ -108,10 +108,10 @@ namespace DockerPanel.API.Endpoints
         }
 
         private static async Task<IResult> GetExpiringCertificates(
-            int daysBeforeExpiry,
             ICertificateManagementService certificateManagementService,
             ILocalizationService localization,
-            ILogger<LoggingTag> logger)
+            ILogger<LoggingTag> logger,
+            int daysBeforeExpiry = 15)
         {
             try
             {
@@ -216,10 +216,10 @@ namespace DockerPanel.API.Endpoints
 
         private static async Task<IResult> DeleteCertificate(
             string id,
-            bool force,
             ICertificateManagementService certificateManagementService,
             ILocalizationService localization,
-            ILogger<LoggingTag> logger)
+            ILogger<LoggingTag> logger,
+            bool force = false)
         {
             try
             {
@@ -294,11 +294,11 @@ namespace DockerPanel.API.Endpoints
 
         private static async Task<IResult> ExportCertificate(
             string id,
-            string format,
-            bool includePrivateKey,
             ICertificateManagementService certificateManagementService,
             ILocalizationService localization,
-            ILogger<LoggingTag> logger)
+            ILogger<LoggingTag> logger,
+            string format = "pem",
+            bool includePrivateKey = false)
         {
             try
             {
@@ -369,12 +369,12 @@ namespace DockerPanel.API.Endpoints
 
         private static async Task<IResult> GetCertificateOperationHistory(
             string id,
-            string? operationType,
-            int limit,
-            int offset,
             ICertificateManagementService certificateManagementService,
             ILocalizationService localization,
-            ILogger<LoggingTag> logger)
+            ILogger<LoggingTag> logger,
+            string? operationType = null,
+            int limit = 50,
+            int offset = 0)
         {
             try
             {
@@ -437,13 +437,13 @@ namespace DockerPanel.API.Endpoints
         }
 
         private static async Task<IResult> SearchCertificates(
-            string searchTerm,
-            IEnumerable<string>? searchFields,
-            int pageIndex,
-            int pageSize,
             ICertificateManagementService certificateManagementService,
             ILocalizationService localization,
-            ILogger<LoggingTag> logger)
+            ILogger<LoggingTag> logger,
+            string searchTerm = "",
+            IEnumerable<string>? searchFields = null,
+            int pageIndex = 0,
+            int pageSize = 50)
         {
             try
             {

@@ -319,10 +319,10 @@ namespace DockerPanel.API.Endpoints
 
         private static async Task<IResult> ExportWildcardCertificate(
             string certificateId,
-            string format,
             IWildcardCertificateService wildcardCertificateService,
             ILocalizationService localization,
-            ILogger<LoggingTag> logger)
+            ILogger<LoggingTag> logger,
+            string format = "pem")
         {
             try
             {

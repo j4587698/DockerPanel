@@ -262,7 +262,8 @@ export const certificateApi = {
     pageSize?: number
   }) => {
     // 优先使用ACME API（注意路径为小写 /acme，大写 /Acme 会 404；
-    // page/pageSize 为后端必需参数，缺失会 400，故默认补齐）
+    // page/pageSize 为后端必需参数，缺失会 400，故默认补齐；
+    // 默认 20 与全局 settingsStore.defaultPageSize 一致，调用方可显式覆盖）
     return api.get<{
       items: Certificate[]
       total: number
@@ -273,7 +274,7 @@ export const certificateApi = {
         status: params?.status,
         domain: params?.domain,
         page: params?.page ?? 1,
-        pageSize: params?.pageSize ?? 50
+        pageSize: params?.pageSize ?? 20
       }
     })
       .catch(() => {

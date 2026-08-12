@@ -321,7 +321,7 @@ const fetchMappings = async () => {
 const fetchCertificates = async () => {
   try {
     const [certsRes, accountsRes] = await Promise.all([
-      certificateApi.getCertificates({ status: 'valid' }),
+      certificateApi.getCertificates({ status: 'valid', pageSize: settingsStore.defaultPageSize }),
       acmeApi.getAccounts()
     ])
     // Handle both AxiosResponse and raw data formats

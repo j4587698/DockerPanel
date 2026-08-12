@@ -896,6 +896,7 @@ import templateApi from '@/api/templates'
 import PullProgressDisplay from '../image/PullProgressDisplay.vue'
 import { signalrService } from '@/services/signalr'
 import { useTasksStore } from '@/stores/tasks'
+import { useSettingsStore } from '@/stores/settings'
 import ContainerTemplateDialog from './ContainerTemplateDialog.vue'
 
 
@@ -915,6 +916,7 @@ const pulling = ref(false)
 const manualPulling = ref(false)
 const progressMap = ref<Record<string, any>>({})
 const tasksStore = useTasksStore()
+const settingsStore = useSettingsStore()
 const showPullDialog = ref(false)
 const pullTab = ref('direct')
 const pullImageName = ref('')
@@ -1579,7 +1581,7 @@ const loadInitialData = async () => {
   try {
     const [nets, certsRes, accountsRes] = await Promise.all([
       networkApi.getNetworks(), 
-      certificateApi.getCertificates({ status: 'valid' }),
+      certificateApi.getCertificates({ status: 'valid', pageSize: settingsStore.defaultPageSize }),
       acmeApi.getAccounts()
     ])
     availableNetworks.value = (nets as any).data || nets

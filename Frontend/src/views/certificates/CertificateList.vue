@@ -572,7 +572,9 @@ const shouldShowRenewButton = (cert: AcmeCertificateOrder) => {
 const refreshCertificates = async () => {
   loading.value = true
   try {
-    await certificatesStore.fetchCertificates({ page: 1, pageSize: 50 })
+    // 该页为本地筛选+分页（pageSize 控件仅作用于本地 slice），
+    // 故此处拉取全量数据；勿传 settingsStore.defaultPageSize（20），否则超出条数被后端截断
+    await certificatesStore.fetchCertificates({ page: 1, pageSize: 1000 })
     await certificatesStore.fetchStatistics()
   } finally { loading.value = false }
 }

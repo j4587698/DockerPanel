@@ -32,19 +32,29 @@ builder.Services.AddSingleton(loggingLevelSwitch);
 
 
 
-// 配置Serilog
+// 配置Serilog（AOT/单文件发布：配置驱动的 WriteTo/Enrich 方法查找在
+// 无 deps.json 的 native AOT 下不可用，故改为程序化配置（替代原 appsettings
+// 的 Serilog 节，行为对齐）；日志级别由 LoggingLevelSwitch 控制）
+Serilog.Debugging.SelfLog.Enable(Console.Error);
 builder.Host.UseSerilog((context, services, configuration) => configuration
-    .ReadFrom.Configuration(context.Configuration)
     .MinimumLevel.ControlledBy(services.GetRequiredService<LoggingLevelSwitch>())
-    .ReadFrom.Services(services)
-    .Enrich.FromLogContext());
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("System", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File("logs/DockerPanel-.txt",
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}",
+        rollingInterval: Serilog.RollingInterval.Day,
+        retainedFileCountLimit: 30));
 
 // 添加服务到容器
 // Minimal API 全局 JSON：源生成上下文（camelCase + 字符串枚举）+ 字典转换器。
 // 非 AOT 模式下叠加反射兜底，未注册类型仍可工作（逐步收敛注册列表）；AOT 下仅使用源生成上下文。
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
-    options.SerializerOptions.TypeInfoResolver = DockerPanel.API.Extensions.AotSafeHelpers.CreateDualModeResolver(WebJsonContext.Default);
+    options.SerializerOptions.TypeInfoResolver = DockerPanel.API.Extensions.AotSafeHelpers.CreateDualModeResolver(
+        JsonTypeInfoResolver.Combine(WebJsonContext.Default, DockerPanel.API.Serialization.WebRequestJsonContext.Default,
+        new DockerPanel.API.Extensions.BindingFallbackJsonTypeInfoResolver()));
     options.SerializerOptions.Converters.Add(new DictionaryObjectConverter());
 });
 
@@ -806,6 +816,7 @@ try
 }
 catch (Exception ex)
 {
+    Console.Error.WriteLine($"启动失败: {ex}");
     Log.Fatal(ex, "DockerPanel API 服务启动失败");
 }
 finally

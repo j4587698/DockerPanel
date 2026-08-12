@@ -327,33 +327,12 @@ public class NetworkConfig
     public bool Ingress { get; set; }
     public Dictionary<string, string> Labels { get; set; } = new();
     public Dictionary<string, object> Options { get; set; } = new();
-    public NetworkIPAMConfig IPAM { get; set; } = new();
+    public NetworkIpamConfig IPAM { get; set; } = new();
     public List<string>? Aliases { get; set; }
     public string? IPv4Address { get; set; }
     public string? IPv6Address { get; set; }
     public List<string>? Links { get; set; }
 }
-
-/// <summary>
-/// 网络IPAM配置
-/// </summary>
-public class NetworkIPAMConfig
-{
-    public string Driver { get; set; } = string.Empty;
-    public List<IPAMConfigEntry> Config { get; set; } = new();
-}
-
-/// <summary>
-/// IPAM配置条目
-/// </summary>
-public class IPAMConfigEntry
-{
-    public string Subnet { get; set; } = string.Empty;
-    public string? IPRange { get; set; }
-    public string? Gateway { get; set; }
-    public List<string>? AuxiliaryAddresses { get; set; }
-}
-
 
 /// <summary>
 /// 网络创建结果
@@ -485,7 +464,7 @@ public class CreateNetworkRequest : INodeIdRequest
     public bool Attachable { get; set; }
     public Dictionary<string, string> Labels { get; set; } = new();
     public Dictionary<string, string> Options { get; set; } = new();
-    public NetworkIPAMConfig? IPAM { get; set; }
+    public NetworkIpamConfig? IPAM { get; set; }
     public string? NodeId { get; set; }
 }
 

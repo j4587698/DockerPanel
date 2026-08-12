@@ -5,6 +5,24 @@ using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.Configuration;
 
 namespace DockerPanel.API.Extensions;
+/// <summary>
+/// AOT fallback: provides weak JsonTypeInfo for binding-only types (IFormFile etc.)
+/// that cannot be source-generated, so OpenAPI schema generation works for upload endpoints.
+/// </summary>
+internal sealed class BindingFallbackJsonTypeInfoResolver : IJsonTypeInfoResolver
+{
+    public JsonTypeInfo? GetTypeInfo(Type type, JsonSerializerOptions options)
+    {
+        if (type == typeof(Microsoft.AspNetCore.Http.IFormFile)
+            || type == typeof(Microsoft.AspNetCore.Http.IFormFileCollection)
+            || type == typeof(Microsoft.AspNetCore.Http.IFormFile[]))
+        {
+            return JsonTypeInfo.CreateJsonTypeInfo(type, options);
+        }
+
+        return null;
+    }
+}
 
 /// <summary>
 /// AOT 安全辅助：把非 AOT 专属的反射路径集中到带守卫的方法里，

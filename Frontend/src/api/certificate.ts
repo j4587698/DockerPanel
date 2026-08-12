@@ -253,7 +253,7 @@ export interface ProgressUpdateNotification {
 export const certificateApi = {
   // 证书基础操作
 
-  // 获取证书列表（兼容两个版本的API）
+  // 获取证书列表（优先ACME API，回退到证书管理API）
   getCertificates: (params?: {
     nodeId?: string
     status?: string
@@ -261,37 +261,45 @@ export const certificateApi = {
     page?: number
     pageSize?: number
   }) => {
-    // 优先使用ACME API，如果失败则使用简化API
+    // 优先使用ACME API（注意路径为小写 /acme，大写 /Acme 会 404）
     return api.get<{
       items: Certificate[]
       total: number
       page: number
       pageSize: number
-    }>("/Acme/certificates", { params })
+    }>("/acme/certificates", { params })
       .catch(() => {
-        // 回退到简化的证书API
-        return api.get<Certificate[]>("/certificates", { params })
-          .then(response => {
-            const certificates = response
-            return {
-              items: certificates,
-              total: certificates.length,
-              page: 1,
-              pageSize: certificates.length
-            }
-          })
+        // 回退到证书管理API（/certificatemanagement，参数名与返回结构与ACME不同，做映射）
+        return api.get<{
+          certificates: Certificate[]
+          totalCount: number
+          pageIndex: number
+          pageSize: number
+        }>("/certificatemanagement", {
+          params: {
+            statusFilter: params?.status,
+            domainFilter: params?.domain,
+            pageIndex: params?.page,
+            pageSize: params?.pageSize,
+          }
+        })
+          .then(response => ({
+            items: response.certificates,
+            total: response.totalCount,
+            page: response.pageIndex,
+            pageSize: response.pageSize
+          }))
       })
   },
 
-  // 根据ID获取证书详情
+  // 根据ID获取证书详情（ACME订单详情；回退到证书管理API）
   getCertificate: (id: string) =>
-    api.get<Certificate>(`/acme/certificates/${id}`)
-      .catch(() => api.get<Certificate>(`/certificates/${id}`)),
+    api.get<Certificate>(`/acme/certificates/orders/${id}`)
+      .catch(() => api.get<Certificate>(`/certificatemanagement/${id}`)),
 
-  // 申请证书
+  // 申请证书（ACME下单）
   requestCertificate: (data: CertificateRequest) =>
-    api.post<Certificate>("/acme/certificates", data)
-      .catch(() => api.post<Certificate>("/certificates", data)),
+    api.post<Certificate>("/acme/certificates/order", data),
 
   // 更新证书
   updateCertificate: (id: string, data: Partial<CertificateRequest>) =>
@@ -311,89 +319,77 @@ export const certificateApi = {
         throw error
       }),
 
-  // 续期证书
+  // 续期证书（ACME；回退到证书管理API）
   renewCertificate: (data: CertificateRenewalRequest) =>
     api.post<Certificate>(`/acme/certificates/${data.certificateId}/renew`)
-      .catch(() => api.post<Certificate>(`/certificates/${data.certificateId}/renew`)),
+      .catch(() => api.post<Certificate>(`/certificatemanagement/${data.certificateId}/renew`)),
 
   // 重试证书
   retryCertificate: (id: string) =>
     api.post<Certificate>(`/acme/certificates/${id}/retry`),
 
-  // 验证证书
+  // 验证证书（证书管理API）
   validateCertificate: (id: string) =>
-    api.post<CertificateValidationResult>(`/acme/certificates/${id}/validate`)
-      .catch(() => api.post(`/certificates/${id}/validate`)),
+    api.post<CertificateValidationResult>(`/certificatemanagement/${id}/validate`),
 
-  // 导出证书
+  // 导出证书（ACME下载；回退到证书管理API）
   exportCertificate: (data: CertificateExportRequest) =>
-    api.post("/acme/certificates/export", data, {
+    api.get(`/acme/certificates/${data.certificateIds[0]}/download`, {
+      params: { format: data.format || "pem" },
       responseType: "blob"
     }).catch(() => {
-      // 简化版本的导出API
+      // 回退到证书管理API
       const certificateId = data.certificateIds[0]
       const format = data.format || "pem"
-      return api.get(`/certificates/${certificateId}/download`, {
+      return api.get(`/certificatemanagement/${certificateId}/download`, {
         params: { format },
         responseType: "blob"
       })
     }),
 
-  // 导入证书
+  // 导入证书（证书管理API）
   importCertificate: (data: CertificateImportRequest) =>
-    api.post<Certificate>("/acme/certificates/import", data)
-      .catch(() => api.post<Certificate>("/certificates/import", data)),
+    api.post<Certificate>("/certificatemanagement/import", data),
 
   // 批量操作
 
-  // 批量续期证书
+  // 批量续期证书（ACME；回退到证书管理API）
   batchRenewCertificates: (certificateIds: string[], force = false) =>
-    api.post("/acme/certificates/batch-renew", {
+    api.post("/acme/certificates/renew-batch", {
       certificateIds,
-      forceRenew: force
+      daysBeforeExpiry: force ? 0 : 30
     }).catch(() => {
-      // 简化版本的批量操作
-      return api.post("/certificates/batch", {
+      // 回退到证书管理API
+      return api.post("/certificatemanagement/batch", {
         operation: "renew",
         certificateIds,
-        options: { force }
+        operationParameters: { force }
       })
     }),
 
-  // 批量删除证书
+  // 批量删除证书（证书管理API）
   batchDeleteCertificates: (certificateIds: string[], force = false) =>
-    api.delete("/acme/certificates/batch", {
-      data: { certificateIds, force }
-    }).catch(() => {
-      return api.post("/certificates/batch", {
-        operation: "delete",
-        certificateIds,
-        options: { force }
-      })
-    }),
-
-  // 批量更新自动续期设置
-  batchUpdateAutoRenew: (certificateIds: string[], autoRenew: boolean) =>
-    api.put("/acme/certificates/batch-auto-renew", {
+    api.post("/certificatemanagement/batch", {
+      operation: "delete",
       certificateIds,
-      autoRenew
-    }).catch(() => {
-      return api.post("/certificates/batch", {
-        operation: "updateAutoRenew",
-        certificateIds,
-        options: { autoRenew }
-      })
+      operationParameters: { force }
     }),
 
-  // 吊销证书（兼容版本）
-  revokeCertificate: (id: string, request?: { reason?: string }) =>
-    api.post(`/acme/certificates/${id}/revoke`, request)
-      .catch(() => api.post(`/certificates/${id}/revoke`)),
+  // 批量更新自动续期设置（证书管理API）
+  batchUpdateAutoRenew: (certificateIds: string[], autoRenew: boolean) =>
+    api.post("/certificatemanagement/batch", {
+      operation: autoRenew ? "enable-auto-renewal" : "disable-auto-renewal",
+      certificateIds,
+      operationParameters: {}
+    }),
 
-  // 设置自动续签（兼容版本）
+  // 吊销证书（ACME）
+  revokeCertificate: (id: string, request?: { reason?: string }) =>
+    api.post(`/acme/certificates/${id}/revoke`, request),
+
+  // 设置自动续签（ACME）
   setAutoRenew: (id: string, autoRenew: boolean) =>
-    api.post(`/acme/certificates/${id}/auto-renew/${autoRenew ? "enable" : "disable"}`)
-      .catch(() => api.put(`/certificates/${id}/auto-renew`, { autoRenew })),
+    api.post(`/acme/certificates/${id}/auto-renew/${autoRenew ? "enable" : "disable"}`),
 
   // 挑战验证相关
 
@@ -495,37 +491,28 @@ export const certificateApi = {
 
   // 统计和监控
 
-  // 获取证书统计信息
+  // 获取证书统计信息（ACME；回退到证书管理API）
   getCertificateStatistics: (nodeId?: string) =>
-    api.get<CertificateStatistics>("/acme/certificates/statistics", {
+    api.get<CertificateStatistics>("/acme/statistics", {
       params: { nodeId }
-    }),
+    }).catch(() => api.get<CertificateStatistics>("/certificatemanagement/statistics")),
 
-  // 获取即将过期的证书
+  // 获取即将过期的证书（证书管理API）
   getExpiringCertificates: (days = 15, nodeId?: string) =>
-    api.get<Certificate[]>("/acme/certificates/expiring", {
-      params: { days, nodeId }
+    api.get<Certificate[]>("/certificatemanagement/expiring", {
+      params: { daysBeforeExpiry: days }
     }),
 
-  // 获取证书续期历史
+  // 获取证书操作历史（证书管理API，返回数组后包装成分页结构）
   getRenewalHistory: (certificateId?: string, page = 1, pageSize = 20) =>
-    api.get<{
-      items: Array<{
-        id: string
-        certificateId: string
-        domain: string
-        renewedAt: string
-        previousExpiresAt: string
-        newExpiresAt: string
-        status: "success" | "failed"
-        reason?: string
-      }>
-      total: number
-      page: number
-      pageSize: number
-    }>("/acme/certificates/renewal-history", {
-      params: { certificateId, page, pageSize }
-    }),
+    api.get<any[]>(`/certificatemanagement/${certificateId}/history`, {
+      params: { limit: pageSize, offset: (page - 1) * pageSize }
+    }).then(items => ({
+      items,
+      total: items.length,
+      page,
+      pageSize
+    })),
 
   // 自动续期管理
 
@@ -556,9 +543,9 @@ export const certificateApi = {
   }) =>
     api.put(`/acme/certificates/${certificateId}/auto-renew/config`, config),
 
-  // 手动触发自动续期检查
+  // 手动触发自动续期检查（ACME）
   triggerAutoRenewCheck: () =>
-    api.post("/acme/auto-renew/check"),
+    api.post("/acme/certificates/auto-renew"),
 
   // 获取自动续期状态
   getAutoRenewStatus: () =>

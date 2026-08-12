@@ -261,13 +261,21 @@ export const certificateApi = {
     page?: number
     pageSize?: number
   }) => {
-    // 优先使用ACME API（注意路径为小写 /acme，大写 /Acme 会 404）
+    // 优先使用ACME API（注意路径为小写 /acme，大写 /Acme 会 404；
+    // page/pageSize 为后端必需参数，缺失会 400，故默认补齐）
     return api.get<{
       items: Certificate[]
       total: number
       page: number
       pageSize: number
-    }>("/acme/certificates", { params })
+    }>("/acme/certificates", {
+      params: {
+        status: params?.status,
+        domain: params?.domain,
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 50
+      }
+    })
       .catch(() => {
         // 回退到证书管理API（/certificatemanagement，参数名与返回结构与ACME不同，做映射）
         return api.get<{

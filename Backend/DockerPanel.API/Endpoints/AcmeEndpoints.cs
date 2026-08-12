@@ -371,13 +371,13 @@ namespace DockerPanel.API.Endpoints
             string? accountId,
             string? status,
             string? domain,
-            int page,
-            int pageSize,
             IAcmeService acmeService,
             TinyDbContext dbContext,
             IOptions<CertificateSettings> certificateSettings,
             ILocalizationService localization,
-            ILogger<LoggingTag> logger)
+            ILogger<LoggingTag> logger,
+            int page = 1,
+            int pageSize = 50)
         {
             try
             {

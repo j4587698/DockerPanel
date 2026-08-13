@@ -144,7 +144,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> UpdateContainer(string containerId, bool pullOnly, IAutoUpdateService service, ILogger<SettingsEndpoints.LoggingTag> logger, ILocalizationService localization)
+        private static async Task<IResult> UpdateContainer(string containerId, IAutoUpdateService service, ILogger<SettingsEndpoints.LoggingTag> logger, ILocalizationService localization, bool pullOnly = false)
         {
             try
             {

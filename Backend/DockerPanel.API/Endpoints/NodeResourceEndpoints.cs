@@ -78,7 +78,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> GetNodeTrend(string nodeId, int hours, INodeResourceService nodeResourceService, ILocalizationService localization, ILogger<LoggingTag> logger)
+        private static async Task<IResult> GetNodeTrend(string nodeId, INodeResourceService nodeResourceService, ILocalizationService localization, ILogger<LoggingTag> logger, int hours = 24)
         {
             try
             {

@@ -263,7 +263,7 @@ namespace DockerPanel.API.Endpoints
                 var usage = await volumeService.GetVolumeUsageAsync(volumeId, nodeId);
                 return TypedResults.Ok(usage);
             }
-            catch (VolumeNotFoundException ex)
+            catch (VolumeNotFoundException)
             {
                 return VolumeNotFound(volumeId, localization);
             }
@@ -371,7 +371,7 @@ namespace DockerPanel.API.Endpoints
                 var files = await volumeService.GetVolumeFilesAsync(volumeId, path, nodeId);
                 return TypedResults.Ok(files);
             }
-            catch (VolumeNotFoundException ex)
+            catch (VolumeNotFoundException)
             {
                 return VolumeNotFound(volumeId, localization);
             }
@@ -399,7 +399,7 @@ namespace DockerPanel.API.Endpoints
                     return TypedResults.File(content, "application/octet-stream", fileName);
                 }
             }
-            catch (VolumeNotFoundException ex)
+            catch (VolumeNotFoundException)
             {
                 return VolumeNotFound(volumeId, localization);
             }
@@ -431,7 +431,7 @@ namespace DockerPanel.API.Endpoints
                     FileName = file.FileName
                 });
             }
-            catch (VolumeNotFoundException ex)
+            catch (VolumeNotFoundException)
             {
                 return VolumeNotFound(volumeId, localization);
             }
@@ -449,7 +449,7 @@ namespace DockerPanel.API.Endpoints
                 await volumeService.CreateVolumeFolderAsync(volumeId, request.Path, request.Name, nodeId);
                 return TypedResults.Ok(new MessageResponse { Message = localization.GetMessage("volume.createFolderSuccess") });
             }
-            catch (VolumeNotFoundException ex)
+            catch (VolumeNotFoundException)
             {
                 return VolumeNotFound(volumeId, localization);
             }
@@ -467,7 +467,7 @@ namespace DockerPanel.API.Endpoints
                 await volumeService.RenameVolumeFileAsync(volumeId, request.Path, request.OldName, request.NewName, nodeId);
                 return TypedResults.Ok(new MessageResponse { Message = localization.GetMessage("volume.renameSuccess") });
             }
-            catch (VolumeNotFoundException ex)
+            catch (VolumeNotFoundException)
             {
                 return VolumeNotFound(volumeId, localization);
             }
@@ -485,7 +485,7 @@ namespace DockerPanel.API.Endpoints
                 await volumeService.DeleteVolumeFileAsync(volumeId, path, recursive, nodeId);
                 return TypedResults.Ok(new MessageResponse { Message = localization.GetMessage("volume.deleteFileSuccess") });
             }
-            catch (VolumeNotFoundException ex)
+            catch (VolumeNotFoundException)
             {
                 return VolumeNotFound(volumeId, localization);
             }
@@ -503,7 +503,7 @@ namespace DockerPanel.API.Endpoints
                 var content = await volumeService.GetVolumeFileContentAsync(volumeId, path, nodeId);
                 return TypedResults.Ok(new FileContentResponse { Content = content, Path = path });
             }
-            catch (VolumeNotFoundException ex)
+            catch (VolumeNotFoundException)
             {
                 return VolumeNotFound(volumeId, localization);
             }
@@ -521,7 +521,7 @@ namespace DockerPanel.API.Endpoints
                 await volumeService.SaveVolumeFileContentAsync(volumeId, request.Path, request.Content, nodeId);
                 return TypedResults.Ok(new MessageResponse { Message = localization.GetMessage("volume.saveSuccess") });
             }
-            catch (VolumeNotFoundException ex)
+            catch (VolumeNotFoundException)
             {
                 return VolumeNotFound(volumeId, localization);
             }

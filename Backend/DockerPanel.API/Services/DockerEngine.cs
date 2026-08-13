@@ -2467,7 +2467,7 @@ public class DockerEngine : IContainerEngine, IDisposable
         var client = await GetDockerClientAsync(nodeId);
         path = NormalizeContainerPath(path, allowRoot: false);
         
-        var cmd = recursive ? new[] { "rm", "-rf", path } : new[] { "rm", path };
+        var cmd = recursive ? new[] { "rm", "-rf", path } : new[] { "rm", "-f", path };
         
         var execCreate = await client.Exec.CreateContainerExecAsync(containerId, new ContainerExecCreateParameters
         {
@@ -2480,10 +2480,11 @@ public class DockerEngine : IContainerEngine, IDisposable
         var stdout = new MemoryStream();
         var stderr = new MemoryStream();
         await stream.CopyOutputToAsync(Console.OpenStandardOutput(), stdout, stderr, CancellationToken.None);
-        
-        var error = Encoding.UTF8.GetString(stderr.ToArray());
-        if (!string.IsNullOrEmpty(error))
+
+        var inspect = await client.Exec.InspectContainerExecAsync(execCreate.ID, CancellationToken.None);
+        if (inspect.ExitCode != 0)
         {
+            var error = Encoding.UTF8.GetString(stderr.ToArray());
             throw new Exception($"删除失败: {error}");
         }
     }

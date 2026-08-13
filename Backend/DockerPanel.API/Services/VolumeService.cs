@@ -535,6 +535,11 @@ public class VolumeService : IVolumeService
     /// </summary>
     private async Task<string> CreateVolumeAccessContainer(string volumeId, string? nodeId = null)
     {
+        if (!await VolumeExistsAsync(volumeId, nodeId))
+        {
+            throw new VolumeNotFoundException(volumeId);
+        }
+
         var client = await GetDockerClientAsync(nodeId);
         const string imageName = "alpine:latest";
 

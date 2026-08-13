@@ -232,7 +232,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> GetConnectionConfigs(int page, int pageSize, string? search, ISshService sshService, ILocalizationService localization, ILogger<LoggingTag> logger)
+        private static async Task<IResult> GetConnectionConfigs(string? search, ISshService sshService, ILocalizationService localization, ILogger<LoggingTag> logger, int page = 1, int pageSize = 50)
         {
             try
             {
@@ -314,7 +314,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> GetKeyPairs(int page, int pageSize, ILocalizationService localization, ISshService sshService, ILogger<LoggingTag> logger)
+        private static async Task<IResult> GetKeyPairs(ILocalizationService localization, ISshService sshService, ILogger<LoggingTag> logger, int page = 1, int pageSize = 50)
         {
             try
             {
@@ -364,7 +364,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> GetSessions(int page, int pageSize, ILogger<LoggingTag> logger, ISshService sshService, ILocalizationService localization)
+        private static async Task<IResult> GetSessions(ILogger<LoggingTag> logger, ISshService sshService, ILocalizationService localization, int page = 1, int pageSize = 50)
         {
             try
             {
@@ -428,7 +428,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> GetHostKeys(int page, int pageSize, string? search, bool? trusted, ISshService sshService, ILogger<LoggingTag> logger, ILocalizationService localization)
+        private static async Task<IResult> GetHostKeys(string? search, bool? trusted, ISshService sshService, ILogger<LoggingTag> logger, ILocalizationService localization, int page = 1, int pageSize = 50)
         {
             try
             {

@@ -445,7 +445,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> DeleteVolumeFile(string volumeId, IVolumeService volumeService, string path, bool recursive, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null)
+        private static async Task<IResult> DeleteVolumeFile(string volumeId, IVolumeService volumeService, string path, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null, bool recursive = false)
         {
             try
             {

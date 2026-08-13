@@ -1267,7 +1267,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> GetOperationLogs(string? accountId, int limit, int offset, IAcmeService acmeService, ILocalizationService localization, ILogger<LoggingTag> logger)
+        private static async Task<IResult> GetOperationLogs(string? accountId, IAcmeService acmeService, ILocalizationService localization, ILogger<LoggingTag> logger, int limit = 50, int offset = 0)
         {
             try
             {
@@ -1295,7 +1295,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> AutoRenewCertificates(int daysBeforeExpiry, IAcmeService acmeService, ILocalizationService localization, ILogger<LoggingTag> logger)
+        private static async Task<IResult> AutoRenewCertificates(IAcmeService acmeService, ILocalizationService localization, ILogger<LoggingTag> logger, int daysBeforeExpiry = 30)
         {
             try
             {

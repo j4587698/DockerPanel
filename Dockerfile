@@ -14,8 +14,8 @@ RUN npm run build
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS backend-build
 ARG TARGETARCH
 
-# AOT 编译工具链（clang 编译器 + zlib 链接库 + llvm-objcopy 符号剥离 + binutils(GNU bfd 链接器)）
-RUN apk add --no-cache clang zlib-dev llvm binutils
+# AOT 编译工具链（clang 编译器 + zlib 链接库 + llvm-objcopy 符号剥离 + build-base(gcc/bfd 链接器)）
+RUN apk add --no-cache clang zlib-dev llvm build-base
 
 # 将 Docker 的 TARGETARCH (amd64, arm64等) 转换为 .NET 识别的架构标识 (x64, arm64等)
 RUN if [ "$TARGETARCH" = "amd64" ]; then \

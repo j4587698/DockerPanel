@@ -255,21 +255,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== docker version ==="
-          docker version 2>&1 || true
-          echo "=== docker buildx version ==="
-          docker buildx version 2>&1 || true
-          echo "=== registered registries ==="
-          (cat ~/.docker/config.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('auths',{}).keys())" 2>&1) || true
-          echo "=== imagetools help ==="
-          docker buildx imagetools --help 2>&1 | head -20 || true
-          echo "=== prep images ==="
-          echo "${{ steps.prep.outputs.images }}"
-
           version="${{ needs.version.outputs.version }}"
           major_minor="${{ needs.version.outputs.major_minor }}"
 
-          IFS=$'\n' read -r -d '' -a images <<< "${{ steps.prep.outputs.images }}"
+          IFS=$'\n' read -r -d '' -a images <<< "${{ steps.prep.outputs.images }}" || true
           for image in "${images[@]}"; do
             tags=(
               "-t" "${image}:${version}"
@@ -279,7 +268,6 @@ jobs:
               tags+=("-t" "${image}:latest")
             fi
 
-            echo "=== imagetools create for ${image} ==="
             docker buildx imagetools create "${tags[@]}" \
               "${image}:${version}-linux-amd64" \
               "${image}:${version}-linux-arm64"

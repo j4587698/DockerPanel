@@ -37,16 +37,17 @@
     <PackageReference Include="DnsClient" Version="1.8.0" />
     <PackageReference Include="Docker.DotNet.Enhanced" Version="4.3.3" />
     <PackageReference Include="TinyDb" Version="0.6.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-    <PackageReference Include="SSH.NET" Version="2025.1.0" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.16.17" />
-    <!-- 固定到已修复 CVE-2026-49451 的版本（<2.7.5 存在循环引用栈溢出漏洞） -->
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.16.20" />
+    <!-- 固定到已修复 CVE-2026-49451 的版本（<2.7.5 存在循环引用栈溢出漏洞）；
+         AspNetCore.OpenApi 依赖约束为 >=2.7.5 && <3.0.0，3.x 暂不可用 -->
     <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
-    <PackageReference Include="Compose.NET" Version="0.1.0" />
+    <PackageReference Include="Compose.NET" Version="0.2.0" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
   </ItemGroup>

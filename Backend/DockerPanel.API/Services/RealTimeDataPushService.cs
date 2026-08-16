@@ -202,39 +202,47 @@ public class RealTimeDataPushService : IHostedService
             long totalMemUsed = 0;
             long networkRxSnapshot = 0;
             long networkTxSnapshot = 0;
-            
+
             var containerStatsList = new List<Hubs.ContainerStatsPushMessage>();
 
-            // 串行获取容器统计（避免并行给 Docker daemon 造成压力）
-            foreach (var container in runningContainers)
-            {
-                // 如果正在停止，提前退出循环
-                if (Interlocked.CompareExchange(ref _isStopping, 0, 0) == 1)
-                {
-                    return;
-                }
+            // 并行获取容器统计：双采样统计每个容器约需 1-1.5s，
+            // 串行时推送间隔会被拖长为 容器数 × 采样耗时（远大于配置的 5s），
+            // 用信号量限制并发避免压垮 Docker daemon。
+            const int maxConcurrent = 5;
+            using var throttle = new SemaphoreSlim(maxConcurrent);
 
+            var statsTasks = runningContainers.Select(CollectContainerStatsAsync);
+
+            async Task<(Hubs.ContainerStatsPushMessage? Message, double Cpu, long Mem, long Rx, long Tx)> CollectContainerStatsAsync(Docker.DotNet.Models.ContainerListResponse container)
+            {
+                await throttle.WaitAsync();
                 try
                 {
+                    // 如果正在停止，提前返回
+                    if (Interlocked.CompareExchange(ref _isStopping, 0, 0) == 1)
+                    {
+                        return (Message: null, Cpu: 0d, Mem: 0L, Rx: 0L, Tx: 0L);
+                    }
+
                     // 复用 DockerEngine 已实现的双采样统计（Stream=true，拿到两次采样即取消），
                     // 避免直接调用 Enhanced 版 stats 流（等待流关闭导致超时全部失败）
                     var stats = await dockerEngine.GetContainerStatsAsync(container.ID);
-                    if (stats == null) continue;
+                    if (stats == null)
+                    {
+                        return (Message: null, Cpu: 0d, Mem: 0L, Rx: 0L, Tx: 0L);
+                    }
 
                     double containerCpu = Math.Min(stats.CpuStats?.PercentCpu ?? 0, 100);
-                    totalCpuPercent += containerCpu;
-
-                    long containerMemory = stats.MemoryStats?.Usage ?? 0;
-                    totalMemUsed += containerMemory;
 
                     // 网络统计列表
                     var networkList = new List<Hubs.ContainerStatsPushNetworkItem>();
+                    long rx = 0, tx = 0;
                     if (stats.Networks != null)
                     {
                         foreach (var network in stats.Networks)
                         {
-                            networkRxSnapshot += network.RxBytes;
-                            networkTxSnapshot += network.TxBytes;
+                            rx += network.RxBytes;
+                            tx += network.TxBytes;
                             networkList.Add(new Hubs.ContainerStatsPushNetworkItem
                             {
                                 Name = network.Name,
@@ -246,7 +254,7 @@ public class RealTimeDataPushService : IHostedService
                         }
                     }
 
-                    containerStatsList.Add(new Hubs.ContainerStatsPushMessage
+                    return (Message: new Hubs.ContainerStatsPushMessage
                     {
                         ContainerId = container.ID,
                         Name = container.Names?.FirstOrDefault()?.TrimStart('/') ?? "unknown",
@@ -263,14 +271,30 @@ public class RealTimeDataPushService : IHostedService
                             PercentMemory = stats.MemoryStats?.PercentMemory ?? 0
                         },
                         Networks = networkList
-                    });
+                    }, Cpu: containerCpu, Mem: stats.MemoryStats?.Usage ?? 0, Rx: rx, Tx: tx);
                 }
                 catch (Exception ex)
                 {
                     // 这里一旦批量失败，前端所有容器的 CPU/内存/网络都会显示为 0，
                     // 必须至少以 Warning 级别输出，否则生产环境完全无法定位。
                     _logger.LogWarning(ex, "获取容器 {Id} 统计失败", container.ID[..12]);
+                    return (Message: null, Cpu: 0d, Mem: 0L, Rx: 0L, Tx: 0L);
                 }
+                finally
+                {
+                    throttle.Release();
+                }
+            }
+
+            foreach (var result in await Task.WhenAll(statsTasks))
+            {
+                if (result.Message == null) continue;
+
+                totalCpuPercent += result.Cpu;
+                totalMemUsed += result.Mem;
+                networkRxSnapshot += result.Rx;
+                networkTxSnapshot += result.Tx;
+                containerStatsList.Add(result.Message);
             }
 
             // 计算网络速度：仍需要本轮累计快照与上一轮快照做差，但不再对外展示“总流量”

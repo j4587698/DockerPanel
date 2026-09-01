@@ -76,5 +76,27 @@ export default {
   importSuccess: 'Settings imported',
   importFailed: 'Failed to import',
   resetConfirmTitle: 'Reset Settings',
-  resetConfirmMessage: 'Reset system settings to defaults? Current configuration will be overwritten.'
+  resetConfirmMessage: 'Reset system settings to defaults? Current configuration will be overwritten.',
+  // Self-update and version
+  systemUpdate: 'System Version & Update',
+  currentVersion: 'Current Version',
+  latestVersion: 'Latest Version',
+  isLatest: 'Up to date',
+  hasNewVersion: 'Update Available',
+  checkUpdate: 'Check for Updates',
+  checkingUpdate: 'Checking for updates...',
+  releaseNotes: 'Release Notes',
+  publishedAt: 'Published At',
+  oneClickUpgrade: 'One-Click Upgrade',
+  upgradeConfirmTitle: 'Confirm System Upgrade',
+  upgradeConfirmMsg: 'Upgrading will pull the latest image and smoothly restart the DockerPanel service via Sidecar container (~5-10s). Volume data and configurations are fully preserved. Continue?',
+  upgradePreparing: 'Preparing upgrade...',
+  upgradePulling: 'Pulling latest image...',
+  upgradeRestarting: 'Image ready, restarting DockerPanel service...',
+  upgradeWaitingHealthy: 'Waiting for service to come back online...',
+  upgradeSuccess: 'Upgrade successful! System has been updated to the latest version.',
+  upgradeFailed: 'System upgrade failed',
+  cannotSelfUpgrade: 'Self-upgrade not supported in current environment',
+  cannotSelfUpgradeHint: 'DockerPanel container environment or Docker socket not detected. Please upgrade manually on host.',
+  viewOnGitHub: 'View on GitHub'
 }

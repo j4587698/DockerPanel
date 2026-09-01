@@ -302,19 +302,148 @@
           </div>
         </div>
       </div>
+
+      <!-- System Update & Version -->
+      <div class="settings-card update-card">
+        <div class="card-header">
+          <div class="card-icon emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+            </svg>
+          </div>
+          <h3 class="card-title">{{ t('settings.systemUpdate') }}</h3>
+          <div class="header-tag" v-if="currentVersion">
+            <span class="version-badge" :class="{ 'has-update': updateCheckResult?.hasUpdate }">
+              v{{ currentVersion }}
+            </span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="update-status-box">
+            <div class="version-info-row">
+              <div class="version-item">
+                <span class="label">{{ t('settings.currentVersion') }}</span>
+                <span class="val font-mono">v{{ currentVersion }}</span>
+              </div>
+              <div class="version-item" v-if="updateCheckResult?.latestVersion">
+                <span class="label">{{ t('settings.latestVersion') }}</span>
+                <span class="val font-mono highlight">v{{ updateCheckResult.latestVersion }}</span>
+              </div>
+              <div class="version-action">
+                <el-button 
+                  size="small" 
+                  @click="fetchUpdateCheck(true)" 
+                  :loading="checkingUpdate"
+                >
+                  {{ t('settings.checkUpdate') }}
+                </el-button>
+              </div>
+            </div>
+
+            <!-- Has Update Info -->
+            <div v-if="updateCheckResult?.hasUpdate" class="new-version-panel">
+              <div class="new-version-header">
+                <div class="tag-badge">
+                  <span class="pulse-dot"></span>
+                  {{ t('settings.hasNewVersion') }}: v{{ updateCheckResult.latestVersion }}
+                </div>
+                <span v-if="updateCheckResult.publishedAt" class="publish-date">
+                  {{ formatDate(updateCheckResult.publishedAt) }}
+                </span>
+              </div>
+              
+              <div v-if="updateCheckResult.releaseNotes" class="release-notes-content">
+                <div class="notes-title">{{ t('settings.releaseNotes') }}:</div>
+                <pre class="notes-body">{{ updateCheckResult.releaseNotes }}</pre>
+              </div>
+
+              <div class="upgrade-actions">
+                <el-button 
+                  type="primary" 
+                  @click="confirmSelfUpgrade"
+                  :disabled="!updateCheckResult.canSelfUpgrade"
+                >
+                  {{ t('settings.oneClickUpgrade') }}
+                </el-button>
+                <a 
+                  v-if="updateCheckResult.htmlUrl" 
+                  :href="updateCheckResult.htmlUrl" 
+                  target="_blank" 
+                  class="github-link"
+                >
+                  {{ t('settings.viewOnGitHub') }} ↗
+                </a>
+              </div>
+              <div v-if="!updateCheckResult.canSelfUpgrade" class="cannot-upgrade-hint">
+                <el-icon><Warning /></el-icon> {{ t('settings.cannotSelfUpgradeHint') }}
+              </div>
+            </div>
+
+            <div v-else-if="!checkingUpdate && updateChecked" class="up-to-date-hint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="check-icon">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+              <span>{{ t('settings.isLatest') }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- System Upgrade Modal -->
+    <el-dialog
+      v-model="upgradeDialogVisible"
+      :title="t('settings.oneClickUpgrade')"
+      width="460px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="upgradePhase === 'failed'"
+      class="glass-dialog upgrade-modal"
+    >
+      <div class="upgrade-modal-content">
+        <div class="upgrade-step-icon" :class="upgradePhase">
+          <el-icon v-if="upgradePhase === 'pulling'" class="is-loading" :size="36"><Loading /></el-icon>
+          <el-icon v-else-if="upgradePhase === 'restarting'" class="is-loading" :size="36"><Refresh /></el-icon>
+          <el-icon v-else-if="upgradePhase === 'success'" :size="36" color="#22c55e"><CircleCheckFilled /></el-icon>
+          <el-icon v-else-if="upgradePhase === 'failed'" :size="36" color="#ef4444"><CircleCloseFilled /></el-icon>
+        </div>
+
+        <h4 class="upgrade-step-title">{{ upgradeStepTitle }}</h4>
+        <p class="upgrade-step-desc">{{ upgradeStepDetail }}</p>
+
+        <el-progress
+          v-if="upgradePhase === 'pulling'"
+          :percentage="pullProgress"
+          :indeterminate="pullIndeterminate"
+          :stroke-width="8"
+          style="margin: 20px 0"
+        />
+
+        <div v-if="upgradePhase === 'restarting'" class="restart-countdown">
+          <span>{{ t('settings.upgradeWaitingHealthy') }}</span>
+        </div>
+      </div>
+      <template #footer v-if="upgradePhase === 'failed'">
+        <el-button @click="upgradeDialogVisible = false">{{ t('common.close') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { setLocale, getLocale } from '@/i18n'
 import { useSettingsStore } from '@/stores/settings'
 import { settingsApi } from '@/api/settings'
+import { systemApi, type SelfUpdateCheckResult } from '@/api/system'
+import { useImagePullProgress } from '@/composables/useImagePullProgress'
 import { APP_NAME } from '@/utils/branding'
+import { formatLocalizedDate } from '@/utils/date'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading, Refresh, CircleCheckFilled, CircleCloseFilled, Warning } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -539,7 +668,155 @@ const handleResetSettings = async () => {
   }
 }
 
-onMounted(() => { void loadSettings() })
+// --- Self Update States & Methods ---
+const currentVersion = ref('0.9.5')
+const checkingUpdate = ref(false)
+const updateChecked = ref(false)
+const updateCheckResult = ref<SelfUpdateCheckResult | null>(null)
+
+const upgradeDialogVisible = ref(false)
+const upgradePhase = ref<'idle' | 'pulling' | 'restarting' | 'success' | 'failed'>('idle')
+const upgradeStepTitle = ref('')
+const upgradeStepDetail = ref('')
+const pullProgress = ref(0)
+const pullIndeterminate = ref(true)
+
+const updateTracking = useImagePullProgress(
+  (pullId) => pullId === 'self-upgrade',
+  false
+)
+
+watch(updateTracking.hasData, (hasData) => {
+  if (hasData && updateTracking.progress.value > 0) {
+    pullIndeterminate.value = false
+  }
+})
+
+watch(updateTracking.progress, (p) => {
+  pullProgress.value = p
+})
+
+watch([updateTracking.detail, updateTracking.step], ([d, s]) => {
+  const text = d || s
+  if (text) upgradeStepDetail.value = text
+})
+
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return ''
+  return formatLocalizedDate(dateStr, '-', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+const fetchUpdateCheck = async (force = false) => {
+  checkingUpdate.value = true
+  try {
+    const res = await systemApi.checkSelfUpdate(force)
+    const data = (res as any)?.data || res
+    if (data) {
+      updateCheckResult.value = data
+      if (data.currentVersion) {
+        currentVersion.value = data.currentVersion
+      }
+      updateChecked.value = true
+      if (force && !data.hasUpdate) {
+        ElMessage.success(t('settings.isLatest'))
+      }
+    }
+  } catch (err: any) {
+    console.error('Failed to check self update:', err)
+    if (force) {
+      ElMessage.error(err?.message || t('settings.saveFailed'))
+    }
+  } finally {
+    checkingUpdate.value = false
+  }
+}
+
+const confirmSelfUpgrade = async () => {
+  try {
+    await ElMessageBox.confirm(
+      t('settings.upgradeConfirmMsg'),
+      t('settings.upgradeConfirmTitle'),
+      {
+        type: 'warning',
+        confirmButtonText: t('settings.oneClickUpgrade'),
+        cancelButtonText: t('common.cancel')
+      }
+    )
+    await startSelfUpgrade()
+  } catch {
+    // User cancelled
+  }
+}
+
+const startSelfUpgrade = async () => {
+  upgradeDialogVisible.value = true
+  upgradePhase.value = 'pulling'
+  upgradeStepTitle.value = t('settings.upgradePulling')
+  upgradeStepDetail.value = t('settings.upgradePreparing')
+  pullProgress.value = 0
+  pullIndeterminate.value = true
+  updateTracking.clear()
+  updateTracking.start()
+
+  try {
+    await systemApi.executeSelfUpgrade({
+      targetVersion: updateCheckResult.value?.latestVersion
+    })
+    updateTracking.stop()
+    await pollHealthAndReload()
+  } catch (err: any) {
+    updateTracking.stop()
+    upgradePhase.value = 'failed'
+    upgradeStepTitle.value = t('settings.upgradeFailed')
+    upgradeStepDetail.value = err?.message || err?.error || t('common.unknown')
+    ElMessage.error(upgradeStepDetail.value)
+  }
+}
+
+const pollHealthAndReload = async () => {
+  upgradePhase.value = 'restarting'
+  upgradeStepTitle.value = t('settings.upgradeRestarting')
+  upgradeStepDetail.value = t('settings.upgradeWaitingHealthy')
+
+  // 等待 3 秒让容器完成重启交接
+  await new Promise(r => setTimeout(r, 3000))
+
+  const maxAttempts = 30
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 2000))
+    try {
+      const res = await systemApi.getSystemInfo()
+      const data = (res as any)?.data || res
+      if (data && (data.system || data.runtime)) {
+        upgradePhase.value = 'success'
+        upgradeStepTitle.value = t('settings.upgradeSuccess')
+        upgradeStepDetail.value = `v${data.runtime?.version || updateCheckResult.value?.latestVersion || ''}`
+        ElMessage.success(t('settings.upgradeSuccess'))
+        setTimeout(() => {
+          window.location.reload()
+        }, 1500)
+        return
+      }
+    } catch {
+      // 正在重启中，继续轮询
+    }
+  }
+
+  upgradePhase.value = 'failed'
+  upgradeStepTitle.value = t('settings.upgradeFailed')
+  upgradeStepDetail.value = '服务重启超时，请在宿主机检查容器运行状态或手动刷新页面。'
+}
+
+onMounted(() => {
+  void loadSettings()
+  void fetchUpdateCheck(false)
+})
 </script>
 
 <style scoped>
@@ -874,4 +1151,221 @@ onMounted(() => { void loadSettings() })
   .btn { flex: 1; justify-content: center; }
 }
 
+/* System Update Card & Modal Styles */
+.card-icon.emerald { background: linear-gradient(135deg, #10b981, #059669); }
+
+.update-card {
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.version-badge {
+  font-size: 12px;
+  font-family: monospace;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.version-badge.has-update {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10b981;
+  font-weight: bold;
+}
+
+.update-status-box {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.version-info-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.version-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.version-item .label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.version-item .val {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.version-item .val.highlight {
+  color: #10b981;
+}
+
+.version-action {
+  margin-left: auto;
+}
+
+.new-version-panel {
+  margin-top: 6px;
+  padding: 16px;
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.new-version-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #10b981;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulse-emerald 2s infinite;
+}
+
+@keyframes pulse-emerald {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.publish-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.release-notes-content {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.notes-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.notes-body {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-main);
+  font-family: inherit;
+}
+
+.upgrade-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.github-link {
+  font-size: 13px;
+  color: var(--color-secondary);
+  text-decoration: none;
+}
+
+.github-link:hover {
+  text-decoration: underline;
+}
+
+.cannot-upgrade-hint {
+  font-size: 12px;
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.up-to-date-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #10b981;
+  padding: 10px 14px;
+  background: rgba(16, 185, 129, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.check-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.upgrade-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 8px;
+}
+
+.upgrade-step-icon {
+  margin-bottom: 16px;
+}
+
+.upgrade-step-title {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.upgrade-step-desc {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.restart-countdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
 </style>

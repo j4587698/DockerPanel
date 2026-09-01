@@ -64,7 +64,46 @@ export const systemApi = {
   // 获取Docker统计信息
   getDockerStats: () => {
     return api.get("system/docker-stats")
+  },
+
+  // 检查 DockerPanel 自身更新
+  checkSelfUpdate: (force?: boolean) => {
+    return api.get<SelfUpdateCheckResult>("system/update/check", { params: { force } })
+  },
+
+  // 执行 DockerPanel 自身升级
+  executeSelfUpgrade: (data?: SelfUpgradeRequest) => {
+    return api.post<SelfUpgradeResponse>("system/update/upgrade", data || {})
   }
+}
+
+export interface SelfUpdateCheckResult {
+  currentVersion: string
+  latestVersion: string
+  hasUpdate: boolean
+  releaseTitle?: string
+  releaseNotes?: string
+  publishedAt?: string
+  htmlUrl?: string
+  canSelfUpgrade: boolean
+  containerId?: string
+  containerName?: string
+  imageName?: string
+  reason?: string
+}
+
+export interface SelfUpgradeRequest {
+  targetVersion?: string
+  targetImage?: string
+  connectionId?: string
+}
+
+export interface SelfUpgradeResponse {
+  success: boolean
+  message: string
+  currentVersion: string
+  targetVersion: string
+  oldContainerId?: string
 }
 
 export default systemApi

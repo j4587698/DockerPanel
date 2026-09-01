@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.9.5</Version>
+    <Version>0.9.6</Version>
     <InformationalVersion>$(Version)</InformationalVersion>
     <!-- 本地化由自研 JSON 语言包实现，不依赖 ICU；可为镜像省去 icu-libs(约 30MB) -->
     <InvariantGlobalization>true</InvariantGlobalization>

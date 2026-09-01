@@ -670,7 +670,7 @@ const handleResetSettings = async () => {
 }
 
 // --- Self Update States & Methods ---
-const currentVersion = ref('0.9.5')
+const currentVersion = ref('0.9.6')
 const checkingUpdate = ref(false)
 const updateChecked = ref(false)
 const updateCheckResult = ref<SelfUpdateCheckResult | null>(null)

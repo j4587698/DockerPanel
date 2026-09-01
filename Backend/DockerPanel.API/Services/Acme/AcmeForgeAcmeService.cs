@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,6 +41,7 @@ namespace DockerPanel.API.Services.Acme
         private readonly Dictionary<string, AcmeForge.Dns.IDnsProvider> _dnsProviders;
         private readonly TlsAlpnChallengeService _tlsAlpnChallengeService;
         private readonly SniCertificateSelector _sniCertificateSelector;
+        private readonly IReverseProxyFactory _reverseProxyFactory;
 
         // 使用静态字典来跨请求保持ACME客户端缓存
         private static readonly ConcurrentDictionary<string, AcmeClient> _staticClients = new();
@@ -64,7 +65,8 @@ namespace DockerPanel.API.Services.Acme
             AzureDnsProvider azureProvider,
             GoDaddyDnsProvider godaddyProvider,
             TlsAlpnChallengeService tlsAlpnChallengeService,
-            SniCertificateSelector sniCertificateSelector)
+            SniCertificateSelector sniCertificateSelector,
+            IReverseProxyFactory reverseProxyFactory)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
@@ -76,6 +78,7 @@ namespace DockerPanel.API.Services.Acme
             _dbContext = dbContext;
             _tlsAlpnChallengeService = tlsAlpnChallengeService;
             _sniCertificateSelector = sniCertificateSelector;
+            _reverseProxyFactory = reverseProxyFactory;
 
             // 初始化DNS提供商字典
             _dnsProviders = new Dictionary<string, AcmeForge.Dns.IDnsProvider>(StringComparer.OrdinalIgnoreCase)

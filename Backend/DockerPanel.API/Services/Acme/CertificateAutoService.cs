@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DockerPanel.API.Data;
 using DockerPanel.API.Models;
 using DockerPanel.API.Models.Acme;
 using DockerPanel.API.Services;
@@ -400,6 +401,49 @@ namespace DockerPanel.API.Services.Acme
 
                     await SetAutoRenewalConfigurationAsync(autoResult.CertificateId, newRenewalConfig);
                     result.RenewalSteps.Add("新证书续期配置更新成功");
+
+                    // 迁移绑定该证书的 DomainMapping 到新证书 ID
+                    if (autoResult.CertificateId != certificateId)
+                    {
+                        try
+                        {
+                            using var updateScope = _scopeFactory.CreateScope();
+                            var dbContext = updateScope.ServiceProvider.GetRequiredService<TinyDbContext>();
+                            var mappingsCollection = dbContext.GetCollection<DomainMapping>("domain_mappings");
+                            var affectedMappings = mappingsCollection.Find(m => m.CertificateId == certificateId).ToList();
+
+                            if (affectedMappings.Count > 0)
+                            {
+                                foreach (var mapping in affectedMappings)
+                                {
+                                    mapping.CertificateId = autoResult.CertificateId;
+                                    mapping.UpdatedAt = DateTime.UtcNow;
+                                    mappingsCollection.Update(mapping);
+                                    _logger.LogInformation("续期后自动更新域名映射 {Domain} 证书绑定: {OldCertId} -> {NewCertId}", 
+                                        mapping.Domain, certificateId, autoResult.CertificateId);
+                                }
+
+                                var proxyFactory = updateScope.ServiceProvider.GetService<IReverseProxyFactory>();
+                                if (proxyFactory != null)
+                                {
+                                    await proxyFactory.ReloadConfigAsync();
+                                }
+
+                                var sniSelector = updateScope.ServiceProvider.GetService<SniCertificateSelector>();
+                                if (sniSelector != null)
+                                {
+                                    foreach (var mapping in affectedMappings)
+                                    {
+                                        sniSelector.ClearCache(mapping.Domain);
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception mapEx)
+                        {
+                            _logger.LogError(mapEx, "续期后更新域名映射失败: {OldCertId} -> {NewCertId}", certificateId, autoResult.CertificateId);
+                        }
+                    }
                 }
 
                 taskStatus.ProgressPercentage = 90;

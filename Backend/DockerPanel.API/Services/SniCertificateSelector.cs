@@ -1,6 +1,7 @@
 using System.Security.Cryptography.X509Certificates;
 using System.IO;
 using DockerPanel.API.Data;
+using DockerPanel.API.Models;
 using DockerPanel.API.Services.Acme;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -181,7 +182,7 @@ public class SniCertificateSelector
     }
 
     /// <summary>
-    /// 从数据库加载证书
+    /// 从数据库加载证书（优先根据 DomainMapping 绑定的 CertificateId 精确加载）
     /// </summary>
     private X509Certificate2? LoadCertificateFromDatabase(string domain)
     {
@@ -190,19 +191,35 @@ public class SniCertificateSelector
             using var scope = _scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
             
-            var collection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
-            
-            // 查找精确匹配的证书（Status 兼容历史数据的大小写变体: valid/Active/active）
-            var record = collection.FindOne(r => 
-                r.Domains.Contains(domain) && 
-                (r.Status == "valid" || r.Status == "Active" || r.Status == "active") &&
-                r.ExpiresAt > DateTime.UtcNow &&
-                r.CertificateData != null && r.CertificateData != "" &&
-                r.PrivateKeyData != null && r.PrivateKeyData != "");
+            var domainMappingsCollection = dbContext.GetCollection<DomainMapping>("domain_mappings");
+            var mapping = domainMappingsCollection.FindAll().FirstOrDefault(m => 
+                m.Enabled && 
+                string.Equals(m.Domain, domain, StringComparison.OrdinalIgnoreCase));
 
-            if (record != null)
+            var certCollection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
+
+            // 1. 如果该域名映射存在，且显式指定了 CertificateId
+            if (mapping != null && !string.IsNullOrEmpty(mapping.CertificateId))
             {
-                return CreateCertificateFromRecord(record);
+                var record = certCollection.FindAll().FirstOrDefault(r => r.Id == mapping.CertificateId);
+                if (record != null && IsValidCertificateRecord(record))
+                {
+                    _logger.LogInformation("通过 DomainMapping.CertificateId 精确加载证书: Domain={Domain}, CertificateId={CertId}", domain, mapping.CertificateId);
+                    return CreateCertificateFromRecord(record);
+                }
+                _logger.LogWarning("DomainMapping 绑定的证书无效或已过期: Domain={Domain}, CertificateId={CertId}", domain, mapping.CertificateId);
+            }
+
+            // 2. 兜底回退：如果未配置 DomainMapping，或 Mapping 没有 CertificateId，按域名直接查找有效证书
+            var fallbackRecord = certCollection.FindAll().FirstOrDefault(r => 
+                r.Domains != null &&
+                r.Domains.Any(d => string.Equals(d, domain, StringComparison.OrdinalIgnoreCase)) && 
+                IsValidCertificateRecord(r));
+
+            if (fallbackRecord != null)
+            {
+                _logger.LogInformation("通过域名兜底匹配加载证书: Domain={Domain}, CertificateId={CertId}", domain, fallbackRecord.Id);
+                return CreateCertificateFromRecord(fallbackRecord);
             }
 
             return null;
@@ -224,23 +241,43 @@ public class SniCertificateSelector
             using var scope = _scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
             
-            var collection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
-            
-            // 获取所有有效的通配符证书
-            var wildcardRecords = collection.Find(r => 
-                (r.Status == "valid" || r.Status == "Active" || r.Status == "active") &&
-                r.ExpiresAt > DateTime.UtcNow &&
-                r.CertificateData != null && r.CertificateData != "" &&
-                r.PrivateKeyData != null && r.PrivateKeyData != "" &&
-                r.Domains.Any(d => d.StartsWith("*.")));
+            var domainMappingsCollection = dbContext.GetCollection<DomainMapping>("domain_mappings");
+            var wildcardMappings = domainMappingsCollection.FindAll().Where(m => 
+                m.Enabled && 
+                !string.IsNullOrEmpty(m.CertificateId) &&
+                m.Domain.StartsWith("*.")).ToList();
+
+            var certCollection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
+
+            // 1. 检查是否有通配符 DomainMapping 绑定了 CertificateId
+            foreach (var mapping in wildcardMappings)
+            {
+                if (MatchesWildcard(mapping.Domain, domain))
+                {
+                    var record = certCollection.FindAll().FirstOrDefault(r => r.Id == mapping.CertificateId);
+                    if (record != null && IsValidCertificateRecord(record))
+                    {
+                        _logger.LogInformation("通过通配符 DomainMapping 加载证书: Domain={Domain}, Pattern={Pattern}, CertificateId={CertId}", 
+                            domain, mapping.Domain, mapping.CertificateId);
+                        return CreateCertificateFromRecord(record);
+                    }
+                }
+            }
+
+            // 2. 检查所有有效的通配符证书记录
+            var wildcardRecords = certCollection.FindAll().Where(r => 
+                IsValidCertificateRecord(r) &&
+                r.Domains != null &&
+                r.Domains.Any(d => d.StartsWith("*."))).ToList();
 
             foreach (var record in wildcardRecords)
             {
-                // 检查域名是否匹配通配符
                 foreach (var certDomain in record.Domains)
                 {
                     if (MatchesWildcard(certDomain, domain))
                     {
+                        _logger.LogInformation("通过通配符证书记录加载证书: Domain={Domain}, Pattern={Pattern}, CertificateId={CertId}",
+                            domain, certDomain, record.Id);
                         return CreateCertificateFromRecord(record);
                     }
                 }
@@ -253,6 +290,19 @@ public class SniCertificateSelector
             _logger.LogError(ex, "查找通配符证书失败: {Domain}", domain);
             return null;
         }
+    }
+
+    /// <summary>
+    /// 验证证书记录是否有效可用
+    /// </summary>
+    private static bool IsValidCertificateRecord(CertificateRecord record)
+    {
+        return (string.Equals(record.Status, "valid", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(record.Status, "Active", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(record.Status, "active", StringComparison.OrdinalIgnoreCase)) &&
+               record.ExpiresAt > DateTime.UtcNow &&
+               !string.IsNullOrWhiteSpace(record.CertificateData) &&
+               !string.IsNullOrWhiteSpace(record.PrivateKeyData);
     }
 
     /// <summary>
@@ -338,7 +388,7 @@ public class SniCertificateSelector
     }
 
     /// <summary>
-    /// 预热缓存 - 加载所有有效证书
+    /// 预热缓存 - 加载所有有效证书与域名映射
     /// </summary>
     public void WarmupCache()
     {
@@ -347,27 +397,27 @@ public class SniCertificateSelector
             using var scope = _scopeFactory.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
             
-            var collection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
-            var records = collection.Find(r => 
-                (r.Status == "valid" || r.Status == "Active" || r.Status == "active") &&
-                r.ExpiresAt > DateTime.UtcNow &&
-                r.CertificateData != null && r.CertificateData != "" &&
-                r.PrivateKeyData != null && r.PrivateKeyData != "");
-
+            var mappingsCollection = dbContext.GetCollection<DomainMapping>("domain_mappings");
+            var certCollection = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
+            
+            var enabledMappings = mappingsCollection.Find(m => m.Enabled && !string.IsNullOrEmpty(m.CertificateId)).ToList();
             int count = 0;
-            foreach (var record in records)
-            {
-                var cert = CreateCertificateFromRecord(record);
-                if (cert == null) continue;
 
-                foreach (var domain in record.Domains)
+            foreach (var mapping in enabledMappings)
+            {
+                var record = certCollection.FindById(mapping.CertificateId!);
+                if (record != null && IsValidCertificateRecord(record))
                 {
-                    _cache.Set($"sni_{domain.ToLowerInvariant()}", cert, _cacheDuration);
-                    count++;
+                    var cert = CreateCertificateFromRecord(record);
+                    if (cert != null)
+                    {
+                        _cache.Set($"sni_{mapping.Domain.ToLowerInvariant()}", cert, _cacheDuration);
+                        count++;
+                    }
                 }
             }
 
-            _logger.LogInformation("证书缓存预热完成: {Count} 个域名", count);
+            _logger.LogInformation("证书缓存预热完成: {Count} 个域名映射已缓存", count);
         }
         catch (Exception ex)
         {

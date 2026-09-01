@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using AcmeForge;
 
 
+using DockerPanel.API.Models;
 using DockerPanel.API.Models.Acme;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Http;
@@ -1012,6 +1013,44 @@ namespace DockerPanel.API.Services.Acme
                             certificatesCollection.Insert(certificateRecord);
                             _logger.LogInformation("证书已保存到数据库: OrderId={OrderId}, CertificateId={CertificateId}, KeyAlgorithm={KeyAlgorithm}, KeySize={KeySize}, ExpiresAt={ExpiresAt}, AutoRenew={AutoRenew}",
                                 order.Id, certificateRecord.Id, keyAlgorithm, keySize, cert.NotAfter, autoRenew);
+                        }
+
+                        // 自动回填更新 DomainMapping 中的 CertificateId
+                        try
+                        {
+                            var domainMappingsCollection = _dbContext.GetCollection<DomainMapping>("domain_mappings");
+                            var mappingsToUpdate = domainMappingsCollection.Find(m => 
+                                m.CertificateId == order.Id || 
+                                (order.Domains.Contains(m.Domain) && (m.AutoRequestCertificate || string.IsNullOrEmpty(m.CertificateId) || m.CertificateId == order.Id))
+                            ).ToList();
+
+                            if (mappingsToUpdate.Count > 0)
+                            {
+                                foreach (var mapping in mappingsToUpdate)
+                                {
+                                    mapping.CertificateId = certificateRecord.Id;
+                                    mapping.EnableSsl = true;
+                                    mapping.UpdatedAt = DateTime.UtcNow;
+                                    domainMappingsCollection.Update(mapping);
+                                    _logger.LogInformation("已自动回填域名映射证书绑定: Domain={Domain}, CertificateId={CertificateId}", 
+                                        mapping.Domain, certificateRecord.Id);
+                                }
+
+                                // 通知 YARP 重新加载代理配置
+                                try
+                                {
+                                    await _reverseProxyFactory.ReloadConfigAsync();
+                                }
+                                catch (Exception reloadEx)
+                                {
+                                    _logger.LogWarning(reloadEx, "自动更新域名映射后重新加载代理配置失败");
+                                }
+                            }
+                        }
+                        catch (Exception mappingEx)
+                        {
+                            _logger.LogError(mappingEx, "自动更新域名映射的 CertificateId 失败: OrderId={OrderId}, CertificateId={CertId}", 
+                                order.Id, certificateRecord.Id);
                         }
 
                         // 清除 SNI 证书缓存，使新证书立即生效

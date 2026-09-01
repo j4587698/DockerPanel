@@ -190,6 +190,7 @@ public class DomainMappingService
                 EnableSsl = !string.IsNullOrEmpty(certificateId),
                 CertificateId = certificateId,
                 AccountId = domainMapping.AccountId,
+                AutoRequestCertificate = domainMapping.AutoRequestCertificate,
                 Enabled = true,
                 Priority = 0,
                 CreatedAt = DateTime.UtcNow,

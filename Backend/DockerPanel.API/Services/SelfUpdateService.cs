@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -373,7 +373,7 @@ public class SelfUpdateService : ISelfUpdateService
         var assembly = typeof(SelfUpdateService).Assembly;
         var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                ?? assembly.GetName().Version?.ToString()
-               ?? "0.9.5";
+               ?? "0.9.6";
         return version.TrimStart('v', 'V').Split('+')[0];
     }
 }

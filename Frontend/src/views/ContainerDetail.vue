@@ -280,6 +280,7 @@ const editDialogVisible = ref(false)
 const editContainerDialogVisible = ref(false)
 const recreateDialogVisible = ref(false)
 const connectNetworkDialogVisible = ref(false)
+const isRecreating = ref(false)
 
 // Network
 const availableNetworks = ref<NetworkInfo[]>([])
@@ -321,6 +322,8 @@ const loadContainerDetail = async () => {
     }
   } catch (err: any) {
     console.error(err)
+    // 如果处于重建流程中，忽略旧容器被删除产生的瞬时 404，由重建完成后的路由跳转处理
+    if (isRecreating.value) return
     // 容器已被重建/删除（ID 失效）时，明确提示并退回列表，避免继续用失效 ID 订阅日志与统计
     if (err?.response?.status === 404) {
       ElMessage.warning(t('container.notFound'))
@@ -620,12 +623,16 @@ const editContainer = () => {
   editContainerDialogVisible.value = true
 }
 
-const handleEditSuccess = async () => {
+const handleEditSuccess = async (newContainerId?: string) => {
   ElMessage.success(t('container.containerDetail.containerUpdated'))
   // 刷新容器列表并跳转到新容器
   await containersStore.fetchContainers()
-  // 重新加载当前页面数据
-  await loadContainerDetail()
+  if (newContainerId && newContainerId !== route.params.id) {
+    await router.replace(`/containers/${newContainerId}`)
+  } else {
+    // 重新加载当前页面数据
+    await loadContainerDetail()
+  }
 }
 
 const saveEdit = async (payload: { name: string; pullLatest: boolean }) => {
@@ -693,11 +700,12 @@ const recreateContainer = () => {
 
 /**
  * 执行重建容器并实时展示进度。
- * 供「重建】按钮与「编辑配置并拉取最新镜像」两个入口复用。
+ * 供「重建」按钮与「编辑配置并拉取最新镜像」两个入口复用。
  */
 const runRecreate = async (options: { pullLatest: boolean; autoStart: boolean }) => {
   if (!container.value) return
 
+  isRecreating.value = true
   recreatePhase.value = 'running'
   recreateProgress.value = 0
   recreateDetail.value = t('container.dialogs.recreatePreparing')
@@ -724,20 +732,29 @@ const runRecreate = async (options: { pullLatest: boolean; autoStart: boolean })
 
     recreateTracking.stop()
 
-    setTimeout(() => {
+    const newId = (result as any)?.newId || (result as any)?.NewId
+
+    setTimeout(async () => {
       recreateDialogVisible.value = false
       recreatePhase.value = 'idle'
       recreateProgress.value = 0
       recreateDetail.value = ''
       recreateIndeterminate.value = false
+      isRecreating.value = false
 
-      if (result.newId && result.newId !== containerId) {
-        router.push(`/containers/${result.newId}`)
+      if (newId && newId !== containerId) {
+        ElMessage.success(t('container.containerDetail.recreateSuccess'))
+        await router.replace(`/containers/${newId}`)
+      } else if (newId) {
+        await loadContainerDetail()
       } else {
-        loadContainerDetail()
+        // 若未能获取到新容器ID，安全退回到容器列表
+        ElMessage.success(t('container.containerDetail.recreateSuccess'))
+        await router.replace('/containers')
       }
-    }, 800)
+    }, 600)
   } catch (e: any) {
+    isRecreating.value = false
     recreatePhase.value = 'failed'
     recreateDetail.value = e.message || t('container.containerDetail.recreateFailed')
     ElMessage.error(e.message || t('container.containerDetail.recreateFailed'))
@@ -1028,6 +1045,21 @@ watch(activeTab, async (val, oldVal) => {
   }
   
   if (val === 'logs') loadLogs()
+})
+
+watch(() => route.params.id, async (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    // 清理旧容器订阅与状态
+    await stopSignalRSubscriptions()
+    stopLogStream()
+    disconnectTerminal()
+    logs.value = ''
+    stats.value = { cpu: 0, memory: 0, networkIO: 0 }
+
+    // 加载新容器数据与重新订阅
+    await loadContainerDetail()
+    await startSignalRSubscriptions()
+  }
 })
 </script>
 

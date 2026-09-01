@@ -1,242 +1,274 @@
-# DockerPanel
+﻿# DockerPanel
 
-DockerPanel 是一个基于 ASP.NET Core 10 和 Vue 3 的 Docker 管理面板。后端通过 Docker Socket 管理本机 Docker，前端由 Vite 构建后随后端镜像一起发布。
+DockerPanel 是一个基于 **ASP.NET Core 10** 和 **Vue 3** 构建的高性能现代化 Docker 可视化管理与反向代理网关面板。
 
-当前后端版本：`0.6.3`
+后端通过 Docker Socket 全面接管并调度 Docker 容器生命周期，前端通过静态资源一体化嵌入后端容器中，支持**单镜像开箱即用、一键部署与无缝平滑自升级**。
 
-Docker 镜像发布在 Docker Hub：[`j4587698/dockerpanel`](https://hub.docker.com/r/j4587698/dockerpanel)，由 GitHub Actions 自动构建并推送，无需本地构建。
+当前版本：`0.9.6`
 
-## 技术栈
+Docker 镜像发布于 Docker Hub：[`j4587698/dockerpanel`](https://hub.docker.com/r/j4587698/dockerpanel)，由 GitHub Actions 自动化构建与发布多架构镜像。
 
-- 后端：ASP.NET Core 10、SignalR、YARP、TinyDb、Docker.DotNet.Enhanced
-- 前端：Vue 3、TypeScript、Vite、Pinia、Vue Router、Element Plus、ECharts、xterm
-- 部署：Docker、Docker Compose
+---
 
-## 部署
+## ✨ 核心特性
 
-DockerPanel 以**单一镜像**形式发布到 Docker Hub（前端构建产物随后端镜像一起发布），部署只需拉取镜像并运行。
+- **自身一键平滑升级**：内置基于 Sidecar 容器与 Docker Registry Manifest 摘要比对的自升级引擎，数据卷与运行参数 100% 无损继承，一键完成更新重启与健康探活。
+- **容器与 Compose 深度管理**：
+  - 容器创建、停止、启动、重启、高级重建（Recreate，保留原有卷、网络与端口参数）、批量更新与回滚；
+  - 实时日志流推送（SignalR）、Web 终端（xterm.js）、容器内文件浏览与管理、CPU/内存/网络/磁盘实时监控；
+  - Docker Compose 项目在线编辑、实时构建与编排部署。
+- **镜像与仓库集成**：
+  - 支持 Docker Hub、私有 Harbor、阿里云/腾讯云加速器等多种 Registry 认证；
+  - 实时镜像拉取/推送进度按层聚合广播；
+  - 基于镜像 Digest 的新版本自动检测与通知。
+- **YARP 反向代理与网关**：
+  - 基于微软高性能 YARP 反向代理核心，支持动态路由规则、负载均衡、SSL/TLS 卸载与路由健康检查。
+- **ACME 自动化证书生命周期管理**：
+  - 支持 Let's Encrypt / ZeroSSL 自动化证书申请（HTTP-01 与 DNS-01 校验）；
+  - 证书自动续期、SNI 动态证书加载与通配符证书关联。
+- **多节点调度与 SSH 管理**：
+  - 支持管理本地 Docker 引擎与多远程节点；
+  - 内置 SSH 密钥管理与基于 Web 的 Linux 服务器终端。
+- **用户权限与安全审计**：
+  - 多用户与细粒度角色权限管理、初始化向导与安全密码策略；
+  - 全流程操作审计日志追踪。
+
+---
+
+## 🛠️ 技术栈
+
+- **后端**：ASP.NET Core 10 (C# 14 / Native AOT JSON 源码生成)、SignalR 实时通信、YARP 反向代理、TinyDb 轻量持久化、AcmeForge ACME 客户端、Docker.DotNet。
+- **前端**：Vue 3 (Composition API / `<script setup>`)、TypeScript、Vite、Pinia、Vue Router、Element Plus、ECharts、xterm.js、CodeMirror 6。
+- **部署**：Docker / Docker Compose 单容器一体化部署。
+
+---
+
+## 🚀 快速部署
+
+DockerPanel 以**单一镜像**发布，无需额外配置外部数据库。
 
 镜像地址：`j4587698/dockerpanel`
 
 可用 tag：
+- `latest`：最新稳定发布版本
+- `0.9` / `0.9.6`：对应指定语义化版本
 
-- `latest`：最新发布版本
-- `0.6` / `0.6.3`：对应后端 `<Version>`（见 `Backend/DockerPanel.API/DockerPanel.API.csproj`）
+---
 
-### 方式一：使用 docker run
+### 方式一：使用 docker run 部署（推荐）
+
+#### 1. 标准双端口模式（推荐，支持 HTTP 访问、ACME 证书申请及 HTTPS 反代）
 
 ```bash
 docker run -d \
-  --name dockerpanel-app \
+  --name dockerpanel \
   --restart unless-stopped \
   -p 80:80 \
+  -p 443:443 \
   -e ASPNETCORE_ENVIRONMENT=Production \
-  -e ASPNETCORE_URLS=http://+:80 \
   -e HTTP_PORT=80 \
-  -e ENABLE_HTTPS=false \
-  -e DOCKERPANEL_JWT_SECRET=你的强密钥 \
+  -e HTTPS_PORT=443 \
+  -e ENABLE_HTTPS=true \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v dockerpanel_data:/app/Data \
-  -v dockerpanel_logs:/app/Logs \
+  -v /opt/dockerpanel/data:/app/Data \
+  -v /opt/dockerpanel/logs:/app/Logs \
   j4587698/dockerpanel:latest
 ```
 
-### 方式二：使用 docker compose（推荐）
-
-仓库提供 `docker-compose.hub.yml`，已直接引用 Docker Hub 镜像，无需本地构建：
+#### 2. 自定义端口模式（如服务器 80/443 已被其他服务占用）
 
 ```bash
-# 拉取最新镜像并启动
-docker compose -f docker-compose.hub.yml pull
-docker compose -f docker-compose.hub.yml up -d
+docker run -d \
+  --name dockerpanel \
+  --restart unless-stopped \
+  -p 8080:80 \
+  -p 8443:443 \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  -e HTTP_PORT=80 \
+  -e HTTPS_PORT=443 \
+  -e ENABLE_HTTPS=true \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /opt/dockerpanel/data:/app/Data \
+  -v /opt/dockerpanel/logs:/app/Logs \
+  j4587698/dockerpanel:latest
+```
+
+> **📌 端口与网络说明**：
+> - **80 端口**：面板 HTTP 访问入口，同时用于 **Let's Encrypt / ACME HTTP-01 证书申请校验**。若要在面板中自动申请 SSL 证书，请确保宿主机公网 80 端口能直接访问或通过上游网关转发至本容器。
+> - **443 端口**：面板 HTTPS 及 YARP 反代 SNI 动态证书访问入口。
+
+---
+
+### 方式二：使用 Docker Compose 部署
+
+仓库提供 `docker-compose.yml`（或 `docker-compose.hub.yml`），直接引用官方镜像：
+
+```yaml
+services:
+  dockerpanel:
+    image: j4587698/dockerpanel:latest
+    container_name: dockerpanel
+    ports:
+      - "${DOCKERPANEL_HTTP_HOST_PORT:-80}:80"
+      - "${DOCKERPANEL_HTTPS_HOST_PORT:-443}:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - HTTP_PORT=80
+      - HTTPS_PORT=443
+      - ENABLE_HTTPS=true
+      - Logging__LogLevel__Default=Information
+      - Logging__LogLevel__Microsoft.AspNetCore=Warning
+      # 可选：首次启动预置管理员用户名与密码（未设置时首次访问进入 /setup 向导创建）
+      # - DOCKERPANEL_ADMIN_USERNAME=admin
+      # - DOCKERPANEL_ADMIN_PASSWORD=YourStrongPassword!
+      # 可选：显式指定 JWT 密钥（未配置时自动生成并保存到持久化数据目录）
+      # - DOCKERPANEL_JWT_SECRET=your-custom-jwt-secret-key-at-least-32-chars
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dockerpanel_data:/app/Data
+      - dockerpanel_logs:/app/Logs
+    networks:
+      - dockerpanel-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  dockerpanel_data:
+    driver: local
+  dockerpanel_logs:
+    driver: local
+
+networks:
+  dockerpanel-network:
+    driver: bridge
+    name: dockerpanel-network
+```
+
+启动与管理：
+
+```bash
+# 启动
+docker compose up -d
 
 # 查看状态
-docker compose -f docker-compose.hub.yml ps
+docker compose ps
 
-# 查看日志
-docker compose -f docker-compose.hub.yml logs -f
+# 查看实时日志
+docker compose logs -f
 
 # 停止
-docker compose -f docker-compose.hub.yml down
+docker compose down
 ```
 
-如需使用非 80 宿主机端口，通过环境变量覆盖：
+如需自定义宿主机端口，可通过环境变量启动：
+```bash
+DOCKERPANEL_HTTP_HOST_PORT=8080 DOCKERPANEL_HTTPS_HOST_PORT=8443 docker compose up -d
+```
+
+---
+
+### 方式三：一键部署脚本（单文件自举）
+
+无需手动 clone 仓库，直接在终端执行脚本即可全自动部署：
 
 ```bash
-DOCKERPANEL_HTTP_HOST_PORT=9090 docker compose -f docker-compose.hub.yml up -d
+# 默认部署 (HTTP: 80, HTTPS: 443)
+curl -fsSL https://raw.githubusercontent.com/j4587698/DockerPanel/main/scripts/deploy.sh | bash -s -- production 80 443
+
+# 自定义端口部署 (如 HTTP 8080, HTTPS 8443)
+curl -fsSL https://raw.githubusercontent.com/j4587698/DockerPanel/main/scripts/deploy.sh | bash -s -- production 8080 8443
 ```
 
-注意：ACME HTTP-01 证书签发要求公网 80 端口能访问 DockerPanel；如果宿主机不直接使用 80，需要自行配置反向代理或端口转发。
+---
 
-### 方式三：一键部署脚本（推荐，单文件自举）
+## 🔄 面板版本升级
 
-无需 clone 仓库，直接运行脚本即可。脚本会自动从 GitHub 下载 compose 文件并拉取最新镜像：
+DockerPanel 支持多种平滑升级方式：
 
+### 1. Web 界面一键自升级（最便捷）
+登录面板后，进入 **【系统设置】 $\to$ 【系统镜像与升级】**：
+- 系统会自动基于镜像 Digest 对比远程仓库是否有新版本构建；
+- 点击 **「一键升级系统」**，面板将自动预拉取新镜像，并通过短暂的 Sidecar Helper 容器平滑完成停旧建新与健康探活，**所有挂载数据与配置 100% 完整保留**。
+
+### 2. Docker Compose 终端升级
 ```bash
-curl -fsSL https://raw.githubusercontent.com/j4587698/DockerPanel/main/scripts/deploy.sh | bash -s -- production 80
+docker compose pull
+docker compose up -d
 ```
 
-参数：`deploy.sh [production|development] [port]`。生产环境默认端口 80。
-
-脚本逻辑：
-
-- 生产环境：下载 `docker-compose.hub.yml` 到临时目录 → 拉取 `j4587698/dockerpanel:latest` → 启动。
-- 开发环境：需在本地仓库内运行（需要源码构建前后端）。
-
-## 首次使用
-
-- 首次访问会进入 `/setup`，用于创建第一个管理员账号。
-- 也可以通过环境变量预置管理员账号：`DOCKERPANEL_ADMIN_USERNAME`、`DOCKERPANEL_ADMIN_PASSWORD`。
-- JWT 密钥未配置时会自动生成并保存到数据目录；生产环境建议显式设置 `DOCKERPANEL_JWT_SECRET` 或 `Auth__JwtSecret`。
-
-## 已包含的主要功能
-
-- 登录认证、首次安装、用户与角色权限控制
-- 容器、镜像、网络、存储卷管理
-- 容器日志、容器终端、文件管理与资源统计
-- Compose 项目管理与部署
-- 镜像仓库配置与镜像推送/拉取任务进度
-- ACME 证书管理与 HTTP-01 挑战校验
-- YARP 反向代理映射管理
-- 本地/远程节点管理、SSH 连接与终端
-- 系统设置、操作审计、后台任务与实时通知
-
-## 项目结构
-
-```text
-DockerPanel/
-├── Backend/
-│   ├── DockerPanel.sln
-│   └── DockerPanel.API/
-│       ├── Controllers/
-│       ├── Models/
-│       ├── Services/
-│       ├── Hubs/
-│       ├── Extensions/
-│       ├── Serialization/
-│       └── Program.cs
-├── Frontend/
-│   ├── src/
-│   │   ├── api/
-│   │   ├── components/
-│   │   ├── layout/
-│   │   ├── locales/
-│   │   ├── router/
-│   │   ├── services/
-│   │   ├── stores/
-│   │   ├── types/
-│   │   ├── utils/
-│   │   └── views/
-│   ├── package.json
-│   └── vite.config.ts
-├── scripts/
-│   ├── build.sh
-│   └── deploy.sh
-├── docker-compose.yml        # 生产部署（使用 Docker Hub 镜像 j4587698/dockerpanel）
-├── docker-compose.hub.yml    # 同上，显式引用 Docker Hub 镜像的部署文件
-├── docker-compose.dev.yml    # 开发环境（前后端分离）
-└── Dockerfile                # CI 构建用，将前端打包进后端镜像
+### 3. Docker CLI 终端升级
+```bash
+docker pull j4587698/dockerpanel:latest
+docker stop dockerpanel && docker rm dockerpanel
+# 重新执行您的 docker run 命令启动即可（数据在挂载目录中不受影响）
 ```
 
-## 配置
+---
 
-常用环境变量：
+## ⚙️ 环境变量配置参考
 
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
-| `ASPNETCORE_ENVIRONMENT` | `Production` | 运行环境 |
-| `ASPNETCORE_URLS` | `http://+:80` | 容器内监听地址 |
-| `HTTP_PORT` | `80` | 容器内 HTTP 端口 |
-| `ENABLE_HTTPS` | `false` | Docker 部署默认关闭 Kestrel HTTPS |
-| `DOCKERPANEL_HTTP_HOST_PORT` | `80` | `docker-compose.hub.yml` 映射到宿主机的 HTTP 端口 |
-| `DOCKERPANEL_ADMIN_USERNAME` | - | 首次启动时预置管理员用户名 |
-| `DOCKERPANEL_ADMIN_PASSWORD` | - | 首次启动时预置管理员密码 |
-| `DOCKERPANEL_JWT_SECRET` | 自动生成 | JWT 签名密钥，生产环境建议显式配置 |
-| `TinyDb__Path` | `Data/DockerPanel.db` | TinyDb 数据库路径 |
+| `ASPNETCORE_ENVIRONMENT` | `Production` | 运行环境（`Production` / `Development`） |
+| `HTTP_PORT` | `80` | 容器内 HTTP 监听端口 |
+| `HTTPS_PORT` | `443` | 容器内 HTTPS 监听端口 |
+| `ENABLE_HTTPS` | `true` | 是否启用 Kestrel HTTPS 监听与 SNI 证书动态加载 |
+| `DOCKERPANEL_HTTP_HOST_PORT` | `80` | Compose 部署映射到宿主机的 HTTP 端口 |
+| `DOCKERPANEL_HTTPS_HOST_PORT` | `443` | Compose 部署映射到宿主机的 HTTPS 端口 |
+| `DOCKERPANEL_ADMIN_USERNAME` | - | 首次启动预置管理员用户名 |
+| `DOCKERPANEL_ADMIN_PASSWORD` | - | 首次启动预置管理员密码 |
+| `DOCKERPANEL_JWT_SECRET` | 自动持久化 | JWT 签名密钥（建议显式设置 32 位以上强密钥） |
+| `TinyDb__Path` | `Data/DockerPanel.db` | TinyDb 数据库持久化路径 |
 
-生产部署（`docker-compose.hub.yml`）会挂载：
+---
 
-- `/var/run/docker.sock:/var/run/docker.sock`：用于管理宿主机 Docker
-- `dockerpanel_data:/app/Data`：用于持久化 TinyDb 数据和自动生成的 JWT 密钥
-- `dockerpanel_logs:/app/Logs`：日志文件
+## 💻 本地开发指南
 
-## 本地开发（仅开发环境，生产镜像由 CI 构建）
-
-如需本地修改并运行前后端：
+如需参与 DockerPanel 的开发或本地构建：
 
 ```bash
-# 后端
+# 1. 克隆代码库
+git clone https://github.com/j4587698/DockerPanel.git
+cd DockerPanel
+
+# 2. 启动后端 (ASP.NET Core 10)
 cd Backend/DockerPanel.API
 dotnet run
 
-# 前端（另开终端）
+# 3. 启动前端 (Vue 3 + Vite) - 另开终端
 cd Frontend
 npm install
 npm run dev
 ```
 
 - 前端开发服务：`http://localhost:3000`
-- 后端开发服务：`http://localhost:5000`
-- Swagger 仅在后端 Development 环境启用：`http://localhost:5000/swagger`
+- 后端开发接口：`http://localhost:5000`
+- Swagger 文档仅在 Development 环境开启：`http://localhost:5000/swagger`
 
-前端类型检查与构建：
-
+前端类型检查与打包：
 ```bash
 cd Frontend
-npm install
-./node_modules/.bin/vue-tsc --noEmit
 npm run build
 ```
 
-生产镜像由 GitHub Actions 自动构建并推送到 Docker Hub，见下文。
+---
 
-## 镜像发布（GitHub Actions）
+## 🚢 自动化镜像构建与发布
 
-工作流文件：`.github/workflows/docker-publish.yml`
+本项目通过 GitHub Actions 自动化工作流（`.github/workflows/docker-publish.yml`）进行多架构镜像构建与发布：
+1. 每次合并到 `main` 分支时，自动提取 `Backend/DockerPanel.API/DockerPanel.API.csproj` 中的 `<Version>`；
+2. 自动打包前端并与 .NET 10 后端一同编译为单一轻量化镜像；
+3. 推送至 Docker Hub（`j4587698/dockerpanel:latest`、`j4587698/dockerpanel:0.9.6`、`j4587698/dockerpanel:0.9`）及 GHCR。
 
-工作流文件：`.github/workflows/docker-publish.yml`
+---
 
-发布流程（全部在 CI 完成，无需本地构建镜像）：
+## 📄 开源许可证
 
-1. 推送代码到默认分支触发工作流。
-2. 读取 `Backend/DockerPanel.API/DockerPanel.API.csproj` 中的 `<Version>`。
-3. 如果远端已存在 `v<Version>` tag，则跳过 Docker 发布（避免重复发布同一版本）。
-4. 否则构建根目录 `Dockerfile`（前端 + 后端一体），推送到 Docker Hub 和 GitHub Container Registry。
-5. 发布成功后创建 `v<Version>` Git tag。
-
-> 升级版本时，只需修改 csproj 中的 `<Version>` 并推送，CI 会自动发布新 tag 的镜像。
-
-当前 `0.6.3` 版本会发布以下镜像 tag：
-
-- `0.6.3`
-- `0.6`
-- `latest`（默认分支发布时）
-
-需要在 GitHub 仓库 `Settings` → `Secrets and variables` → `Actions` 中配置：
-
-| Secret | 说明 |
-|--------|------|
-| `DOCKERHUB_USERNAME` | Docker Hub 用户名或组织名 |
-| `DOCKERHUB_TOKEN` | Docker Hub Access Token |
-
-GitHub Container Registry 使用 Actions 自动提供的 `GITHUB_TOKEN`，同时仓库 Actions 权限需要允许写入。
-
-## 常用命令
-
-```bash
-# 拉取最新镜像并启动
-docker compose -f docker-compose.hub.yml pull
-docker compose -f docker-compose.hub.yml up -d
-
-# 查看运行状态
-docker compose -f docker-compose.hub.yml ps
-
-# 查看日志
-docker compose -f docker-compose.hub.yml logs -f
-
-# 停止
-docker compose -f docker-compose.hub.yml down
-
-# 健康检查
-curl http://localhost/health/live
-```
+本项目基于 [MIT License](LICENSE) 开源。

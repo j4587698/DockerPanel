@@ -1,9 +1,9 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # DockerPanel 部署脚本
 # 用法:
-#   本地仓库内:  ./scripts/deploy.sh [production|development] [port]
-#   单文件自举:  curl -fsSL https://raw.githubusercontent.com/j4587698/DockerPanel/main/scripts/deploy.sh | bash -s -- [production|development] [port]
+#   本地仓库内:  ./scripts/deploy.sh [production|development] [http_port] [https_port]
+#   单文件自举:  curl -fsSL https://raw.githubusercontent.com/j4587698/DockerPanel/main/scripts/deploy.sh | bash -s -- [production|development] [http_port] [https_port]
 #
 # 生产环境会从 Docker Hub 拉取 j4587698/dockerpanel:latest 镜像，无需本地构建。
 set -e
@@ -12,18 +12,20 @@ echo "🚀 开始部署 DockerPanel 应用..."
 
 # 检查参数
 ENVIRONMENT=${1:-production}
-PORT=${2:-80}
+HTTP_PORT=${2:-80}
+HTTPS_PORT=${3:-443}
 
 if [ "$ENVIRONMENT" != "production" ] && [ "$ENVIRONMENT" != "development" ]; then
     echo "❌ 环境参数错误，请使用: production 或 development"
-    echo "用法: $0 [environment] [port]"
-    echo "示例: $0 production 80"
+    echo "用法: $0 [environment] [http_port] [https_port]"
+    echo "示例: $0 production 80 443"
     exit 1
 fi
 
 echo "📋 部署配置:"
 echo "  环境: $ENVIRONMENT"
-echo "  端口: $PORT"
+echo "  HTTP 端口: $HTTP_PORT"
+echo "  HTTPS 端口: $HTTPS_PORT"
 echo ""
 
 # 检查 Docker 是否运行
@@ -89,7 +91,8 @@ else
     echo "🏭 使用本地生产环境配置: $COMPOSE_FILE"
 fi
 
-export DOCKERPANEL_HTTP_HOST_PORT="$PORT"
+export DOCKERPANEL_HTTP_HOST_PORT="$HTTP_PORT"
+export DOCKERPANEL_HTTPS_HOST_PORT="$HTTPS_PORT"
 
 # 生产镜像由 GitHub Actions 构建并推送到 Docker Hub，这里只拉取并运行
 echo "📥 拉取最新镜像..."
@@ -113,7 +116,7 @@ sleep 10
 # 健康检查
 echo "🔍 执行健康检查..."
 for i in $(seq 1 30); do
-    if curl -f http://localhost:$PORT/health/live > /dev/null 2>&1; then
+    if curl -f http://localhost:$HTTP_PORT/health/live > /dev/null 2>&1; then
         echo "✅ 服务健康检查通过！"
         break
     fi
@@ -128,13 +131,13 @@ done
 
 echo ""
 echo "✅ 生产环境部署成功！"
-echo "🌐 访问地址: http://localhost:$PORT"
-if [ "$PORT" != "80" ]; then
-    echo "⚠️  ACME HTTP-01 证书申请需要公网 80 端口，请确保反向代理或端口映射转发到本服务。"
+echo "🌐 访问地址: http://localhost:$HTTP_PORT (或 https://localhost:$HTTPS_PORT)"
+if [ "$HTTP_PORT" != "80" ]; then
+    echo "⚠️  注意: ACME HTTP-01 自动化证书签发需要公网 80 端口可达。若宿主机使用非 80 端口，请配置反向代理或端口映射转发。"
 fi
 
 echo ""
-echo "📋 管理命令（请在已下载 compose 文件的目录执行，或重新运行本脚本）:"
+echo "📋 常用管理命令:"
 echo "  查看日志: docker compose -f $COMPOSE_FILE logs -f"
 echo "  停止服务: docker compose -f $COMPOSE_FILE down"
 echo "  重启服务: docker compose -f $COMPOSE_FILE restart"

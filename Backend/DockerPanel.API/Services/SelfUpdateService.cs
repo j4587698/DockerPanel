@@ -1,12 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Reflection;
 using System.Text;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Docker.DotNet;
@@ -27,22 +24,19 @@ public interface ISelfUpdateService
 public class SelfUpdateCheckResult
 {
     public string CurrentVersion { get; set; } = string.Empty;
-    public string LatestVersion { get; set; } = string.Empty;
+    public string? ImageName { get; set; }
+    public string? CurrentDigest { get; set; }
+    public string? RemoteDigest { get; set; }
     public bool HasUpdate { get; set; }
-    public string? ReleaseTitle { get; set; }
-    public string? ReleaseNotes { get; set; }
-    public DateTime? PublishedAt { get; set; }
-    public string? HtmlUrl { get; set; }
     public bool CanSelfUpgrade { get; set; }
     public string? ContainerId { get; set; }
     public string? ContainerName { get; set; }
-    public string? ImageName { get; set; }
     public string? Reason { get; set; }
+    public DateTime CheckTime { get; set; } = DateTime.UtcNow;
 }
 
 public class SelfUpgradeRequest
 {
-    public string? TargetVersion { get; set; }
     public string? TargetImage { get; set; }
     public string? ConnectionId { get; set; }
 }
@@ -52,50 +46,29 @@ public class SelfUpgradeResponse
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
     public string CurrentVersion { get; set; } = string.Empty;
-    public string TargetVersion { get; set; } = string.Empty;
+    public string TargetImage { get; set; } = string.Empty;
     public string? OldContainerId { get; set; }
-}
-
-public class GitHubReleaseDto
-{
-    [JsonPropertyName("tag_name")]
-    public string? TagName { get; set; }
-
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
-
-    [JsonPropertyName("body")]
-    public string? Body { get; set; }
-
-    [JsonPropertyName("published_at")]
-    public DateTime? PublishedAt { get; set; }
-
-    [JsonPropertyName("html_url")]
-    public string? HtmlUrl { get; set; }
-
-    [JsonPropertyName("prerelease")]
-    public bool Prerelease { get; set; }
 }
 
 public class SelfUpdateService : ISelfUpdateService
 {
     private readonly ILogger<SelfUpdateService> _logger;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IAutoUpdateService _autoUpdateService;
     private readonly DockerEngine _dockerEngine;
     private readonly IHubContext<DockerPanelHub> _hubContext;
 
     private static SelfUpdateCheckResult? _cachedCheckResult;
     private static DateTime _lastCheckTime = DateTime.MinValue;
-    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
 
     public SelfUpdateService(
         ILogger<SelfUpdateService> logger,
-        IHttpClientFactory httpClientFactory,
+        IAutoUpdateService autoUpdateService,
         DockerEngine dockerEngine,
         IHubContext<DockerPanelHub> hubContext)
     {
         _logger = logger;
-        _httpClientFactory = httpClientFactory;
+        _autoUpdateService = autoUpdateService;
         _dockerEngine = dockerEngine;
         _hubContext = hubContext;
     }
@@ -112,55 +85,43 @@ public class SelfUpdateService : ISelfUpdateService
         var result = new SelfUpdateCheckResult
         {
             CurrentVersion = currentVersion,
-            LatestVersion = currentVersion,
-            HasUpdate = false
+            HasUpdate = false,
+            CheckTime = DateTime.UtcNow
         };
 
-        // 1. 检查 Docker 容器运行环境与自身容器信息
+        // 1. 查找自身运行中的 Docker 容器
         var selfContainer = await FindSelfContainerAsync(ct);
-        if (selfContainer != null)
-        {
-            result.CanSelfUpgrade = true;
-            result.ContainerId = selfContainer.ID;
-            result.ContainerName = selfContainer.Names?.FirstOrDefault()?.TrimStart('/') ?? "dockerpanel";
-            result.ImageName = selfContainer.Image;
-        }
-        else
+        if (selfContainer == null)
         {
             result.CanSelfUpgrade = false;
-            result.Reason = "未检测到 DockerPanel 容器化环境，请通过二进制或手动更新";
+            result.Reason = "未检测到 DockerPanel 容器化环境，请通过二进制或手动方式更新";
+            _cachedCheckResult = result;
+            _lastCheckTime = DateTime.UtcNow;
+            return result;
         }
 
-        // 2. 从 GitHub Releases 获取最新版本
+        result.CanSelfUpgrade = true;
+        result.ContainerId = selfContainer.ID;
+        result.ContainerName = selfContainer.Names?.FirstOrDefault()?.TrimStart('/') ?? "dockerpanel";
+        result.ImageName = selfContainer.Image;
+
+        // 2. 复用现有的 AutoUpdateService 镜像摘要检测机制（Registry / Mirrors）
         try
         {
-            var httpClient = _httpClientFactory.CreateClient();
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "DockerPanel-SelfUpdate");
-            httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
-            httpClient.Timeout = TimeSpan.FromSeconds(10);
+            var imageCheck = await _autoUpdateService.CheckUpdateAsync(selfContainer.ID);
+            result.HasUpdate = imageCheck.HasUpdate;
+            result.CurrentDigest = imageCheck.CurrentDigest;
+            result.RemoteDigest = imageCheck.RemoteDigest;
 
-            var release = await httpClient.GetFromJsonAsync<GitHubReleaseDto>(
-                "https://api.github.com/repos/j4587698/DockerPanel/releases/latest", ct);
-
-            if (release != null && !string.IsNullOrWhiteSpace(release.TagName))
+            if (!string.IsNullOrEmpty(imageCheck.ErrorMessage) && !imageCheck.HasUpdate)
             {
-                var latestTag = release.TagName.TrimStart('v', 'V').Trim();
-                result.LatestVersion = latestTag;
-                result.ReleaseTitle = release.Name ?? release.TagName;
-                result.ReleaseNotes = release.Body ?? string.Empty;
-                result.PublishedAt = release.PublishedAt;
-                result.HtmlUrl = release.HtmlUrl;
-
-                result.HasUpdate = IsNewerVersion(currentVersion, latestTag);
+                result.Reason = imageCheck.ErrorMessage;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "检查 GitHub Releases 最新版本失败");
-            if (string.IsNullOrEmpty(result.Reason))
-            {
-                result.Reason = $"检查新版本失败: {ex.Message}";
-            }
+            _logger.LogWarning(ex, "通过 AutoUpdateService 检测自身镜像更新失败");
+            result.Reason = $"检测镜像摘要失败: {ex.Message}";
         }
 
         _cachedCheckResult = result;
@@ -170,7 +131,7 @@ public class SelfUpdateService : ISelfUpdateService
 
     public async Task<SelfUpgradeResponse> ExecuteSelfUpgradeAsync(SelfUpgradeRequest request, CancellationToken ct = default)
     {
-        _logger.LogInformation("开始执行 DockerPanel 自身升级流程...");
+        _logger.LogInformation("开始执行 DockerPanel 自身升级流程 (基于镜像 Registry/Digest 机制)...");
 
         if (!await _dockerEngine.IsAvailableAsync())
         {
@@ -181,33 +142,19 @@ public class SelfUpdateService : ISelfUpdateService
         var selfContainer = await FindSelfContainerAsync(ct);
         if (selfContainer == null)
         {
-            throw new InvalidOperationException("未能定位 DockerPanel 自身容器，无法通过 Sidecar 自动升级。请在宿主机执行升级脚本。");
+            throw new InvalidOperationException("未能定位 DockerPanel 自身容器，无法通过 Sidecar 自动升级。请在宿主机执行升级命令。");
         }
 
         var inspect = await client.Containers.InspectContainerAsync(selfContainer.ID, ct);
         var currentVersion = GetCurrentApplicationVersion();
-        var targetVersion = request.TargetVersion;
 
-        if (string.IsNullOrEmpty(targetVersion))
-        {
-            var check = await CheckUpdateAsync(forceRefresh: false, ct);
-            targetVersion = check.LatestVersion;
-        }
+        // 目标镜像默认使用当前容器镜像名（如 j4587698/dockerpanel:latest 或私有仓库镜像名）
+        var targetImage = !string.IsNullOrWhiteSpace(request.TargetImage)
+            ? request.TargetImage.Trim()
+            : (!string.IsNullOrWhiteSpace(selfContainer.Image) ? selfContainer.Image : "j4587698/dockerpanel:latest");
 
-        // 确定目标镜像名称
-        var currentImage = inspect.Config?.Image ?? "j4587698/dockerpanel:latest";
-        var baseRepo = currentImage.Contains(':') ? currentImage.Substring(0, currentImage.LastIndexOf(':')) : currentImage;
-        if (string.IsNullOrWhiteSpace(baseRepo) || baseRepo.Equals("dockerpanel", StringComparison.OrdinalIgnoreCase))
-        {
-            baseRepo = "j4587698/dockerpanel";
-        }
-
-        var targetImage = !string.IsNullOrEmpty(request.TargetImage)
-            ? request.TargetImage
-            : (!string.IsNullOrEmpty(targetVersion) ? $"{baseRepo}:v{targetVersion.TrimStart('v')}" : $"{baseRepo}:latest");
-
-        _logger.LogInformation("自身升级参数: 当前容器={Id}({Name}), 当前镜像={CurImage}, 目标镜像={TargetImage}",
-            selfContainer.ID, inspect.Name, currentImage, targetImage);
+        _logger.LogInformation("自身升级参数: 当前容器={Id}({Name}), 目标镜像={TargetImage}",
+            selfContainer.ID, inspect.Name, targetImage);
 
         // 1. 预拉取目标镜像（实时广播进度）
         var pullId = "self-upgrade";
@@ -224,7 +171,7 @@ public class SelfUpdateService : ISelfUpdateService
             throw new InvalidOperationException($"拉取新镜像 {targetImage} 失败: {ex.Message}");
         }
 
-        // 2. 预拉取/确保 helper 容器镜像 docker:cli 可用
+        // 2. 确保 helper 容器镜像 docker:cli 可用
         var helperImage = "docker:cli";
         try
         {
@@ -239,8 +186,7 @@ public class SelfUpdateService : ISelfUpdateService
         var containerName = inspect.Name?.TrimStart('/') ?? "dockerpanel";
         var runArgs = BuildDockerRunArguments(inspect, targetImage, containerName);
 
-        // 4. 组装 Helper 脚本
-        // 延迟 2 秒让当前 HTTP 请求完整返回 200 响应
+        // 4. 组装 Helper 脚本（延迟 2 秒让当前 HTTP 响应完整返回）
         var helperScript = $"sleep 2 && docker stop {selfContainer.ID} && docker rm {selfContainer.ID} && docker run -d --name {containerName} {runArgs}";
         _logger.LogInformation("生成的 Helper 升级命令: {Script}", helperScript);
 
@@ -265,7 +211,7 @@ public class SelfUpdateService : ISelfUpdateService
             Success = true,
             Message = "升级指令已下发，面板服务正在进行重启交接，请稍候约 5~10 秒刷新页面...",
             CurrentVersion = currentVersion,
-            TargetVersion = targetVersion ?? "latest",
+            TargetImage = targetImage,
             OldContainerId = selfContainer.ID
         };
     }
@@ -429,28 +375,5 @@ public class SelfUpdateService : ISelfUpdateService
                ?? assembly.GetName().Version?.ToString()
                ?? "0.9.5";
         return version.TrimStart('v', 'V').Split('+')[0];
-    }
-
-    private static bool IsNewerVersion(string currentVersion, string latestVersion)
-    {
-        if (string.IsNullOrWhiteSpace(latestVersion)) return false;
-        if (string.Equals(currentVersion, latestVersion, StringComparison.OrdinalIgnoreCase)) return false;
-
-        if (System.Version.TryParse(CleanVersionString(currentVersion), out var cur) &&
-            System.Version.TryParse(CleanVersionString(latestVersion), out var lat))
-        {
-            return lat > cur;
-        }
-
-        return !string.Equals(currentVersion, latestVersion, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string CleanVersionString(string v)
-    {
-        v = v.TrimStart('v', 'V').Trim().Split('-')[0].Split('+')[0];
-        var parts = v.Split('.');
-        if (parts.Length == 1) return $"{parts[0]}.0.0";
-        if (parts.Length == 2) return $"{parts[0]}.{parts[1]}.0";
-        return v;
     }
 }

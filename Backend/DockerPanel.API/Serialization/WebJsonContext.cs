@@ -66,7 +66,6 @@ namespace DockerPanel.API.Serialization
     [JsonSerializable(typeof(DockerPanel.API.Services.SelfUpdateCheckResult))]
     [JsonSerializable(typeof(DockerPanel.API.Services.SelfUpgradeRequest))]
     [JsonSerializable(typeof(DockerPanel.API.Services.SelfUpgradeResponse))]
-    [JsonSerializable(typeof(DockerPanel.API.Services.GitHubReleaseDto))]
     [JsonSerializable(typeof(DockerPanel.API.Endpoints.DockerStatsResponse))]
     [JsonSerializable(typeof(DockerPanel.API.Endpoints.DockerVersionInfo))]
     [JsonSerializable(typeof(DockerPanel.API.Endpoints.DockerContainerCountInfo))]

@@ -325,9 +325,9 @@
                 <span class="label">{{ t('settings.currentVersion') }}</span>
                 <span class="val font-mono">v{{ currentVersion }}</span>
               </div>
-              <div class="version-item" v-if="updateCheckResult?.latestVersion">
-                <span class="label">{{ t('settings.latestVersion') }}</span>
-                <span class="val font-mono highlight">v{{ updateCheckResult.latestVersion }}</span>
+              <div class="version-item" v-if="updateCheckResult?.imageName">
+                <span class="label">{{ t('settings.currentImage') }}</span>
+                <span class="val font-mono">{{ updateCheckResult.imageName }}</span>
               </div>
               <div class="version-action">
                 <el-button 
@@ -345,16 +345,22 @@
               <div class="new-version-header">
                 <div class="tag-badge">
                   <span class="pulse-dot"></span>
-                  {{ t('settings.hasNewVersion') }}: v{{ updateCheckResult.latestVersion }}
+                  {{ t('settings.hasNewVersion') }}
                 </div>
-                <span v-if="updateCheckResult.publishedAt" class="publish-date">
-                  {{ formatDate(updateCheckResult.publishedAt) }}
+                <span v-if="updateCheckResult.checkTime" class="publish-date">
+                  {{ formatDate(updateCheckResult.checkTime) }}
                 </span>
               </div>
               
-              <div v-if="updateCheckResult.releaseNotes" class="release-notes-content">
-                <div class="notes-title">{{ t('settings.releaseNotes') }}:</div>
-                <pre class="notes-body">{{ updateCheckResult.releaseNotes }}</pre>
+              <div class="digest-details-box" v-if="updateCheckResult.remoteDigest || updateCheckResult.currentDigest">
+                <div class="digest-line" v-if="updateCheckResult.currentDigest">
+                  <span class="d-label">{{ t('settings.currentDigest') }}:</span>
+                  <code class="d-val">{{ updateCheckResult.currentDigest.substring(0, 19) }}...</code>
+                </div>
+                <div class="digest-line" v-if="updateCheckResult.remoteDigest">
+                  <span class="d-label">{{ t('settings.remoteDigest') }}:</span>
+                  <code class="d-val highlight">{{ updateCheckResult.remoteDigest.substring(0, 19) }}...</code>
+                </div>
               </div>
 
               <div class="upgrade-actions">
@@ -365,17 +371,9 @@
                 >
                   {{ t('settings.oneClickUpgrade') }}
                 </el-button>
-                <a 
-                  v-if="updateCheckResult.htmlUrl" 
-                  :href="updateCheckResult.htmlUrl" 
-                  target="_blank" 
-                  class="github-link"
-                >
-                  {{ t('settings.viewOnGitHub') }} ↗
-                </a>
               </div>
               <div v-if="!updateCheckResult.canSelfUpgrade" class="cannot-upgrade-hint">
-                <el-icon><Warning /></el-icon> {{ t('settings.cannotSelfUpgradeHint') }}
+                <el-icon><Warning /></el-icon> {{ updateCheckResult.reason || t('settings.cannotSelfUpgradeHint') }}
               </div>
             </div>
 
@@ -385,6 +383,9 @@
                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
               </svg>
               <span>{{ t('settings.isLatest') }}</span>
+              <code v-if="updateCheckResult?.currentDigest" class="current-digest-text">
+                ({{ updateCheckResult.currentDigest.substring(0, 19) }}...)
+              </code>
             </div>
           </div>
         </div>
@@ -766,7 +767,7 @@ const startSelfUpgrade = async () => {
 
   try {
     await systemApi.executeSelfUpgrade({
-      targetVersion: updateCheckResult.value?.latestVersion
+      targetImage: updateCheckResult.value?.imageName
     })
     updateTracking.stop()
     await pollHealthAndReload()
@@ -1268,46 +1269,51 @@ onMounted(() => {
   color: var(--text-muted);
 }
 
-.release-notes-content {
+.digest-details-box {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 12px;
-  max-height: 160px;
-  overflow-y: auto;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.notes-title {
+.digest-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
-  font-weight: 600;
+}
+
+.digest-line .d-label {
   color: var(--text-secondary);
-  margin-bottom: 6px;
+  min-width: 90px;
 }
 
-.notes-body {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
+.digest-line .d-val {
+  font-family: monospace;
   color: var(--text-main);
-  font-family: inherit;
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.digest-line .d-val.highlight {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.current-digest-text {
+  font-size: 11px;
+  font-family: monospace;
+  opacity: 0.8;
 }
 
 .upgrade-actions {
   display: flex;
   align-items: center;
   gap: 14px;
-}
-
-.github-link {
-  font-size: 13px;
-  color: var(--color-secondary);
-  text-decoration: none;
-}
-
-.github-link:hover {
-  text-decoration: underline;
 }
 
 .cannot-upgrade-hint {

@@ -1441,28 +1441,24 @@ const handleSubmit = async () => {
       await containerApi.removeContainer(editContainerId.value, true)
       
       // 创建新容器
-      await containerApi.createContainer(request as any)
+      const createRes = await containerApi.createContainer(request as any)
+      const newContainerId = typeof createRes === 'string' ? createRes : (createRes as any)?.data || (createRes as any)?.id
       
       // 如果原来在运行，启动新容器
-      if (wasRunning) {
-        // 获取新创建的容器ID（通过名称查找）
-        const containers = await containerApi.getContainers()
-        const newContainer = (containers as any).data?.find((c: any) => 
-          c.name === form.name || c.name === '/' + form.name
-        )
-        if (newContainer) {
-          await containerApi.startContainer(newContainer.id)
-        }
+      if (wasRunning && newContainerId) {
+        await containerApi.startContainer(newContainerId)
       }
       
       ElMessage.success('容器已更新')
+      emit('success', newContainerId)
     } else {
       // 创建模式
-      await containerApi.createContainer(request as any)
+      const createRes = await containerApi.createContainer(request as any)
+      const newContainerId = typeof createRes === 'string' ? createRes : (createRes as any)?.data || (createRes as any)?.id
       ElMessage.success('容器创建成功')
+      emit('success', newContainerId)
     }
     
-    emit('success')
     handleClose()
   } catch (error: any) {
     console.error('创建失败:', error)

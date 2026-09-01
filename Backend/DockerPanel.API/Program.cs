@@ -359,6 +359,7 @@ builder.Services.AddScoped<DomainMappingService>();
 
 // 注册自动升级服务
 builder.Services.AddScoped<IAutoUpdateService, AutoUpdateService>();
+builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
 
 // 健康检查已在 AddDockerPanelHealthChecks 扩展方法中注册，此处无需重复注册
 
@@ -748,6 +749,7 @@ app.MapTemplateEndpoints();
 app.MapAutoUpdateEndpoints();
 app.MapRegistryEndpoints();
 app.MapSystemEndpoints();
+app.MapSelfUpdateEndpoints();
 app.MapAcmeEndpoints();
 app.MapContainerEndpoints();
 app.MapVolumeEndpoints();

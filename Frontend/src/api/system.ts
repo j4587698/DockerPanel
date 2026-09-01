@@ -79,21 +79,18 @@ export const systemApi = {
 
 export interface SelfUpdateCheckResult {
   currentVersion: string
-  latestVersion: string
+  imageName?: string
+  currentDigest?: string
+  remoteDigest?: string
   hasUpdate: boolean
-  releaseTitle?: string
-  releaseNotes?: string
-  publishedAt?: string
-  htmlUrl?: string
   canSelfUpgrade: boolean
   containerId?: string
   containerName?: string
-  imageName?: string
   reason?: string
+  checkTime?: string
 }
 
 export interface SelfUpgradeRequest {
-  targetVersion?: string
   targetImage?: string
   connectionId?: string
 }
@@ -102,7 +99,7 @@ export interface SelfUpgradeResponse {
   success: boolean
   message: string
   currentVersion: string
-  targetVersion: string
+  targetImage: string
   oldContainerId?: string
 }
 

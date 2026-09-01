@@ -81,15 +81,15 @@ export default {
   resetConfirmTitle: '恢复默认设置',
   resetConfirmMessage: '确定要恢复默认系统设置吗？当前配置会被覆盖。',
   // 自身升级与版本
-  systemUpdate: '系统版本与升级',
-  currentVersion: '当前版本',
-  latestVersion: '最新版本',
-  isLatest: '已是最新版本',
-  hasNewVersion: '发现新版本',
+  systemUpdate: '系统镜像与升级',
+  currentVersion: '系统版本',
+  currentImage: '当前镜像',
+  currentDigest: '本地镜像摘要',
+  remoteDigest: '远程镜像摘要',
+  isLatest: '当前镜像已是最新版本',
+  hasNewVersion: '检测到新版本镜像',
   checkUpdate: '检查更新',
-  checkingUpdate: '正在检查更新...',
-  releaseNotes: '更新说明',
-  publishedAt: '发布时间',
+  checkingUpdate: '正在查询远程镜像摘要...',
   oneClickUpgrade: '一键升级系统',
   upgradeConfirmTitle: '系统升级确认',
   upgradeConfirmMsg: '升级将拉取最新镜像并通过 Sidecar 容器平滑重启 DockerPanel 服务（耗时约 5~10 秒）。数据卷与配置将完整保留。是否继续？',
@@ -100,6 +100,5 @@ export default {
   upgradeSuccess: '系统升级成功！已更新至最新版本',
   upgradeFailed: '系统升级失败',
   cannotSelfUpgrade: '当前运行环境不支持一键升级',
-  cannotSelfUpgradeHint: '未检测到 DockerPanel 容器化环境或 Docker 套接字，请在宿主机终端手动执行升级脚本。',
-  viewOnGitHub: '前往 GitHub 查看'
+  cannotSelfUpgradeHint: '未检测到 DockerPanel 容器化环境或 Docker 套接字，请在宿主机终端手动执行升级命令。'
 }

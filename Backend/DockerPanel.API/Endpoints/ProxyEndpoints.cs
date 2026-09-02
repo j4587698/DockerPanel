@@ -178,10 +178,15 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> AddDomainMapping(DomainMapping mapping, IReverseProxyFactory proxyFactory, IAcmeService acmeService, ILocalizationService localization, ILogger<LoggingTag> logger)
+        private static async Task<IResult> AddDomainMapping(DomainMapping mapping, IReverseProxyFactory proxyFactory, IAcmeService acmeService, INetworkService networkService, IContainerService containerService, ILocalizationService localization, ILogger<LoggingTag> logger)
         {
             try
             {
+                // 确保目标容器加入默认网络（dockerpanel-network）
+                if (!string.IsNullOrEmpty(mapping.ContainerId))
+                {
+                    await EnsureContainerInDefaultNetworkAsync(mapping.ContainerId, mapping.ContainerName, networkService, containerService, logger);
+                }
                 // 处理自动申请证书
                 string? certificateId = mapping.CertificateId;
                 bool sslEnabled = mapping.EnableSsl;
@@ -288,7 +293,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static async Task<IResult> UpdateDomainMapping(string mappingId, UpdateDomainMappingRequest request, IReverseProxyFactory proxyFactory, IAcmeService acmeService, ILocalizationService localization, ILogger<LoggingTag> logger)
+        private static async Task<IResult> UpdateDomainMapping(string mappingId, UpdateDomainMappingRequest request, IReverseProxyFactory proxyFactory, IAcmeService acmeService, INetworkService networkService, IContainerService containerService, ILocalizationService localization, ILogger<LoggingTag> logger)
         {
             try
             {
@@ -319,6 +324,12 @@ namespace DockerPanel.API.Endpoints
                     existingMapping.ContainerId = request.ContainerId.Trim();
                 if (request.ContainerName != null)
                     existingMapping.ContainerName = request.ContainerName.Trim();
+
+                // 确保目标容器加入默认网络（dockerpanel-network）
+                if (!string.IsNullOrEmpty(existingMapping.ContainerId))
+                {
+                    await EnsureContainerInDefaultNetworkAsync(existingMapping.ContainerId, existingMapping.ContainerName, networkService, containerService, logger);
+                }
                 if (!string.IsNullOrWhiteSpace(request.DestinationAddress))
                     existingMapping.DestinationAddress = request.DestinationAddress.Trim();
                 if (request.ContainerPort.HasValue)
@@ -472,6 +483,49 @@ namespace DockerPanel.API.Endpoints
             {
                 logger.LogError(ex, "获取代理状态失败");
                 return TypedResults.Json(new ApiErrorResponse { Error = localization.GetMessage("proxy.statusFailed"), Message = ex.Message }, WebJsonContext.Default.ApiErrorResponse, statusCode: 500);
+            }
+        }
+
+        private static async Task EnsureContainerInDefaultNetworkAsync(
+            string containerId,
+            string? containerName,
+            INetworkService networkService,
+            IContainerService containerService,
+            ILogger<LoggingTag> logger)
+        {
+            try
+            {
+                var container = await containerService.GetContainerAsync(containerId);
+                if (container == null || string.Equals(container.HostConfig?.NetworkMode, "host", StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                var defaultNetwork = await networkService.EnsureDefaultNetworkAsync();
+                var networkDetail = await networkService.GetNetworkAsync(defaultNetwork.Id);
+                var isConnected = networkDetail?.Containers?.Any(c => c.Id == containerId || c.Id.StartsWith(containerId) || containerId.StartsWith(c.Id)) ?? false;
+
+                if (!isConnected)
+                {
+                    var name = !string.IsNullOrEmpty(containerName) ? containerName : container.Name;
+                    var aliases = new List<string>();
+                    if (!string.IsNullOrEmpty(name)) aliases.Add(name);
+
+                    var success = await networkService.ConnectContainerToNetworkAsync(defaultNetwork.Id, containerId, new NetworkConfig
+                    {
+                        Aliases = aliases
+                    });
+
+                    if (success)
+                    {
+                        logger.LogInformation("已自动将代理目标容器 {ContainerName} ({ContainerId}) 加入网络 {NetworkName}",
+                            name, containerId, defaultNetwork.Name);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "确保代理目标容器加入默认网络时发生异常: {ContainerId}", containerId);
             }
         }
     }

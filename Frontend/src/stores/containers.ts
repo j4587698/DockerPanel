@@ -30,7 +30,7 @@ export const useContainersStore = defineStore('containers', () => {
       search: '',
       state: '',
       nodeId: null,
-      showAll: false
+      showAll: true
     },
     stats: {},
     refreshing: false
@@ -89,12 +89,12 @@ export const useContainersStore = defineStore('containers', () => {
     /** 后台自动刷新：不切 loading、不弹错误提示 */
     silent?: boolean
   }) => {
-    const { silent = false, ...query } = params ?? {}
+    const { silent = false, all = true, ...query } = params ?? {}
     try {
       if (!silent) state.value.loading = true
       state.value.error = null
 
-      const response = await containerApi.getContainers(query)
+      const response = await containerApi.getContainers({ all, ...query })
 
       // 处理响应数据 - 显式声明类型
       let containers: ContainerInfo[] = []
@@ -138,7 +138,7 @@ export const useContainersStore = defineStore('containers', () => {
       state.value.refreshing = true
       await fetchContainers({
         nodeId: state.value.filter.nodeId ?? undefined,
-        all: state.value.filter.showAll,
+        all: true,
         limit: 100
       })
     } finally {

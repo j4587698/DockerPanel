@@ -14,7 +14,7 @@ public interface IContainerService
     /// <param name="all">是否显示所有容器</param>
     /// <param name="limit">限制数量</param>
     /// <returns>容器列表</returns>
-    Task<IEnumerable<ContainerInfo>> GetContainersAsync(string? nodeId = null, bool all = false, int limit = 100);
+    Task<IEnumerable<ContainerInfo>> GetContainersAsync(string? nodeId = null, bool all = true, int limit = 100);
 
     /// <summary>
     /// 根据ID获取容器

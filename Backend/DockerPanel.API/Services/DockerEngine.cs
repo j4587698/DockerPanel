@@ -222,7 +222,21 @@ public class DockerEngine : IContainerEngine, IDisposable
                     Rw = m.RW,
                     Driver = m.Driver,
                     Propagation = m.Propagation
-                }).ToList() ?? new List<ContainerMount>()
+                }).ToList() ?? new List<ContainerMount>(),
+                NetworkSettings = c.NetworkSettings?.Networks != null ? new Models.NetworkSettings {
+                    Networks = c.NetworkSettings.Networks.ToDictionary(
+                        k => k.Key,
+                        v => new NetworkEndpoint {
+                            IpAddress = v.Value?.IPAddress ?? "",
+                            IPPrefixLen = v.Value?.IPPrefixLen.ToString() ?? "",
+                            Gateway = v.Value?.Gateway ?? "",
+                            MacAddress = v.Value?.MacAddress ?? "",
+                            Aliases = v.Value?.Aliases?.ToList() ?? new List<string>()
+                        })
+                } : new Models.NetworkSettings(),
+                HostConfig = c.HostConfig != null ? new ContainerHostConfig {
+                    NetworkMode = c.HostConfig.NetworkMode
+                } : null
             });
         }
         catch (Exception ex) {

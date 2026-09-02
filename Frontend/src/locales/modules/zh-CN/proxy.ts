@@ -104,6 +104,14 @@ export default {
     forceHttpsHelp: '开启后所有 HTTP 请求将自动 301 重定向到 HTTPS',
     activityTimeout: '空闲超时（秒）',
     timeoutHelp: '超过此时间无活动请求将自动断开连接',
-    httpVersion: 'HTTP 版本'
+    httpVersion: 'HTTP 版本',
+
+    // 网络检查与自动加入
+    inPanelNetwork: '已在 dockerpanel-network 中',
+    notInPanelNetworkTip: '该容器未加入 dockerpanel-network 桥接网络，YARP 反向代理可能无法通过容器名访问它。',
+    joinNetworkConfirmTitle: '加入 dockerpanel-network 网络',
+    joinNetworkConfirmMsg: '容器 "{name}" 尚未加入 dockerpanel-network 网络，反向代理转发可能无法连通。是否自动将该容器加入 dockerpanel-network 网络？',
+    joinNetworkAndSubmit: '加入网络并保存',
+    joinedNetworkSuccess: '容器 "{name}" 已成功加入 dockerpanel-network 网络'
   }
 }

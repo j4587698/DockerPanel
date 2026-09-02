@@ -301,7 +301,7 @@ public class SelfUpdateService : ISelfUpdateService
         };
         sb.Append($"--restart {restartStr} ");
 
-        // 2. 端口映射 (若非 host 网络)
+        // 2. 端口映射与网络 (若非 host 网络)
         var isHostNet = string.Equals(inspect.HostConfig?.NetworkMode, "host", StringComparison.OrdinalIgnoreCase);
         if (isHostNet)
         {
@@ -309,6 +309,20 @@ public class SelfUpdateService : ISelfUpdateService
         }
         else
         {
+            var netName = inspect.HostConfig?.NetworkMode;
+            if (!string.IsNullOrEmpty(netName) && netName != "default" && netName != "bridge")
+            {
+                sb.Append($"--network \"{netName}\" ");
+            }
+            else
+            {
+                var customNet = inspect.NetworkSettings?.Networks?.Keys?.FirstOrDefault(k => k != "bridge" && k != "host" && k != "none");
+                if (!string.IsNullOrEmpty(customNet))
+                {
+                    sb.Append($"--network \"{customNet}\" ");
+                }
+            }
+
             if (inspect.HostConfig?.PortBindings != null)
             {
                 foreach (var (containerPort, bindings) in inspect.HostConfig.PortBindings)

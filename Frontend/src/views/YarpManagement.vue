@@ -145,8 +145,19 @@
           <el-col :span="16">
             <el-form-item :label="t('proxy.yarpManagement.targetContainer')" required>
               <el-select v-model="form.containerId" :placeholder="t('proxy.yarpManagement.selectContainer')" style="width: 100%" filterable>
-                <el-option v-for="c in containers" :key="c.id" :label="c.name" :value="c.id" />
+                <el-option v-for="c in containers" :key="c.id" :label="c.name" :value="c.id">
+                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span>{{ c.name }}</span>
+                    <span v-if="isContainerInPanelNetwork(c)" style="font-size: 11px; color: #10b981;">dockerpanel-network</span>
+                    <span v-else-if="c.hostConfig?.networkMode === 'host'" style="font-size: 11px; color: #3b82f6;">host</span>
+                    <span v-else style="font-size: 11px; color: #f59e0b;">{{ Object.keys(c.networkSettings?.networks || {})[0] || 'bridge' }}</span>
+                  </div>
+                </el-option>
               </el-select>
+              <div v-if="selectedContainer && !selectedContainerInNetwork" style="color: #f59e0b; font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 4px; line-height: 1.4;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <span>{{ t('proxy.yarpManagement.notInPanelNetworkTip') }}</span>
+              </div>
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -231,6 +242,7 @@ import { Edit, Delete } from '@element-plus/icons-vue'
 import { yarpApi } from '@/api/yarp'
 import { certificateApi, type Certificate } from '@/api/certificate'
 import { acmeApi } from '@/api/acme'
+import { networkApi } from '@/api/network'
 import type { AcmeAccount } from '@/api/certificate'
 import { useContainersStore } from '@/stores/containers'
 import { useSettingsStore } from '@/stores/settings'
@@ -273,6 +285,24 @@ const containers = computed(() => containerStore.containers)
 const activeMappings = computed(() => mappings.value.filter(m => m.enabled).length)
 const isEditing = computed(() => Boolean(editingMappingId.value))
 const dialogTitle = computed(() => isEditing.value ? t('proxy.yarpManagement.editDialogTitle') : t('proxy.yarpManagement.createDialogTitle'))
+
+const isContainerInPanelNetwork = (c: any): boolean => {
+  if (!c) return false
+  if (c.hostConfig?.networkMode === 'host') return true
+  const networks = c.networkSettings?.networks
+  if (!networks) return false
+  return 'dockerpanel-network' in networks || Object.keys(networks).some(k => k.includes('dockerpanel'))
+}
+
+const selectedContainer = computed(() => {
+  if (!form.value.containerId) return null
+  return containers.value.find(c => c.id === form.value.containerId)
+})
+
+const selectedContainerInNetwork = computed(() => {
+  if (!selectedContainer.value) return true
+  return isContainerInPanelNetwork(selectedContainer.value)
+})
 
 const filteredMappings = computed(() => {
   if (!search.value) return mappings.value
@@ -342,9 +372,42 @@ const getCertLabel = (cert: Certificate) => {
 
 const handleSubmit = async () => {
   if (!form.value.domain || !form.value.containerId) return
+
+  const container = containers.value.find(c => c.id === form.value.containerId)
+  if (container && !isContainerInPanelNetwork(container)) {
+    try {
+      await ElMessageBox.confirm(
+        t('proxy.yarpManagement.joinNetworkConfirmMsg', { name: container.name || container.id.substring(0, 12) }),
+        t('proxy.yarpManagement.joinNetworkConfirmTitle'),
+        {
+          confirmButtonText: t('proxy.yarpManagement.joinNetworkAndSubmit'),
+          cancelButtonText: t('common.cancel'),
+          type: 'warning'
+        }
+      )
+
+      // 确认后先主动尝试前端调用网络连接接口
+      try {
+        const networks = await networkApi.getNetworks()
+        const panelNet = Array.isArray(networks) ? networks.find((n: any) => n.name === 'dockerpanel-network') : null
+        if (panelNet) {
+          await networkApi.connectContainerToNetwork(panelNet.id, container.id, {
+            aliases: container.name ? [container.name] : []
+          })
+          ElMessage.success(t('proxy.yarpManagement.joinedNetworkSuccess', { name: container.name }))
+          await containerStore.fetchContainers({ silent: true })
+        }
+      } catch (netErr) {
+        console.warn('Frontend network connect fallback to backend:', netErr)
+      }
+    } catch {
+      // 用户取消
+      return
+    }
+  }
+
   try {
     // 构造目标地址
-    const container = containers.value.find(c => c.id === form.value.containerId)
     const destinationAddr = container ? `${container.name}:${form.value.containerPort}` : form.value.destinationAddress
 
     const payload = {

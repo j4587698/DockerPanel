@@ -97,6 +97,14 @@ export default {
     forceHttpsHelp: 'When enabled, all HTTP requests will be 301 redirected to HTTPS',
     activityTimeout: 'Idle Timeout (s)',
     timeoutHelp: 'Connection will be closed after this period of inactivity',
-    httpVersion: 'HTTP Version'
+    httpVersion: 'HTTP Version',
+
+    // Network check & auto join
+    inPanelNetwork: 'In dockerpanel-network',
+    notInPanelNetworkTip: 'This container is not in dockerpanel-network. YARP reverse proxy may not resolve or reach it by container name.',
+    joinNetworkConfirmTitle: 'Join dockerpanel-network',
+    joinNetworkConfirmMsg: 'Container "{name}" is not in dockerpanel-network. Reverse proxy forwarding may fail. Do you want to automatically join it to dockerpanel-network?',
+    joinNetworkAndSubmit: 'Join Network & Save',
+    joinedNetworkSuccess: 'Container "{name}" has joined dockerpanel-network successfully'
   }
 }

@@ -387,7 +387,7 @@ public class SelfUpdateService : ISelfUpdateService
         var assembly = typeof(SelfUpdateService).Assembly;
         var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                ?? assembly.GetName().Version?.ToString()
-               ?? "0.9.6";
+               ?? "0.9.7";
         return version.TrimStart('v', 'V').Split('+')[0];
     }
 }

@@ -1,10 +1,10 @@
-﻿# DockerPanel
+# DockerPanel
 
 DockerPanel 是一个基于 **ASP.NET Core 10** 和 **Vue 3** 构建的高性能现代化 Docker 可视化管理与反向代理网关面板。
 
 后端通过 Docker Socket 全面接管并调度 Docker 容器生命周期，前端通过静态资源一体化嵌入后端容器中，支持**单镜像开箱即用、一键部署与无缝平滑自升级**。
 
-当前版本：`0.9.6`
+当前版本：`0.9.7`
 
 Docker 镜像发布于 Docker Hub：[`j4587698/dockerpanel`](https://hub.docker.com/r/j4587698/dockerpanel)，由 GitHub Actions 自动化构建与发布多架构镜像。
 
@@ -51,7 +51,7 @@ DockerPanel 以**单一镜像**发布，无需额外配置外部数据库。
 
 可用 tag：
 - `latest`：最新稳定发布版本
-- `0.9` / `0.9.6`：对应指定语义化版本
+- `0.9` / `0.9.7`：对应指定语义化版本
 
 ---
 
@@ -265,7 +265,7 @@ npm run build
 本项目通过 GitHub Actions 自动化工作流（`.github/workflows/docker-publish.yml`）进行多架构镜像构建与发布：
 1. 每次合并到 `main` 分支时，自动提取 `Backend/DockerPanel.API/DockerPanel.API.csproj` 中的 `<Version>`；
 2. 自动打包前端并与 .NET 10 后端一同编译为单一轻量化镜像；
-3. 推送至 Docker Hub（`j4587698/dockerpanel:latest`、`j4587698/dockerpanel:0.9.6`、`j4587698/dockerpanel:0.9`）及 GHCR。
+3. 推送至 Docker Hub（`j4587698/dockerpanel:latest`、`j4587698/dockerpanel:0.9.7`、`j4587698/dockerpanel:0.9`）及 GHCR。
 
 ---
 

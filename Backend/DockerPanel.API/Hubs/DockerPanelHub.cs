@@ -144,7 +144,7 @@ public class DockerPanelHub : Hub
         // 发送当前容器状态
         try
         {
-            var containers = await _containerService.GetContainersAsync();
+            var containers = await _containerService.GetContainersAsync(all: true);
             await Clients.Caller.SendAsync("ContainersUpdated", containers);
         }
         catch (Exception ex)
@@ -285,7 +285,7 @@ public class DockerPanelHub : Hub
         // 发送当前容器状态
         try
         {
-            var containers = await _containerService.GetContainersAsync();
+            var containers = await _containerService.GetContainersAsync(all: true);
             await Clients.Caller.SendAsync("ContainersUpdated", containers);
         }
         catch (Exception ex)

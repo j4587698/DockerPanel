@@ -38,7 +38,7 @@ public class ContainerService : IContainerService
         throw new NotSupportedException("当前容器引擎不支持该 Docker 原生操作");
     }
 
-    public async Task<IEnumerable<ContainerInfo>> GetContainersAsync(string? nodeId = null, bool all = false, int limit = 100)
+    public async Task<IEnumerable<ContainerInfo>> GetContainersAsync(string? nodeId = null, bool all = true, int limit = 100)
     {
         var containers = await _engine.ListContainersAsync(all, nodeId);
         return containers.Take(limit);

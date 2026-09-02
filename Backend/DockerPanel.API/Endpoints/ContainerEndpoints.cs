@@ -61,7 +61,7 @@ namespace DockerPanel.API.Endpoints
             return app;
         }
 
-        private static async Task<IResult> GetContainers(IContainerService containerService, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null, bool all = false)
+        private static async Task<IResult> GetContainers(IContainerService containerService, ILocalizationService localization, ILogger<LoggingTag> logger, string? nodeId = null, bool all = true)
         {
             try
             {

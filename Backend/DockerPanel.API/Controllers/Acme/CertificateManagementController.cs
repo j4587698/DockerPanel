@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using DockerPanel.API.Services.Acme;
 using DockerPanel.API.Models;
 using DockerPanel.API.Models.Acme;
@@ -362,6 +363,7 @@ namespace DockerPanel.API.Controllers.Acme
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns>导出结果</returns>
         [HttpGet("{id}/export")]
+        [Authorize(Roles = AuthRoles.Admin)] // 可导出证书私钥，GET 请求不受 RoleWriteAccessFilter 限制，需显式收紧
         public async Task<ActionResult<CertificateExportResult>> ExportCertificate(
             string id,
             [FromQuery] string format = "pem",
@@ -597,6 +599,7 @@ namespace DockerPanel.API.Controllers.Acme
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns>证书 ZIP 包（包含 cert.pem、privkey.pem、fullchain.pem）</returns>
         [HttpGet("{id}/download")]
+        [Authorize(Roles = AuthRoles.Admin)] // ZIP 内含证书私钥，GET 请求不受 RoleWriteAccessFilter 限制，需显式收紧
         public async Task<IActionResult> DownloadCertificate(
             string id,
             CancellationToken cancellationToken = default)

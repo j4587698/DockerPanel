@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using DockerPanel.API.Services;
 using DockerPanel.API.Services.Acme;
 using DockerPanel.API.Models;
@@ -420,6 +421,7 @@ namespace DockerPanel.API.Controllers.Acme
         /// <param name="cancellationToken">取消令牌</param>
         /// <returns>导出结果</returns>
         [HttpGet("{certificateId}/export")]
+        [Authorize(Roles = AuthRoles.Admin)] // 导出内容包含证书私钥（硬编码 includePrivateKey=true），需显式收紧
         public async Task<ActionResult<WildcardCertificateExportResult>> ExportWildcardCertificate(
             string certificateId,
             [FromQuery] string format = "pem",

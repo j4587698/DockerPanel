@@ -188,7 +188,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             }
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // 默认拒绝：所有端点默认要求登录。MVC 控制器本就有全局 AuthorizeFilter，
+    // 该 FallbackPolicy 主要兜底 Minimal API / 健康检查以外的端点，防止新增端点忘记标注授权。
+    // 需要匿名的端点必须显式 .AllowAnonymous()（如登录、ACME 挑战、YARP 代理、健康检查、SPA 静态页）。
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // 引入速率限制防护 (防止公网被爆破)
 builder.Services.AddRateLimiter(options =>
@@ -445,8 +453,8 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     // 内置 OpenAPI 文档端点 + Scalar UI（AOT 兼容，替代 Swashbuckle）
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    app.MapOpenApi().AllowAnonymous();
+    app.MapScalarApiReference().AllowAnonymous();
 
     // 开发环境允许详细错误页面
     app.UseDeveloperExceptionPage();
@@ -624,6 +632,11 @@ app.Use(async (context, next) =>
     {
         await next();
     }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+        // 客户端主动断开（导航离开/超时取消）：请求被取消是正常行为，不应记为 500 服务器错误
+        Log.Debug("客户端中止请求: {Method} {Path}", context.Request.Method, context.Request.Path);
+    }
     catch (Exception ex)
     {
         Log.Error(ex, "全局未处理异常");
@@ -675,6 +688,10 @@ app.Use(async (context, next) =>
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Minimal API 操作审计（MVC 控制器由 OperationAuditFilter 覆盖，这里补齐 Minimal API 端点；
+// 必须放在 UseAuthorization 之后，确保 User 已填充且鉴权失败的请求不产生噪声记录）
+app.UseMiddleware<OperationAuditMiddleware>();
+
 // 强制 HTTPS 重定向中间件 (针对 YARP 代理路由)
 app.Use(async (context, next) =>
 {
@@ -705,7 +722,8 @@ app.Use(async (context, next) =>
 });
 
 // 启用YARP反向代理 - 使用数据库配置的路由
-app.MapReverseProxy();
+// AllowAnonymous：被代理的目标站点是否公开由站点自身决定，面板不应强制要求面板登录态
+app.MapReverseProxy().AllowAnonymous();
 
 // 添加直接的ACME挑战端点映射
 app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChallengeStore challengeStore, ILogger<Program> logger) =>
@@ -726,7 +744,7 @@ app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChal
         Error = "挑战文件不存在",
         Message = token
     });
-});
+}).AllowAnonymous(); // ACME HTTP-01 校验由 CA 匿名发起，必须放行
 
 // 映射控制器
 app.MapControllers();
@@ -745,16 +763,16 @@ app.MapHub<DockerPanel.API.Hubs.DockerPanelHub>("/dockerpanelHub").RequireAuthor
 app.MapHub<DockerPanel.API.Hubs.SshTerminalHub>("/sshTerminalHub").RequireAuthorization();
 app.MapHub<DockerPanel.API.Hubs.ContainerTerminalHub>("/containerTerminalHub").RequireAuthorization();
 
-// 健康检查端点
-app.MapHealthChecks("/health");
+// 健康检查端点（编排器/探针匿名访问，故显式 AllowAnonymous）
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("live")
-});
+}).AllowAnonymous();
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready")
-});
+}).AllowAnonymous();
 
 // API信息端点
 var applicationVersion = Assembly.GetExecutingAssembly()
@@ -775,8 +793,8 @@ app.MapGet("/api/info", (IConfiguration config) => new DockerPanel.API.Endpoints
     }
 }).RequireAuthorization();
 
-// SPA 后备路由
-app.MapFallbackToFile("index.html");
+// SPA 后备路由（登录页本身必须匿名可访问）
+app.MapFallbackToFile("index.html").AllowAnonymous();
 
 // 初始化 SNI 证书选择器（用于 HTTPS）
 var sniSelector = app.Services.GetRequiredService<SniCertificateSelector>();

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Docker.DotNet;
 using Docker.DotNet.Models;
+using DockerPanel.API.Extensions;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -16,7 +17,7 @@ namespace DockerPanel.API.Endpoints
         /// </summary>
         public static IEndpointRouteBuilder MapSystemEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("api/system");
+            var group = app.MapGroup("api/system").RequireAuthorization();
 
             group.MapGet("info", GetSystemInfo);
             group.MapGet("docker-stats", GetDockerStats);

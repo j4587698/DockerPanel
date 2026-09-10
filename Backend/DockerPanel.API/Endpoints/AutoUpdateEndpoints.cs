@@ -1,3 +1,4 @@
+using DockerPanel.API.Extensions;
 using DockerPanel.API.Models;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -14,20 +15,20 @@ namespace DockerPanel.API.Endpoints
         /// </summary>
         public static IEndpointRouteBuilder MapAutoUpdateEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("api/auto-update");
+            var group = app.MapGroup("api/auto-update").RequireAuthorization();
 
             group.MapGet("/configs", GetAllConfigs);
             group.MapGet("/configs/{containerId}", GetConfig);
-            group.MapPut("/configs/{containerId}", SetConfig);
-            group.MapDelete("/configs/{containerId}", DeleteConfig);
-            group.MapPost("/check/{containerId}", CheckUpdate);
-            group.MapPost("/check-all", CheckAllUpdates);
+            group.MapPut("/configs/{containerId}", SetConfig).RequireWriteAccess();
+            group.MapDelete("/configs/{containerId}", DeleteConfig).RequireWriteAccess();
+            group.MapPost("/check/{containerId}", CheckUpdate).RequireWriteAccess();
+            group.MapPost("/check-all", CheckAllUpdates).RequireWriteAccess();
             group.MapGet("/available-updates", GetAvailableUpdates);
-            group.MapPost("/update/{containerId}", UpdateContainer);
+            group.MapPost("/update/{containerId}", UpdateContainer).RequireWriteAccess();
             group.MapGet("/settings", GetGlobalSettings);
-            group.MapPut("/settings", SetGlobalSettings);
+            group.MapPut("/settings", SetGlobalSettings).RequireWriteAccess();
             group.MapGet("/image-tags", GetImageTags);
-            group.MapPost("/rollback/{containerId}", RollbackContainer);
+            group.MapPost("/rollback/{containerId}", RollbackContainer).RequireWriteAccess();
 
             return app;
         }

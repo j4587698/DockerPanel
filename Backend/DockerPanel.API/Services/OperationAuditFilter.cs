@@ -12,7 +12,7 @@ namespace DockerPanel.API.Services;
 /// </summary>
 public class OperationAuditFilter : IAsyncActionFilter
 {
-    private static readonly HashSet<string> SensitiveQueryKeys = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly HashSet<string> SensitiveQueryKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "password", "passphrase", "token", "secret", "key", "privateKey", "authorization", "accessToken", "refreshToken"
     };
@@ -118,7 +118,7 @@ public class OperationAuditFilter : IAsyncActionFilter
         return response.StatusCode == 0 ? 200 : response.StatusCode;
     }
 
-    private static string InferOperationType(string method, string? action, string? path)
+    internal static string InferOperationType(string method, string? action, string? path)
     {
         var source = $"{action} {path}".ToLowerInvariant();
         if (source.Contains("delete") || source.Contains("remove") || HttpMethods.IsDelete(method)) return "delete";
@@ -155,7 +155,7 @@ public class OperationAuditFilter : IAsyncActionFilter
         return null;
     }
 
-    private static string? GetFirstRouteValue(Dictionary<string, string> routeValues, params string[] names)
+    internal static string? GetFirstRouteValue(Dictionary<string, string> routeValues, params string[] names)
     {
         foreach (var name in names)
         {

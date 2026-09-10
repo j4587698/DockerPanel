@@ -1,3 +1,4 @@
+using DockerPanel.API.Extensions;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
 
@@ -13,13 +14,13 @@ namespace DockerPanel.API.Endpoints
         /// </summary>
         public static IEndpointRouteBuilder MapTaskEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("api/tasks");
+            var group = app.MapGroup("api/tasks").RequireAuthorization();
 
             group.MapGet("/", GetTasks);
             group.MapGet("/active", GetActiveTasks);
             group.MapGet("/{id}", GetTask);
-            group.MapDelete("/{id}", RemoveTask);
-            group.MapPost("/clear-completed", ClearCompleted);
+            group.MapDelete("/{id}", RemoveTask).RequireWriteAccess();
+            group.MapPost("/clear-completed", ClearCompleted).RequireWriteAccess();
 
             return app;
         }

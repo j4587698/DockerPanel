@@ -952,10 +952,7 @@ public class DockerEngine : IContainerEngine, IDisposable
             authConfig = await GetAuthConfigForImageAsync(imageRef.Name);
         }
         
-        // 调试：输出 AuthConfig JSON
-        var authJson = System.Text.Json.JsonSerializer.Serialize(authConfig, DockerPanelJsonContext.Default.AuthConfig);
-        _logger.LogInformation("AuthConfig JSON: {AuthJson}", authJson);
-        
+        // 安全：不得记录 AuthConfig 内容（含明文 registry 密码）
         var actualTag = imageRef.Tag;
         string? pullError = null;
         var dockerProgress = new Progress<JSONMessage>(m => {

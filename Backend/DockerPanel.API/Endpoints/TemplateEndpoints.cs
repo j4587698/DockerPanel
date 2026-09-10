@@ -1,4 +1,5 @@
 using DockerPanel.API.Data;
+using DockerPanel.API.Extensions;
 using DockerPanel.API.Models;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -16,16 +17,16 @@ namespace DockerPanel.API.Endpoints
         /// </summary>
         public static IEndpointRouteBuilder MapTemplateEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("api/templates");
+            var group = app.MapGroup("api/templates").RequireAuthorization();
 
             group.MapGet("/", GetTemplates);
             group.MapGet("/{id}", GetTemplate);
-            group.MapPost("/", CreateTemplate);
-            group.MapPut("/{id}", UpdateTemplate);
-            group.MapDelete("/{id}", DeleteTemplate);
-            group.MapPost("/{id}/duplicate", DuplicateTemplate);
+            group.MapPost("/", CreateTemplate).RequireWriteAccess();
+            group.MapPut("/{id}", UpdateTemplate).RequireWriteAccess();
+            group.MapDelete("/{id}", DeleteTemplate).RequireWriteAccess();
+            group.MapPost("/{id}/duplicate", DuplicateTemplate).RequireWriteAccess();
             group.MapGet("/{id}/export", ExportTemplate);
-            group.MapPost("/import", ImportTemplate);
+            group.MapPost("/import", ImportTemplate).RequireWriteAccess();
 
             return app;
         }

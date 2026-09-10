@@ -32,7 +32,8 @@ public class NodesController : ControllerBase
         try
         {
             var nodes = await _nodeService.GetNodesAsync();
-            return Ok(nodes);
+            // 响应脱敏：节点实体含 Docker API 密码 / SSH 隧道凭据，列表接口对 Viewer 也开放，不能下发
+            return Ok(nodes.Select(n => n.SanitizedCopy()));
         }
         catch (Exception ex)
         {
@@ -54,7 +55,8 @@ public class NodesController : ControllerBase
             {
                 return NotFound(new { message = _localization.GetMessage("node.notFound") });
             }
-            return Ok(node);
+            // 响应脱敏：不下发 Docker API 密码 / SSH 隧道凭据
+            return Ok(node.SanitizedCopy());
         }
         catch (Exception ex)
         {
@@ -208,7 +210,7 @@ public class NodesController : ControllerBase
             {
                 return NotFound(new { message = _localization.GetMessage("node.notFound") });
             }
-            return Ok(info);
+            return Ok(info.SanitizedCopy());
         }
         catch (Exception ex)
         {
@@ -248,7 +250,7 @@ public class NodesController : ControllerBase
             {
                 return NotFound(new { message = "未设置默认节点" });
             }
-            return Ok(node);
+            return Ok(node.SanitizedCopy());
         }
         catch (Exception ex)
         {

@@ -173,9 +173,12 @@ const getNodeGroupColor = (groupId?: string) => {
 
 // 选择节点
 const handleSelectNode = async (nodeId: string) => {
+  if (nodeId === currentNodeId.value) return
   try {
     await nodesStore.setCurrentNode(nodeId)
     ElMessage.success(t('node.switchedTo', { name: currentNode.value?.name || nodeId }))
+    // 各页面的数据/SignalR 订阅都与节点绑定，切换后整页刷新以确保全部指向新节点
+    window.location.reload()
   } catch (error) {
     ElMessage.error(t('node.switchFailed'))
   }

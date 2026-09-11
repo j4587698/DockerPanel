@@ -85,7 +85,16 @@ api.interceptors.request.use(
     
     // 添加防 CSRF 的自定义 Header
     config.headers["X-DockerPanel-Api"] = "1"
-    
+
+    // 多节点：自动附带当前选中节点（后端资源接口均支持 nodeId 查询参数；显式传入的不覆盖）
+    const currentNodeId = localStorage.getItem("docker-panel-current-node")
+    if (currentNodeId) {
+      config.params = { ...(config.params ?? {}) }
+      if (config.params.nodeId === undefined || config.params.nodeId === null || config.params.nodeId === "") {
+        config.params.nodeId = currentNodeId
+      }
+    }
+
     return config
   },
   (error) => {

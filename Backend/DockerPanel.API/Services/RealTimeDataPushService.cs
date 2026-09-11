@@ -20,17 +20,25 @@ public class RealTimeDataPushService : IHostedService
     private Timer? _systemInfoTimer;
     private DateTime _lastMetricsPushAt = DateTime.MinValue;
 
-    // 缓存系统信息（不频繁变化）
-    private int _systemNCpu = 1;
-    private long _systemMemTotal;
-    private DateTime _lastSystemInfoUpdate = DateTime.MinValue;
+    // 缓存系统信息（不频繁变化），按节点缓存
+    private sealed class NodeSystemInfo
+    {
+        public int NCpu = 1;
+        public long MemTotal;
+        public DateTime UpdatedAt = DateTime.MinValue;
+    }
+    private readonly ConcurrentDictionary<string, NodeSystemInfo> _systemInfoByNode = new(StringComparer.OrdinalIgnoreCase);
 
-    // 网络统计缓存
+    // 网络统计缓存，按节点隔离
     private readonly ConcurrentDictionary<string, long> _lastNetworkStats = new();
 
     // 防止重入和停止控制
     private int _isRunning = 0;
     private int _isStopping = 0;
+
+    /// <summary>订阅键中的节点 ID 规范化（"default" → 交给 DockerEngine 解析默认节点）</summary>
+    private static string? EngineNodeId(string nodeId) =>
+        string.Equals(nodeId, "default", StringComparison.OrdinalIgnoreCase) ? null : nodeId;
 
     public RealTimeDataPushService(
         ILogger<RealTimeDataPushService> logger,
@@ -45,17 +53,14 @@ public class RealTimeDataPushService : IHostedService
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("实时数据推送服务已启动");
-        
-        // 启动时立即获取一次系统信息
-        await RefreshSystemInfoAsync();
-        
-        // 每 30 秒刷新一次系统信息
-        _systemInfoTimer = new Timer(async _ => await RefreshSystemInfoAsync(), null, 
-            TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
-        
+
+        // 每 30 秒刷新一次各已订阅节点的系统信息
+        _systemInfoTimer = new Timer(async _ => await RefreshSystemInfoAsync(), null,
+            TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30));
+
         // 每 5 秒检查一次订阅和系统设置，实际推送频率由监控采集间隔控制
         _timer = new Timer(PushData, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5));
-        
+
         await Task.CompletedTask;
     }
 
@@ -89,26 +94,36 @@ public class RealTimeDataPushService : IHostedService
             return;
         }
 
-        try
+        // 只刷新有订阅的节点
+        var nodeIds = DockerPanel.API.Hubs.DockerPanelHub.GetSubscribedNodeIds("systemstats")
+            .Union(DockerPanel.API.Hubs.DockerPanelHub.GetSubscribedNodeIds("containerstats"), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (nodeIds.Count == 0) return;
+
+        foreach (var nodeId in nodeIds)
         {
-            using var scope = _serviceProvider.CreateScope();
-            var dockerEngine = scope.ServiceProvider.GetService<IContainerEngine>() as DockerEngine;
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var dockerEngine = scope.ServiceProvider.GetService<IContainerEngine>() as DockerEngine;
 
-            if (dockerEngine == null || !await dockerEngine.IsAvailableAsync()) return;
+                if (dockerEngine == null || !await dockerEngine.IsAvailableAsync(EngineNodeId(nodeId))) continue;
 
-            var dockerClient = await dockerEngine.GetClientAsync();
-            if (dockerClient == null) return;
+                var dockerClient = await dockerEngine.GetClientAsync(EngineNodeId(nodeId));
+                if (dockerClient == null) continue;
 
-            var systemInfo = await dockerClient.System.GetSystemInfoAsync();
-            _systemNCpu = (int)(systemInfo.NCPU > 0 ? systemInfo.NCPU : 1);
-            _systemMemTotal = (long)systemInfo.MemTotal;
-            _lastSystemInfoUpdate = DateTime.UtcNow;
+                var systemInfo = await dockerClient.System.GetSystemInfoAsync();
+                var info = _systemInfoByNode.GetOrAdd(nodeId, _ => new NodeSystemInfo());
+                info.NCpu = (int)(systemInfo.NCPU > 0 ? systemInfo.NCPU : 1);
+                info.MemTotal = (long)systemInfo.MemTotal;
+                info.UpdatedAt = DateTime.UtcNow;
 
-            _logger.LogDebug("系统信息已刷新: CPU={Cpu}, 内存={Mem}", _systemNCpu, FormatBytes(_systemMemTotal));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "刷新系统信息失败");
+                _logger.LogDebug("系统信息已刷新: 节点={NodeId}, CPU={Cpu}, 内存={Mem}", nodeId, info.NCpu, FormatBytes(info.MemTotal));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "刷新系统信息失败: 节点 {NodeId}", nodeId);
+            }
         }
     }
 
@@ -128,15 +143,14 @@ public class RealTimeDataPushService : IHostedService
 
         try
         {
-            // 只有当有客户端订阅了系统统计或容器统计时才推送
-            bool hasSystemStatsSub = DockerPanel.API.Hubs.DockerPanelHub.HasSubscription("systemstats");
-            bool hasContainerStatsSub = DockerPanel.API.Hubs.DockerPanelHub.HasSubscription("containerstats");
-            int subCount = DockerPanel.API.Hubs.DockerPanelHub.GetSubscriptionCount();
+            // 收集当前有订阅的节点（systemstats 或 containerstats）
+            var nodeIds = DockerPanel.API.Hubs.DockerPanelHub.GetSubscribedNodeIds("systemstats")
+                .Union(DockerPanel.API.Hubs.DockerPanelHub.GetSubscribedNodeIds("containerstats"), StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-            _logger.LogDebug("推送检查 - 订阅数: {SubCount}, systemstats: {SysSub}, containerstats: {ContSub}",
-                subCount, hasSystemStatsSub, hasContainerStatsSub);
+            _logger.LogDebug("推送检查 - 订阅节点数: {Count}", nodeIds.Count);
 
-            if (!hasSystemStatsSub && !hasContainerStatsSub)
+            if (nodeIds.Count == 0)
             {
                 return;
             }
@@ -154,7 +168,10 @@ public class RealTimeDataPushService : IHostedService
 
             _lastMetricsPushAt = DateTime.UtcNow;
 
-            await PushContainerStats();
+            foreach (var nodeId in nodeIds)
+            {
+                await PushContainerStats(nodeId);
+            }
         }
         catch (Exception ex)
         {
@@ -166,7 +183,7 @@ public class RealTimeDataPushService : IHostedService
         }
     }
 
-    private async Task PushContainerStats()
+    private async Task PushContainerStats(string nodeId)
     {
         // 如果正在停止，直接返回
         if (Interlocked.CompareExchange(ref _isStopping, 0, 0) == 1)
@@ -177,11 +194,16 @@ public class RealTimeDataPushService : IHostedService
         using var scope = _serviceProvider.CreateScope();
         var dockerEngine = scope.ServiceProvider.GetService<IContainerEngine>() as DockerEngine;
 
-        if (dockerEngine == null || !await dockerEngine.IsAvailableAsync()) return;
+        var engineNodeId = EngineNodeId(nodeId);
 
-        var dockerClient = await dockerEngine.GetClientAsync();
+        if (dockerEngine == null || !await dockerEngine.IsAvailableAsync(engineNodeId)) return;
+
+        var dockerClient = await dockerEngine.GetClientAsync(engineNodeId);
         if (dockerClient == null) return;
-        
+
+        // 节点级系统信息缓存（NCpu/内存总量）
+        var nodeInfo = _systemInfoByNode.GetOrAdd(nodeId, _ => new NodeSystemInfo());
+
         try
         {
             // 获取容器列表
@@ -193,7 +215,7 @@ public class RealTimeDataPushService : IHostedService
             if (runningContainers.Count == 0)
             {
                 // 没有运行中的容器，推送基础数据
-                await PushEmptyStats(containers.Count);
+                await PushEmptyStats(nodeId, containers.Count, nodeInfo);
                 return;
             }
 
@@ -226,7 +248,7 @@ public class RealTimeDataPushService : IHostedService
 
                     // 复用 DockerEngine 已实现的双采样统计（Stream=true，拿到两次采样即取消），
                     // 避免直接调用 Enhanced 版 stats 流（等待流关闭导致超时全部失败）
-                    var stats = await dockerEngine.GetContainerStatsAsync(container.ID);
+                    var stats = await dockerEngine.GetContainerStatsAsync(container.ID, engineNodeId);
                     if (stats == null)
                     {
                         return (Message: null, Cpu: 0d, Mem: 0L, Rx: 0L, Tx: 0L);
@@ -298,15 +320,15 @@ public class RealTimeDataPushService : IHostedService
             }
 
             // 计算网络速度：仍需要本轮累计快照与上一轮快照做差，但不再对外展示“总流量”
-            var (rxSpeed, txSpeed) = CalculateNetworkSpeed(networkRxSnapshot, networkTxSnapshot);
+            var (rxSpeed, txSpeed) = CalculateNetworkSpeed(nodeId, networkRxSnapshot, networkTxSnapshot);
 
-            // 推送系统统计
+            // 推送系统统计（只推给订阅了该节点的连接）
             var systemStats = new Hubs.DockerStatsPushMessage
             {
                 Docker = new Hubs.DockerStatsPushDocker
                 {
                     Status = "running",
-                    NCPU = _systemNCpu
+                    NCPU = nodeInfo.NCpu
                 },
                 Containers = new Hubs.DockerStatsPushContainers
                 {
@@ -318,12 +340,12 @@ public class RealTimeDataPushService : IHostedService
                 {
                     CpuUsagePercent = Math.Round(SafeDouble(totalCpuPercent), 2),
                     MemoryUsed = totalMemUsed,
-                    MemoryLimit = _systemMemTotal,
-                    MemoryPercent = _systemMemTotal > 0
-                        ? Math.Round(SafeDouble((double)totalMemUsed / _systemMemTotal * 100), 2)
+                    MemoryLimit = nodeInfo.MemTotal,
+                    MemoryPercent = nodeInfo.MemTotal > 0
+                        ? Math.Round(SafeDouble((double)totalMemUsed / nodeInfo.MemTotal * 100), 2)
                         : 0,
                     MemoryUsedFormatted = FormatBytes(totalMemUsed),
-                    MemoryLimitFormatted = FormatBytes(_systemMemTotal)
+                    MemoryLimitFormatted = FormatBytes(nodeInfo.MemTotal)
                 },
                 Network = new Hubs.DockerStatsPushNetwork
                 {
@@ -335,17 +357,23 @@ public class RealTimeDataPushService : IHostedService
                 Timestamp = DateTime.UtcNow
             };
 
-            await _hubContext.Clients.All.SendAsync("DockerStatsUpdated", systemStats);
-            
+            foreach (var connectionId in DockerPanel.API.Hubs.DockerPanelHub.GetConnectionsFor($"systemstats:{nodeId}"))
+            {
+                await _hubContext.Clients.Client(connectionId).SendAsync("DockerStatsUpdated", systemStats);
+            }
+
             if (containerStatsList.Count > 0)
             {
-                await _hubContext.Clients.All.SendAsync("ContainerStatsUpdated", containerStatsList);
-                _logger.LogDebug("推送容器统计: {Count} 个容器", containerStatsList.Count);
+                foreach (var connectionId in DockerPanel.API.Hubs.DockerPanelHub.GetConnectionsFor($"containerstats:{nodeId}"))
+                {
+                    await _hubContext.Clients.Client(connectionId).SendAsync("ContainerStatsUpdated", containerStatsList);
+                }
+                _logger.LogDebug("推送容器统计: 节点 {NodeId}, {Count} 个容器", nodeId, containerStatsList.Count);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "推送统计数据失败");
+            _logger.LogError(ex, "推送统计数据失败: 节点 {NodeId}", nodeId);
         }
     }
 
@@ -376,20 +404,20 @@ public class RealTimeDataPushService : IHostedService
 
     private sealed record RealtimePushSettings(bool EnableMetrics, TimeSpan PushInterval);
 
-    private async Task PushEmptyStats(int totalContainers)
+    private async Task PushEmptyStats(string nodeId, int totalContainers, NodeSystemInfo nodeInfo)
     {
         var systemStats = new Hubs.DockerStatsPushMessage
         {
-            Docker = new Hubs.DockerStatsPushDocker { Status = "running", NCPU = _systemNCpu },
+            Docker = new Hubs.DockerStatsPushDocker { Status = "running", NCPU = nodeInfo.NCpu },
             Containers = new Hubs.DockerStatsPushContainers { Running = 0, Stopped = totalContainers, Total = totalContainers },
             Resources = new Hubs.DockerStatsPushResources
             {
                 CpuUsagePercent = 0.0,
                 MemoryUsed = 0L,
-                MemoryLimit = _systemMemTotal,
+                MemoryLimit = nodeInfo.MemTotal,
                 MemoryPercent = 0.0,
                 MemoryUsedFormatted = "0 B",
-                MemoryLimitFormatted = FormatBytes(_systemMemTotal)
+                MemoryLimitFormatted = FormatBytes(nodeInfo.MemTotal)
             },
             Network = new Hubs.DockerStatsPushNetwork
             {
@@ -401,17 +429,20 @@ public class RealTimeDataPushService : IHostedService
             Timestamp = DateTime.UtcNow
         };
 
-        await _hubContext.Clients.All.SendAsync("DockerStatsUpdated", systemStats);
+        foreach (var connectionId in DockerPanel.API.Hubs.DockerPanelHub.GetConnectionsFor($"systemstats:{nodeId}"))
+        {
+            await _hubContext.Clients.Client(connectionId).SendAsync("DockerStatsUpdated", systemStats);
+        }
     }
 
-    private (long rxSpeed, long txSpeed) CalculateNetworkSpeed(long totalRx, long totalTx)
+    private (long rxSpeed, long txSpeed) CalculateNetworkSpeed(string nodeId, long totalRx, long totalTx)
     {
         var currentTicks = DateTime.UtcNow.Ticks;
         long rxSpeed = 0, txSpeed = 0;
-        
-        if (_lastNetworkStats.TryGetValue("rx", out var lastRx) && 
-            _lastNetworkStats.TryGetValue("tx", out var lastTx) && 
-            _lastNetworkStats.TryGetValue("time", out var lastTime))
+
+        if (_lastNetworkStats.TryGetValue($"{nodeId}:rx", out var lastRx) &&
+            _lastNetworkStats.TryGetValue($"{nodeId}:tx", out var lastTx) &&
+            _lastNetworkStats.TryGetValue($"{nodeId}:time", out var lastTime))
         {
             var timeDiffSeconds = TimeSpan.FromTicks(currentTicks - lastTime).TotalSeconds;
             if (timeDiffSeconds > 0)
@@ -420,11 +451,11 @@ public class RealTimeDataPushService : IHostedService
                 if (totalTx >= lastTx) txSpeed = (long)((totalTx - lastTx) / timeDiffSeconds);
             }
         }
-        
-        _lastNetworkStats["rx"] = totalRx;
-        _lastNetworkStats["tx"] = totalTx;
-        _lastNetworkStats["time"] = currentTicks;
-        
+
+        _lastNetworkStats[$"{nodeId}:rx"] = totalRx;
+        _lastNetworkStats[$"{nodeId}:tx"] = totalTx;
+        _lastNetworkStats[$"{nodeId}:time"] = currentTicks;
+
         return (rxSpeed, txSpeed);
     }
 

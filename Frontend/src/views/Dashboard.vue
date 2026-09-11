@@ -597,7 +597,8 @@ const startRealtimeStats = async () => {
   }
 
   // Call backend Hub method to register subscription (required for HasConnections check)
-  await signalrService.subscribeToSystemStats()
+  // 多节点：订阅当前选中节点的系统统计（不传 = 默认节点）
+  await signalrService.subscribeToSystemStats(localStorage.getItem('docker-panel-current-node') || undefined)
 
   // Subscribe to SignalR events for real-time stats
   unsubscribeSignalR = signalrService.subscribe('docker-stats', (message) => {
@@ -618,7 +619,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   // 取消系统统计订阅
-  signalrService.unsubscribeFromSystemStats().catch(() => {})
+  signalrService.unsubscribeFromSystemStats(localStorage.getItem('docker-panel-current-node') || undefined).catch(() => {})
   
   if (unsubscribeSignalR) {
     unsubscribeSignalR()
@@ -733,7 +734,7 @@ onUnmounted(() => {
 
 .metric-subtext {
   font-size: 11px;
-  color: var(--text-tertiary, #909399);
+  color: var(--text-muted);
   margin-top: 2px;
   font-weight: 400;
 }

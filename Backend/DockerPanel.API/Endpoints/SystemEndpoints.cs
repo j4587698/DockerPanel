@@ -17,7 +17,7 @@ namespace DockerPanel.API.Endpoints
         /// </summary>
         public static IEndpointRouteBuilder MapSystemEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("api/system");
+            var group = app.MapGroup("api/system").RequireAuthorization();
 
             group.MapGet("info", GetSystemInfo);
             group.MapGet("docker-stats", GetDockerStats);
@@ -75,14 +75,14 @@ namespace DockerPanel.API.Endpoints
                    ?? "unknown";
         }
 
-        private static async Task<IResult> GetDockerStats(DockerEngine dockerEngine, IContainerService containerService, ILocalizationService localization, ILogger<SettingsEndpoints.LoggingTag> logger)
+        private static async Task<IResult> GetDockerStats(DockerEngine dockerEngine, IContainerService containerService, ILocalizationService localization, ILogger<SettingsEndpoints.LoggingTag> logger, string? nodeId = null)
         {
             try
             {
                 logger.LogInformation("正在获取 Docker 统计信息...");
 
                 // 检查 Docker 是否可用
-                if (!await dockerEngine.IsAvailableAsync())
+                if (!await dockerEngine.IsAvailableAsync(nodeId))
                 {
                     return TypedResults.Ok(new DockerStatsResponse
                     {
@@ -91,7 +91,7 @@ namespace DockerPanel.API.Endpoints
                     });
                 }
 
-                var dockerClient = await dockerEngine.GetClientAsync();
+                var dockerClient = await dockerEngine.GetClientAsync(nodeId);
                 var versionTask = dockerClient.System.GetVersionAsync();
                 var systemInfoTask = dockerClient.System.GetSystemInfoAsync();
                 var imagesTask = dockerClient.Images.ListImagesAsync(new ImagesListParameters());
@@ -120,7 +120,7 @@ namespace DockerPanel.API.Endpoints
 
                 try
                 {
-                    var containers = await containerService.GetContainersAsync(null, false);
+                    var containers = await containerService.GetContainersAsync(nodeId, false);
                     var runningContainers = containers.Where(c => c.State == "running").ToList();
 
                     // 并行获取所有运行中容器的统计信息
@@ -128,7 +128,7 @@ namespace DockerPanel.API.Endpoints
                     {
                         try
                         {
-                            return await containerService.GetContainerStatsAsync(c.Id);
+                            return await containerService.GetContainerStatsAsync(c.Id, nodeId);
                         }
                         catch
                         {

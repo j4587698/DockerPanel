@@ -487,7 +487,9 @@ export const useImagesStore = defineStore('images', () => {
     })
 
     // 告知后端我们想要镜像列表更新（订阅时后端也会立即推送当前列表）
-    await signalrService.subscribeToImages()
+    // 多节点：附带当前选中节点，后端只推送该节点的列表
+    const nodeId = localStorage.getItem('docker-panel-current-node') || undefined
+    await signalrService.subscribeToImages(nodeId)
   }
 
   const stopRealtimeSync = async () => {
@@ -496,7 +498,8 @@ export const useImagesStore = defineStore('images', () => {
       realtimeUnsubscribe = null
     }
     // 取消后端订阅
-    await signalrService.unsubscribeFromImages().catch(() => {})
+    const nodeId = localStorage.getItem('docker-panel-current-node') || undefined
+    await signalrService.unsubscribeFromImages(nodeId).catch(() => {})
   }
 
   return {

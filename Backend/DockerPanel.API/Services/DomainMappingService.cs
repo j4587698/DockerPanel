@@ -134,11 +134,12 @@ public class DomainMappingService
 
         try
         {
-            // 获取容器信息
-            var container = await _containerService.GetContainerAsync(containerId);
+            // 获取容器信息。反代目标寻址（本地网桥容器名 / host.docker.internal）只对宿主机本地容器有效，
+            // 固定解析本地节点，不跟随默认节点（默认节点可能是远程节点）
+            var container = await _containerService.GetContainerAsync(containerId, "local");
             if (container == null)
             {
-                _logger.LogWarning("容器不存在，无法创建域名映射: {ContainerId}", containerId);
+                _logger.LogWarning("容器不存在于本地节点，无法创建域名映射: {ContainerId}（域名映射仅支持面板宿主机的本地容器）", containerId);
                 return;
             }
 

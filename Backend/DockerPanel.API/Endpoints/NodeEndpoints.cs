@@ -57,7 +57,8 @@ namespace DockerPanel.API.Endpoints
             try
             {
                 var nodes = await nodeService.GetNodesAsync();
-                return TypedResults.Ok(nodes);
+                // 响应脱敏：节点实体含 SSH 隧道凭据，列表接口对 Viewer 也开放，不能下发
+                return TypedResults.Ok(nodes.Select(n => n.SanitizedCopy()).ToList());
             }
             catch (Exception ex)
             {
@@ -75,7 +76,7 @@ namespace DockerPanel.API.Endpoints
                 {
                     return TypedResults.NotFound(new ApiErrorResponse { Error = localization.GetMessage("node.notFound") });
                 }
-                return TypedResults.Ok(node);
+                return TypedResults.Ok(node.SanitizedCopy());
             }
             catch (Exception ex)
             {
@@ -93,7 +94,7 @@ namespace DockerPanel.API.Endpoints
                 {
                     return TypedResults.NotFound(new ApiErrorResponse { Error = "未设置默认节点" });
                 }
-                return TypedResults.Ok(node);
+                return TypedResults.Ok(node.SanitizedCopy());
             }
             catch (Exception ex)
             {
@@ -204,7 +205,7 @@ namespace DockerPanel.API.Endpoints
                 {
                     return TypedResults.NotFound(new ApiErrorResponse { Error = localization.GetMessage("node.notFound") });
                 }
-                return TypedResults.Ok(info);
+                return TypedResults.Ok(info.SanitizedCopy());
             }
             catch (Exception ex)
             {

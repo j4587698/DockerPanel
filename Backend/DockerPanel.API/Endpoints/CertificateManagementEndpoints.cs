@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DockerPanel.API.Models.Acme;
 using DockerPanel.API.Serialization;
+using DockerPanel.API.Extensions;
 using DockerPanel.API.Services;
 using DockerPanel.API.Services.Acme;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -42,11 +43,13 @@ namespace DockerPanel.API.Endpoints
             group.MapPost("{id}/auto-renewal/enable", EnableAutoRenewal);
             group.MapPost("{id}/auto-renewal/disable", DisableAutoRenewal);
             group.MapDelete("{id}", DeleteCertificate);
-            group.MapGet("{id}/export", ExportCertificate);
+            // 可导出证书私钥，仅 Admin（GET 不受写操作角色限制覆盖）
+            group.MapGet("{id}/export", ExportCertificate).RequireAdmin();
             group.MapPost("{id}/validate", ValidateCertificate);
             group.MapGet("{id}/statistics", GetCertificateUsageStatistics);
             group.MapGet("{id}/history", GetCertificateOperationHistory);
-            group.MapGet("{id}/download", DownloadCertificate);
+            // ZIP 内含证书私钥（privkey.pem），仅 Admin
+            group.MapGet("{id}/download", DownloadCertificate).RequireAdmin();
 
             return app;
         }

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DockerPanel.API.Models.Acme;
 using DockerPanel.API.Serialization;
+using DockerPanel.API.Extensions;
 using DockerPanel.API.Services;
 using DockerPanel.API.Services.Acme;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -45,7 +46,8 @@ namespace DockerPanel.API.Endpoints
             group.MapPost("{certificateId}/renew", RenewWildcardCertificate);
             group.MapDelete("{certificateId}", DeleteWildcardCertificate);
             group.MapDelete("{certificateId}/force", ForceDeleteWildcardCertificate);
-            group.MapGet("{certificateId}/export", ExportWildcardCertificate);
+            // 导出内容硬编码包含证书私钥（includePrivateKey=true），仅 Admin
+            group.MapGet("{certificateId}/export", ExportWildcardCertificate).RequireAdmin();
             group.MapPost("{certificateId}/validate", ValidateWildcardCertificate);
             group.MapGet("{certificateId}/status", CheckWildcardCertificateStatus);
 

@@ -200,8 +200,8 @@
               </el-form-item>
             </el-col>
           </el-row>
-          <el-form-item :label="t('node.remoteDockerSocket')">
-            <el-input v-model="nodeForm.remoteDockerSocket" placeholder="/var/run/docker.sock" />
+          <el-form-item>
+            <div class="form-hint" style="margin-top: -8px">{{ t('node.sshTunnelPortHint') }}</div>
           </el-form-item>
         </template>
 
@@ -330,7 +330,6 @@ const nodeForm = reactive({
   sshUsername: '',
   sshPassword: '',
   sshPrivateKeyPath: '',
-  remoteDockerSocket: '/var/run/docker.sock',
   // TLS
   tlsCaCertPath: '',
   tlsClientCertPath: '',
@@ -465,7 +464,7 @@ const testNewConnection = async () => {
       sshUsername: nodeForm.sshUsername,
       sshPassword: nodeForm.sshPassword,
       sshPrivateKeyPath: nodeForm.sshPrivateKeyPath,
-      remoteDockerSocket: nodeForm.remoteDockerSocket
+      remoteDockerPort: nodeForm.port
     })
     testResult.value = result
   } catch (error: any) {
@@ -493,7 +492,7 @@ const editNode = (row: NodeInfo) => {
   Object.assign(nodeForm, {
     name: row.name || '',
     host: row.host || '',
-    port: row.port || 2375,
+    port: row.sshTunnelConfig?.remoteDockerPort || row.port || 2375,
     connectionType: row.connectionType || 'Local',
     engineType: row.engineType || 'docker',
     groupId: row.groupId || '',
@@ -504,7 +503,6 @@ const editNode = (row: NodeInfo) => {
     sshUsername: row.sshTunnelConfig?.sshUsername || '',
     sshPassword: '',
     sshPrivateKeyPath: row.sshTunnelConfig?.sshPrivateKeyPath || '',
-    remoteDockerSocket: row.sshTunnelConfig?.remoteDockerSocket || '/var/run/docker.sock',
     tlsCaCertPath: row.tlsConfig?.caCertPath || '',
     tlsClientCertPath: row.tlsConfig?.clientCertPath || '',
     tlsClientKeyPath: row.tlsConfig?.clientKeyPath || '',
@@ -557,7 +555,7 @@ const saveNode = async () => {
       sshUsername: nodeForm.sshUsername,
       sshPassword: nodeForm.sshPassword || undefined,
       sshPrivateKeyPath: nodeForm.sshPrivateKeyPath || undefined,
-      remoteDockerSocket: nodeForm.remoteDockerSocket
+      remoteDockerPort: nodeForm.port
     }
 
     if (editingNode.value) {
@@ -593,7 +591,6 @@ const resetForm = () => {
     sshUsername: '',
     sshPassword: '',
     sshPrivateKeyPath: '',
-    remoteDockerSocket: '/var/run/docker.sock',
     tlsCaCertPath: '',
     tlsClientCertPath: '',
     tlsClientKeyPath: '',
@@ -607,8 +604,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-
-.page-container { padding: 32px; max-width: 1600px; margin: 0 auto; }
 
 /* 统计卡片 */
 .stats-cards {
@@ -703,7 +698,6 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .page-container { padding: 16px; }
   .stats-cards { grid-template-columns: 1fr; }
   .toolbar-search { width: 100%; }
   .toolbar-filters { margin-left: 0; flex-wrap: wrap; }

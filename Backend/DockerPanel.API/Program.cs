@@ -256,6 +256,12 @@ builder.Services.AddScoped<IComposeDeployService, ComposeDeployService>();
 // SSH服务
 builder.Services.AddScoped<ISshService, SshService>();
 
+// 凭据落盘加密（AES-256-GCM，密钥在数据目录 credential.key）
+builder.Services.AddSingleton<DockerPanel.API.Utils.ICredentialProtector, DockerPanel.API.Utils.CredentialProtector>();
+
+// SSH 主机密钥校验（TOFU + 指纹比对）
+builder.Services.AddSingleton<SshHostKeyVerifier>();
+
 // 节点资源监控服务
 builder.Services.AddScoped<INodeResourceService, NodeResourceServiceImpl>();
 

@@ -173,7 +173,7 @@ public class NodeInfo
 
     /// <summary>
     /// 返回清除敏感凭据后的副本（用于 API 响应）。
-    /// 密码与 SSH 隧道凭据不下发给客户端，前端编辑表单按"留空即不修改"处理。
+    /// SSH 隧道密码/私钥口令不下发给客户端，前端编辑表单按"留空即不修改"处理。
     /// </summary>
     public NodeInfo SanitizedCopy()
     {
@@ -256,9 +256,14 @@ public class NodeSshTunnelConfig
     public string? SshPrivateKeyPassphrase { get; set; }
 
     /// <summary>
-    /// 远程 Docker Socket 路径
+    /// 远程 Docker Socket 路径（历史字段，SSH 隧道转发实际走 TCP，保留仅为兼容旧数据）
     /// </summary>
     public string RemoteDockerSocket { get; set; } = "/var/run/docker.sock";
+
+    /// <summary>
+    /// 远程 Docker TCP 端口（SSH 隧道转发目标，远程 dockerd 需监听 127.0.0.1:该端口）
+    /// </summary>
+    public int RemoteDockerPort { get; set; } = 2375;
 
     /// <summary>
     /// 本地转发端口（0表示自动分配）
@@ -715,6 +720,11 @@ public class AddNodeRequest
     public string RemoteDockerSocket { get; set; } = "/var/run/docker.sock";
 
     /// <summary>
+    /// 远程 Docker TCP 端口（SSH 隧道转发目标）
+    /// </summary>
+    public int? RemoteDockerPort { get; set; }
+
+    /// <summary>
     /// 关联的 SSH 连接ID
     /// </summary>
     public string? SshConnectionId { get; set; }
@@ -759,6 +769,7 @@ public class UpdateNodeRequest
     public string? SshPrivateKeyPath { get; set; }
     public string? SshPrivateKeyPassphrase { get; set; }
     public string? RemoteDockerSocket { get; set; }
+    public int? RemoteDockerPort { get; set; }
     public string? SshConnectionId { get; set; }
     #endregion
 }
@@ -788,6 +799,7 @@ public class TestNodeConnectionRequest
     public string? SshPassword { get; set; }
     public string? SshPrivateKeyPath { get; set; }
     public string? RemoteDockerSocket { get; set; }
+    public int? RemoteDockerPort { get; set; }
 }
 
 /// <summary>

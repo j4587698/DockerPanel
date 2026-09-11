@@ -80,7 +80,7 @@ export default {
   sshPasswordPlaceholder: '请输入 SSH 密码',
   sshPrivateKeyPath: 'SSH 私钥路径',
   sshPrivateKeyPathPlaceholder: '例如：~/.ssh/id_rsa',
-  remoteDockerSocket: '远程 Docker Socket',
+  sshTunnelPortHint: '说明：上方"端口"指远程服务器 dockerd 监听的 TCP 端口（需绑定 127.0.0.1），"SSH 端口"指 sshd 端口，SSH 隧道将把 Docker API 流量从本地转发到该 Docker 端口',
   tlsConfig: 'TLS 配置',
   caCertPath: 'CA 证书路径',
   clientCertPath: '客户端证书路径',

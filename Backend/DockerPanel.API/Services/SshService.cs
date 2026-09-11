@@ -18,6 +18,8 @@ public class SshService : ISshService
 {
     private readonly ILogger<SshService> _logger;
     private readonly DataBaseService _dbService;
+    private readonly DockerPanel.API.Utils.ICredentialProtector _credentialProtector;
+    private readonly SshHostKeyVerifier _hostKeyVerifier;
 
     // 仅会话信息保留在内存中（因为是运行时状态）
     private static readonly ConcurrentDictionary<string, SshSessionInfo> _sessions = new();
@@ -25,17 +27,38 @@ public class SshService : ISshService
     private static int _totalCommands = 0;
     private static int _totalFileTransfers = 0;
 
-    public SshService(ILogger<SshService> logger, DataBaseService dbService)
+    /// <summary>当前 SSH 全局设置（供主机密钥校验等外部调用方读取）。</summary>
+    public static SshSettings CurrentSettings => _settings;
+
+    public SshService(
+        ILogger<SshService> logger,
+        DataBaseService dbService,
+        DockerPanel.API.Utils.ICredentialProtector credentialProtector,
+        SshHostKeyVerifier hostKeyVerifier)
     {
         _logger = logger;
         _dbService = dbService;
+        _credentialProtector = credentialProtector;
+        _hostKeyVerifier = hostKeyVerifier;
     }
 
     // ==================== SSH.NET 连接辅助方法 ====================
 
+    private SshClient CreateClient(SshConnectionInfo connectionInfo, string host, int port)
+    {
+        var client = new SshClient(connectionInfo);
+        // SSH 主机密钥校验（TOFU + 指纹比对，防中间人）
+        _hostKeyVerifier.Attach(client, host, port > 0 ? port : 22, _settings.StrictHostKeyChecking);
+        return client;
+    }
+
     private SshConnectionInfo CreateConnectionInfo(string host, int port, string username, string? password = null, string? privateKeyPath = null, string? passphrase = null)
     {
         var authMethods = new List<AuthenticationMethod>();
+
+        // 凭据落盘为密文，使用时解密（兼容旧明文数据）
+        password = _credentialProtector.Unprotect(password);
+        passphrase = _credentialProtector.Unprotect(passphrase);
 
         // 私钥认证
         var keyAuthMethod = (PrivateKeyAuthenticationMethod?)null;
@@ -102,7 +125,7 @@ public class SshService : ISshService
             var connectionInfo = CreateConnectionInfo(host, port, username, password, privateKeyPath);
             // 测试连接使用较短的超时（10秒），不受全局设置影响
 
-            using var client = new SshClient(connectionInfo);
+            using var client = CreateClient(connectionInfo, host, port);
 
             await Task.Run(() => client.Connect());
 
@@ -240,7 +263,7 @@ public class SshService : ISshService
 
             var connectionInfo = CreateConnectionInfo(host, port, username, password, privateKeyPath);
 
-            using var client = new SshClient(connectionInfo);
+            using var client = CreateClient(connectionInfo, host, port);
 
             await Task.Run(() => client.Connect());
 
@@ -408,6 +431,13 @@ public class SshService : ISshService
         var total = query.Count();
         var items = query.OrderByDescending(c => c.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
+        // 凭据落盘为密文，返回前解密（该接口仅 Admin 可访问）
+        foreach (var item in items)
+        {
+            item.Password = _credentialProtector.Unprotect(item.Password);
+            item.PrivateKeyPassphrase = _credentialProtector.Unprotect(item.PrivateKeyPassphrase);
+        }
+
         return Task.FromResult(new PagedResponse<SshConnectionConfigEntity>
         {
             Items = items,
@@ -420,6 +450,12 @@ public class SshService : ISshService
     public Task<SshConnectionConfigEntity?> GetConnectionConfigAsync(string id)
     {
         SshConnectionConfigEntity? config = _dbService.SshConnections.FindById(id);
+        if (config != null)
+        {
+            // 凭据落盘为密文，返回前解密
+            config.Password = _credentialProtector.Unprotect(config.Password);
+            config.PrivateKeyPassphrase = _credentialProtector.Unprotect(config.PrivateKeyPassphrase);
+        }
         return Task.FromResult<SshConnectionConfigEntity?>(config);
     }
 
@@ -427,6 +463,9 @@ public class SshService : ISshService
     {
         config.Id = Guid.NewGuid().ToString();
         config.CreatedAt = DateTime.UtcNow;
+        // 凭据加密落盘
+        config.Password = _credentialProtector.Protect(config.Password);
+        config.PrivateKeyPassphrase = _credentialProtector.Protect(config.PrivateKeyPassphrase);
         _dbService.SshConnections.Insert(config);
         _logger.LogInformation("创建SSH连接配置: {Id} {Name} {Host}", config.Id, config.Name, config.Host);
         return Task.FromResult(config);
@@ -439,6 +478,9 @@ public class SshService : ISshService
         {
             config.Id = id;
             config.CreatedAt = existing.CreatedAt;
+            // 凭据加密落盘
+            config.Password = _credentialProtector.Protect(config.Password);
+            config.PrivateKeyPassphrase = _credentialProtector.Protect(config.PrivateKeyPassphrase);
             _dbService.SshConnections.Update(config);
             _logger.LogInformation("更新SSH连接配置: {Id}", id);
             return Task.FromResult<SshConnectionConfigEntity?>(config);
@@ -464,6 +506,12 @@ public class SshService : ISshService
         var total = (int)collection.Count();
         var items = collection.Query().OrderByDescending(k => k.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
+        // 私钥落盘为密文，返回前解密（该接口仅 Admin 可访问）
+        foreach (var item in items)
+        {
+            item.PrivateKey = _credentialProtector.Unprotect(item.PrivateKey) ?? string.Empty;
+        }
+
         return Task.FromResult(new PagedResponse<SshKeyPair>
         {
             Items = items,
@@ -480,7 +528,8 @@ public class SshService : ISshService
             Id = Guid.NewGuid().ToString(),
             KeyName = name,
             PublicKey = publicKey,
-            PrivateKey = privateKey ?? string.Empty,
+            // 私钥加密落盘
+            PrivateKey = _credentialProtector.Protect(privateKey) ?? string.Empty,
             Fingerprint = GenerateFingerprint(publicKey),
             CreatedAt = DateTime.UtcNow,
             HasPassphrase = !string.IsNullOrEmpty(passphrase)
@@ -572,9 +621,10 @@ public class SshService : ISshService
                 Host = host,
                 Port = config?.Port ?? request.Port,
                 Username = username,
-                Password = config?.Password ?? request.Password,
+                // 配置中的凭据落盘为密文，使用时解密
+                Password = _credentialProtector.Unprotect(config?.Password) ?? request.Password,
                 PrivateKeyPath = config?.PrivateKeyPath ?? request.PrivateKeyPath,
-                PrivateKeyPassphrase = config?.PrivateKeyPassphrase ?? request.PrivateKeyPassphrase
+                PrivateKeyPassphrase = _credentialProtector.Unprotect(config?.PrivateKeyPassphrase) ?? request.PrivateKeyPassphrase
             }
         };
 

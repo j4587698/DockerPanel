@@ -46,6 +46,8 @@ public class NodeService : INodeService
     private readonly TinyDbContext _dbContext;
     private readonly ISshService _sshService;
     private readonly IServiceProvider _serviceProvider;
+    private readonly DockerPanel.API.Utils.ICredentialProtector _credentialProtector;
+    private readonly SshHostKeyVerifier _hostKeyVerifier;
 
     private const string LocalNodeId = "local";
     private static readonly TimeSpan LocalNodeStatusRefreshInterval = TimeSpan.FromSeconds(30);
@@ -59,12 +61,16 @@ public class NodeService : INodeService
         ILogger<NodeService> logger,
         TinyDbContext dbContext,
         ISshService sshService,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        DockerPanel.API.Utils.ICredentialProtector credentialProtector,
+        SshHostKeyVerifier hostKeyVerifier)
     {
         _logger = logger;
         _dbContext = dbContext;
         _sshService = sshService;
         _serviceProvider = serviceProvider;
+        _credentialProtector = credentialProtector;
+        _hostKeyVerifier = hostKeyVerifier;
     }
 
     private NodeInfo EnsureLocalNode()
@@ -287,19 +293,13 @@ public class NodeService : INodeService
             ConnectionTimeout = request.ConnectionTimeout,
             EnableHealthCheck = request.EnableHealthCheck,
             HealthCheckInterval = request.HealthCheckInterval,
-            Username = request.Username,
-            Password = request.Password,
             TlsConfig = request.TlsConfig,
-            UseSsh = request.UseSsh,
-            SshPort = request.SshPort,
-            SshUsername = request.SshUsername,
-            SshPrivateKeyPath = request.SshPrivateKeyPath,
             Status = NodeResourceStatus.Unknown,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
 
-        // SSH 隧道配置
+        // SSH 隧道配置（SSH 相关凭据只存这里，隧道建立时读取的同一位置；凭据加密落盘）
         if (request.UseSsh)
         {
             node.SshTunnelConfig = new NodeSshTunnelConfig
@@ -307,10 +307,11 @@ public class NodeService : INodeService
                 SshHost = request.Host,
                 SshPort = request.SshPort,
                 SshUsername = request.SshUsername ?? string.Empty,
-                SshPassword = request.SshPassword,
+                SshPassword = _credentialProtector.Protect(request.SshPassword),
                 SshPrivateKeyPath = request.SshPrivateKeyPath,
-                SshPrivateKeyPassphrase = request.SshPrivateKeyPassphrase,
+                SshPrivateKeyPassphrase = _credentialProtector.Protect(request.SshPrivateKeyPassphrase),
                 RemoteDockerSocket = request.RemoteDockerSocket,
+                RemoteDockerPort = request.RemoteDockerPort is > 0 ? request.RemoteDockerPort.Value : (request.Port > 0 ? request.Port : 2375),
                 SshConnectionId = request.SshConnectionId
             };
         }
@@ -369,24 +370,45 @@ public class NodeService : INodeService
             node.EnableHealthCheck = request.EnableHealthCheck.Value;
         if (request.HealthCheckInterval.HasValue)
             node.HealthCheckInterval = request.HealthCheckInterval.Value;
-        if (request.Username != null)
-            node.Username = request.Username;
-        if (request.Password != null)
-            node.Password = request.Password;
         if (request.TlsConfig != null)
             node.TlsConfig = request.TlsConfig;
 
-        // SSH 配置
-        if (request.UseSsh.HasValue)
-            node.UseSsh = request.UseSsh.Value;
-        if (request.SshPort.HasValue)
-            node.SshPort = request.SshPort.Value;
-        if (request.SshUsername != null)
-            node.SshUsername = request.SshUsername;
-        if (request.SshPassword != null)
-            node.Password = request.SshPassword;
-        if (request.SshPrivateKeyPath != null)
-            node.SshPrivateKeyPath = request.SshPrivateKeyPath;
+        // SSH 隧道配置：写入 SshTunnelConfig（隧道建立时实际读取的位置）。
+        // 留空的凭据字段不覆盖原值（前端编辑表单"留空即不修改"）；凭据加密落盘。
+        // 仅在节点为 SSH 隧道类型时才应用，避免普通 TCP/TLS 节点被误挂上隧道配置。
+        var useSsh = request.UseSsh ?? (node.ConnectionType == DockerConnectionType.SshTunnel);
+        var hasSshUpdate = request.SshPort.HasValue || request.SshUsername != null ||
+            request.SshPassword != null || request.SshPrivateKeyPath != null ||
+            request.SshPrivateKeyPassphrase != null || request.RemoteDockerSocket != null ||
+            request.RemoteDockerPort != null || request.SshConnectionId != null;
+
+        if (hasSshUpdate && useSsh)
+        {
+            node.SshTunnelConfig ??= new NodeSshTunnelConfig { SshHost = node.Host };
+            if (request.SshPort.HasValue)
+                node.SshTunnelConfig.SshPort = request.SshPort.Value;
+            if (request.SshUsername != null)
+                node.SshTunnelConfig.SshUsername = request.SshUsername;
+            if (request.SshPassword != null)
+                node.SshTunnelConfig.SshPassword = _credentialProtector.Protect(request.SshPassword);
+            if (request.SshPrivateKeyPath != null)
+                node.SshTunnelConfig.SshPrivateKeyPath = request.SshPrivateKeyPath;
+            if (request.SshPrivateKeyPassphrase != null)
+                node.SshTunnelConfig.SshPrivateKeyPassphrase = _credentialProtector.Protect(request.SshPrivateKeyPassphrase);
+            if (request.RemoteDockerSocket != null)
+                node.SshTunnelConfig.RemoteDockerSocket = request.RemoteDockerSocket;
+            // RemoteDockerPort 与节点 Port 同义（都是"那台机器上 Docker API 的端口"），优先取显式值
+            if (request.RemoteDockerPort is > 0)
+                node.SshTunnelConfig.RemoteDockerPort = request.RemoteDockerPort.Value;
+            else if (request.Port is > 0)
+                node.SshTunnelConfig.RemoteDockerPort = request.Port.Value;
+            if (request.SshConnectionId != null)
+                node.SshTunnelConfig.SshConnectionId = request.SshConnectionId;
+        }
+
+        // 主机地址变更时同步隧道目标地址
+        if (request.Host != null && node.SshTunnelConfig != null)
+            node.SshTunnelConfig.SshHost = request.Host;
 
         // 如果设为默认节点
         if (request.IsDefault.HasValue && request.IsDefault.Value)
@@ -533,7 +555,11 @@ public class NodeService : INodeService
                     break;
 
                 case DockerConnectionType.Tls:
-                    client = CreateTlsDockerClient(request.Host!, request.Port ?? 2376, request.TlsConfig!, request.ConnectionTimeout ?? 30);
+                    if (request.TlsConfig == null)
+                    {
+                        throw new ArgumentException("TLS 连接需要提供 TLS 配置（CA/客户端证书）");
+                    }
+                    client = CreateTlsDockerClient(request.Host!, request.Port ?? 2376, request.TlsConfig, request.ConnectionTimeout ?? 30);
                     break;
 
                 case DockerConnectionType.SshTunnel:
@@ -543,7 +569,7 @@ public class NodeService : INodeService
                         request.SshUsername!,
                         request.SshPassword,
                         request.SshPrivateKeyPath,
-                        request.RemoteDockerSocket ?? "/var/run/docker.sock"
+                        request.RemoteDockerPort ?? 2375
                     );
                     client = CreateTcpDockerClient("localhost", localPort, null, request.ConnectionTimeout ?? 30);
                     break;
@@ -756,23 +782,33 @@ public class NodeService : INodeService
 
     private DockerClient CreateTcpDockerClient(string host, int port, NodeTlsConfig? tlsConfig, int timeout)
     {
-        var scheme = tlsConfig?.Enabled == true ? "https" : "tcp";
-        var endpoint = new Uri($"{scheme}://{host}:{port}");
+        var useTls = tlsConfig?.Enabled == true;
+        var endpoint = new Uri($"{(useTls ? "https" : "tcp")}://{host}:{port}");
 
         var builder = new DockerClientBuilder()
             .WithEndpoint(endpoint)
             .WithTimeout(TimeSpan.FromSeconds(timeout));
 
-        // TLS 配置（如果需要，Docker.DotNet 支持通过自定义 HttpMessageHandler）
-        // 注：复杂的 TLS 配置可能需要自定义 HttpMessageHandler
+        if (useTls)
+        {
+            // 双向 TLS：加载 CA/客户端证书并配置服务器证书校验
+            builder.WithAuthProvider(new DockerTlsAuthProvider(tlsConfig!));
+        }
 
         return builder.Build();
     }
 
     private DockerClient CreateTlsDockerClient(string host, int port, NodeTlsConfig tlsConfig, int timeout)
     {
-        tlsConfig.Enabled = true;
-        return CreateTcpDockerClient(host, port, tlsConfig, timeout);
+        return CreateTcpDockerClient(host, port, new NodeTlsConfig
+        {
+            Enabled = true,
+            CaCertPath = tlsConfig.CaCertPath,
+            ClientCertPath = tlsConfig.ClientCertPath,
+            ClientKeyPath = tlsConfig.ClientKeyPath,
+            SkipVerify = tlsConfig.SkipVerify,
+            ServerName = tlsConfig.ServerName
+        }, timeout);
     }
 
     private async Task<(SshClient sshClient, int localPort)> CreateSshTunnelAsync(
@@ -781,7 +817,7 @@ public class NodeService : INodeService
         string username,
         string? password,
         string? privateKeyPath,
-        string remoteDockerSocket)
+        int remoteDockerPort)
     {
         var node = new NodeInfo
         {
@@ -793,7 +829,7 @@ public class NodeService : INodeService
                 SshUsername = username,
                 SshPassword = password,
                 SshPrivateKeyPath = privateKeyPath,
-                RemoteDockerSocket = remoteDockerSocket,
+                RemoteDockerPort = remoteDockerPort > 0 ? remoteDockerPort : 2375,
                 LocalForwardPort = GetAvailablePort()
             }
         };
@@ -830,19 +866,24 @@ public class NodeService : INodeService
         // 创建新的 SSH 隧道
         var connectionInfo = CreateSshConnectionInfo(config);
         var sshClient = new SshClient(connectionInfo);
+
+        // SSH 主机密钥校验（TOFU + 指纹比对，防中间人）
+        _hostKeyVerifier.Attach(sshClient, config.SshHost, config.SshPort, SshService.CurrentSettings.StrictHostKeyChecking);
+
         sshClient.Connect();
 
-        // 创建端口转发
+        // 创建端口转发：本地随机端口 -> 远程 127.0.0.1:DockerTcpPort
+        var remotePort = config.RemoteDockerPort > 0 ? config.RemoteDockerPort : 2375;
         var localPort = config.LocalForwardPort > 0 ? config.LocalForwardPort : GetAvailablePort();
-        var forwardPort = new ForwardedPortLocal("localhost", (uint)localPort, "localhost", (uint)2375);
+        var forwardPort = new ForwardedPortLocal("localhost", (uint)localPort, "localhost", (uint)remotePort);
         sshClient.AddForwardedPort(forwardPort);
         forwardPort.Start();
 
         // 缓存 SSH 客户端
         _sshTunnels[node.Id] = sshClient;
 
-        _logger.LogInformation("SSH 隧道已建立: {Host}:{RemotePort} -> localhost:{LocalPort}",
-            config.SshHost, config.RemoteDockerSocket, localPort);
+        _logger.LogInformation("SSH 隧道已建立: {Host} -> 远程 127.0.0.1:{RemotePort} -> localhost:{LocalPort}",
+            config.SshHost, remotePort, localPort);
 
         return localPort;
     }
@@ -851,19 +892,23 @@ public class NodeService : INodeService
     {
         var authMethods = new List<AuthenticationMethod>();
 
+        // 凭据落盘为密文，使用时解密（兼容旧明文数据）
+        var sshPassword = _credentialProtector.Unprotect(config.SshPassword);
+        var sshPassphrase = _credentialProtector.Unprotect(config.SshPrivateKeyPassphrase);
+
         // 私钥认证
         if (!string.IsNullOrEmpty(config.SshPrivateKeyPath) && File.Exists(config.SshPrivateKeyPath))
         {
-            var keyFile = string.IsNullOrEmpty(config.SshPrivateKeyPassphrase)
+            var keyFile = string.IsNullOrEmpty(sshPassphrase)
                 ? new PrivateKeyFile(config.SshPrivateKeyPath)
-                : new PrivateKeyFile(config.SshPrivateKeyPath, config.SshPrivateKeyPassphrase);
+                : new PrivateKeyFile(config.SshPrivateKeyPath, sshPassphrase);
             authMethods.Add(new PrivateKeyAuthenticationMethod(config.SshUsername, keyFile));
         }
 
         // 密码认证
-        if (!string.IsNullOrEmpty(config.SshPassword))
+        if (!string.IsNullOrEmpty(sshPassword))
         {
-            authMethods.Add(new PasswordAuthenticationMethod(config.SshUsername, config.SshPassword));
+            authMethods.Add(new PasswordAuthenticationMethod(config.SshUsername, sshPassword));
         }
 
         if (authMethods.Count == 0)

@@ -1590,6 +1590,10 @@ public class NodeResourceServiceImpl : INodeResourceService
     /// </summary>
     private static Node ConvertToNode(NodeInfo nodeInfo)
     {
+        // SSH 凭据统一从 SshTunnelConfig 读取（隧道建立时使用的同一份数据）
+        var ssh = nodeInfo.SshTunnelConfig;
+        var useSsh = nodeInfo.ConnectionType == DockerConnectionType.SshTunnel && ssh != null;
+
         return new Node
         {
             Id = nodeInfo.Id,
@@ -1597,14 +1601,14 @@ public class NodeResourceServiceImpl : INodeResourceService
             Host = nodeInfo.Host,
             Port = nodeInfo.Port,
             EngineType = nodeInfo.EngineType,
-            Username = nodeInfo.UseSsh ? nodeInfo.SshUsername : null,
-            Password = null, // NodeInfo中没有Password字段，设置为null
-            PrivateKeyPath = nodeInfo.UseSsh ? nodeInfo.SshPrivateKeyPath : null,
-            UseSsh = nodeInfo.UseSsh,
-            SshPort = nodeInfo.SshPort ?? 22,
-            SshUsername = nodeInfo.SshUsername ?? string.Empty,
-            SshPassword = string.Empty, // NodeInfo中没有SshPassword字段，设置为空字符串
-            SshPrivateKeyPath = nodeInfo.SshPrivateKeyPath ?? string.Empty,
+            Username = useSsh ? ssh!.SshUsername : null,
+            Password = null,
+            PrivateKeyPath = useSsh ? ssh!.SshPrivateKeyPath : null,
+            UseSsh = useSsh,
+            SshPort = ssh?.SshPort ?? 22,
+            SshUsername = ssh?.SshUsername ?? string.Empty,
+            SshPassword = ssh?.SshPassword ?? string.Empty,
+            SshPrivateKeyPath = ssh?.SshPrivateKeyPath ?? string.Empty,
             Labels = nodeInfo.Labels,
             IsOnline = nodeInfo.IsOnline,
             LastConnected = nodeInfo.LastConnected,

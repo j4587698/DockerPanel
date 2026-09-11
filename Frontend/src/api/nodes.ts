@@ -59,6 +59,7 @@ export interface NodeSshTunnelConfig {
   sshPrivateKeyPath?: string
   sshPrivateKeyPassphrase?: string
   remoteDockerSocket: string
+  remoteDockerPort?: number
   localForwardPort?: number
   sshConnectionId?: string
 }
@@ -104,6 +105,7 @@ export interface AddNodeRequest {
   sshPrivateKeyPath?: string
   sshPrivateKeyPassphrase?: string
   remoteDockerSocket?: string
+  remoteDockerPort?: number
   sshConnectionId?: string
 }
 
@@ -132,6 +134,7 @@ export interface UpdateNodeRequest {
   sshPrivateKeyPath?: string
   sshPrivateKeyPassphrase?: string
   remoteDockerSocket?: string
+  remoteDockerPort?: number
   sshConnectionId?: string
 }
 
@@ -150,6 +153,7 @@ export interface TestNodeConnectionRequest {
   sshPassword?: string
   sshPrivateKeyPath?: string
   remoteDockerSocket?: string
+  remoteDockerPort?: number
 }
 
 export interface TestNodeConnectionResult {

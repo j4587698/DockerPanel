@@ -76,7 +76,7 @@ export default {
   sshPasswordPlaceholder: 'Enter SSH password',
   sshPrivateKeyPath: 'SSH Private Key Path',
   sshPrivateKeyPathPlaceholder: 'e.g. ~/.ssh/id_rsa',
-  remoteDockerSocket: 'Remote Docker Socket',
+  sshTunnelPortHint: 'Note: the "Port" above is the TCP port the remote dockerd listens on (must bind to 127.0.0.1); "SSH Port" is the sshd port. The SSH tunnel forwards Docker API traffic from localhost to that Docker port',
   tlsConfig: 'TLS Config',
   caCertPath: 'CA Certificate Path',
   clientCertPath: 'Client Certificate Path',

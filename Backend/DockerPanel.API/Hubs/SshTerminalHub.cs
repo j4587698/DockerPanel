@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using DockerPanel.API.Models;
+using DockerPanel.API.Services;
 using Renci.SshNet;
 using System.Collections.Concurrent;
 using System.Text;
@@ -15,12 +16,14 @@ public class SshTerminalHub : Hub
 {
     private readonly ILogger<SshTerminalHub> _logger;
     private readonly IHubContext<SshTerminalHub> _hubContext;
+    private readonly SshHostKeyVerifier _hostKeyVerifier;
     private static readonly ConcurrentDictionary<string, SshSession> _sessions = new();
 
-    public SshTerminalHub(ILogger<SshTerminalHub> logger, IHubContext<SshTerminalHub> hubContext)
+    public SshTerminalHub(ILogger<SshTerminalHub> logger, IHubContext<SshTerminalHub> hubContext, SshHostKeyVerifier hostKeyVerifier)
     {
         _logger = logger;
         _hubContext = hubContext;
+        _hostKeyVerifier = hostKeyVerifier;
     }
 
     /// <summary>
@@ -75,6 +78,8 @@ public class SshTerminalHub : Hub
             sshConnectionInfo.Timeout = TimeSpan.FromSeconds(request.Timeout > 0 ? request.Timeout : 30);
 
             var client = new SshClient(sshConnectionInfo);
+            // SSH 主机密钥校验（TOFU + 指纹比对，防中间人）
+            _hostKeyVerifier.Attach(client, request.Host, request.Port, SshService.CurrentSettings.StrictHostKeyChecking);
             await Task.Run(() => client.Connect());
 
             if (!client.IsConnected)

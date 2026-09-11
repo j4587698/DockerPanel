@@ -506,7 +506,7 @@ watch(() => props.containerId, () => {
 })
 </script>
 
-<style>
+<style scoped>
 .auto-update-grid {
   grid-template-columns: 1fr;
 }

@@ -273,18 +273,16 @@ onMounted(() => refreshData())
 
 <style scoped>
 
-.page-container { padding: 32px; max-width: 1600px; margin: 0 auto; }
 .toolbar { padding: 16px 24px; border-bottom: 1px solid var(--border-color); }
 .toolbar-search { width: 300px; }
 .name-cell { display: flex; align-items: center; gap: 12px; }
-.name-cell .icon { font-size: 18px; color: var(--color-primary); background: #eff6ff; padding: 8px; border-radius: 8px; }
+.name-cell .icon { font-size: 18px; color: var(--color-secondary); background: rgba(59, 130, 246, 0.1); padding: 8px; border-radius: 8px; }
 .name-cell .text { display: flex; align-items: center; gap: 8px; }
 .name-cell .main { font-weight: 600; color: var(--text-main); }
 .font-mono { font-family: monospace; }
 .form-hint { margin-top: 6px; font-size: 12px; color: var(--text-muted); }
 
 @media (max-width: 768px) {
-  .page-container { padding: 16px; }
   .toolbar-search { width: 100%; }
   .toolbar { padding: 12px 16px; }
 }

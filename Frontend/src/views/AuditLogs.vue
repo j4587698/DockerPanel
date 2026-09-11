@@ -1,5 +1,5 @@
 <template>
-  <div class="audit-page">
+  <div class="page-container">
     <div class="page-header">
       <div>
         <h1>{{ t('audit.title') }}</h1>
@@ -369,18 +369,6 @@ const exportCsv = () => {
 
 <style scoped>
 
-.audit-page {
-  padding: 24px;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
 .page-header h1 {
   margin: 0 0 8px;
   color: var(--text-main);
@@ -392,16 +380,11 @@ const exportCsv = () => {
   color: var(--text-secondary);
 }
 
-.header-actions {
-  display: flex;
-  gap: 12px;
-}
-
 .filter-card,
 .table-card {
   margin-bottom: 16px;
   border: 1px solid var(--border-color);
-  background: var(--bg-card);
+  background: var(--bg-surface);
 }
 
 .filter-form :deep(.el-form-item) {
@@ -448,12 +431,6 @@ const exportCsv = () => {
   color: var(--text-secondary);
 }
 
-.pagination-wrapper {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
 .detail-drawer {
   display: flex;
   flex-direction: column;
@@ -471,10 +448,6 @@ code {
 }
 
 @media (max-width: 768px) {
-  .audit-page {
-    padding: 16px;
-  }
-
   .page-header,
   .filter-actions {
     align-items: stretch;

@@ -132,12 +132,12 @@ function handleSelect(image: { name: string }) {
 
 .result-item:hover {
   background: var(--bg-glass);
-  border-color: var(--primary-color);
+  border-color: var(--color-secondary);
 }
 
 .image-name {
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-main);
 }
 
 .image-meta {

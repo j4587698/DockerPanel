@@ -239,7 +239,7 @@ const resetSettings = async () => {
 
 .settings-section :deep(.el-card__header) {
   padding: 16px 20px;
-  background-color: #f8f9fa;
+  background-color: var(--bg-subtle);
 }
 
 .section-header {
@@ -248,22 +248,22 @@ const resetSettings = async () => {
   gap: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text-main);
 }
 
 .section-header .el-icon {
-  color: #409eff;
+  color: var(--color-secondary);
 }
 
 .input-suffix {
   margin-left: 8px;
-  color: #909399;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
 .switch-hint {
   margin-left: 12px;
-  color: #909399;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -272,16 +272,5 @@ const resetSettings = async () => {
   justify-content: flex-end;
   gap: 12px;
   padding: 20px 0;
-}
-</style>
-
-<style>
-/* === Dark Mode === */
-html.dark .settings-section .el-card__header {
-  background-color: #1a1a1a;
-}
-
-html.dark .section-header {
-  color: #e5eaf3;
 }
 </style>

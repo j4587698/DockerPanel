@@ -405,7 +405,7 @@ const escapeHtml = (value: string) => {
 
 .execution-info {
   padding: 16px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .output-container {
@@ -446,21 +446,21 @@ const escapeHtml = (value: string) => {
 
 .history-item {
   padding: 12px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .history-item:hover {
-  border-color: #409eff;
-  background-color: #f5f7fa;
+  border-color: var(--color-secondary);
+  background-color: var(--bg-subtle);
 }
 
 .history-command code {
   display: block;
   font-size: 13px;
-  color: #303133;
+  color: var(--text-main);
   word-break: break-all;
 }
 
@@ -469,26 +469,7 @@ const escapeHtml = (value: string) => {
   justify-content: space-between;
   margin-top: 8px;
   font-size: 12px;
-  color: #909399;
+  color: var(--text-muted);
 }
 
-</style>
-
-<style>
-/* === Dark Mode === */
-html.dark .execution-info {
-  border-color: #303133;
-}
-
-html.dark .history-item {
-  border-color: #303133;
-}
-
-html.dark .history-item:hover {
-  background-color: #1a1a1a;
-}
-
-html.dark .history-command code {
-  color: #e5eaf3;
-}
 </style>

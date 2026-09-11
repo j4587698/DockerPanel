@@ -908,7 +908,7 @@ const handleConfirm = async (deployAfterSave = false) => {
   margin-bottom: 20px;
   height: 40px;
   padding: 0 20px;
-  border-radius: var(--border-radius, 8px);
+  border-radius: var(--border-radius);
   font-weight: 500;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
   transition: all 0.2s ease;
@@ -922,9 +922,9 @@ const handleConfirm = async (deployAfterSave = false) => {
 .deploy-progress {
   margin-top: 16px;
   padding: 16px;
-  background: var(--bg-subtle, #f1f5f9);
-  border-radius: var(--border-radius, 8px);
-  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-subtle);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
 }
 
 .progress-header {
@@ -941,15 +941,15 @@ const handleConfirm = async (deployAfterSave = false) => {
 .progress-text {
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-main, #1e293b);
+  color: var(--text-main);
 }
 
 .empty-state {
   text-align: center;
   padding: 60px 0;
-  background: var(--bg-subtle, #f1f5f9);
-  border-radius: var(--border-radius-lg, 12px);
-  border: 2px dashed var(--border-color, #e2e8f0);
+  background: var(--bg-subtle);
+  border-radius: var(--border-radius-lg);
+  border: 2px dashed var(--border-color);
 }
 
 .services-list {
@@ -960,21 +960,21 @@ const handleConfirm = async (deployAfterSave = false) => {
 
 .service-card {
   margin-bottom: 16px;
-  border-radius: var(--border-radius-lg, 12px) !important;
-  border: 1px solid var(--border-color, #e2e8f0) !important;
+  border-radius: var(--border-radius-lg) !important;
+  border: 1px solid var(--border-color) !important;
   overflow: hidden;
   transition: all 0.2s ease;
 }
 
 .service-card:hover {
-  border-color: var(--color-secondary, #3b82f6) !important;
+  border-color: var(--color-secondary) !important;
   box-shadow: 0 4px 16px rgba(59, 130, 246, 0.1);
 }
 
 .service-card :deep(.el-card__header) {
   padding: 14px 20px !important;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.02));
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .service-card :deep(.el-card__body) {
@@ -999,7 +999,7 @@ const handleConfirm = async (deployAfterSave = false) => {
 }
 
 .service-header .el-input :deep(.el-input__inner) {
-  color: var(--text-main, #0f172a);
+  color: var(--text-main);
 }
 
 .service-collapse {
@@ -1012,13 +1012,13 @@ const handleConfirm = async (deployAfterSave = false) => {
   height: 40px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
   border-bottom: none !important;
   padding: 0 4px;
 }
 
 .service-collapse :deep(.el-collapse-item__header:hover) {
-  color: var(--color-secondary, #3b82f6);
+  color: var(--color-secondary);
 }
 
 .service-collapse :deep(.el-collapse-item__wrap) {
@@ -1032,7 +1032,7 @@ const handleConfirm = async (deployAfterSave = false) => {
 .tag-item {
   margin-right: 8px;
   margin-bottom: 8px;
-  border-radius: var(--border-radius-full, 9999px);
+  border-radius: var(--border-radius-full);
 }
 
 .dialog-footer {
@@ -1049,24 +1049,24 @@ const handleConfirm = async (deployAfterSave = false) => {
 :deep(.el-form-item__label) {
   font-weight: 500;
   font-size: 13px;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
 }
 
 /* Inputs */
 :deep(.el-input__wrapper),
 :deep(.el-textarea__inner) {
-  border-radius: var(--border-radius, 8px) !important;
+  border-radius: var(--border-radius) !important;
   transition: all 0.2s ease;
 }
 
 :deep(.el-input__wrapper:hover),
 :deep(.el-textarea__inner:hover) {
-  border-color: var(--text-muted, #94a3b8) !important;
+  border-color: var(--text-muted) !important;
 }
 
 :deep(.el-input__wrapper.is-focus),
 :deep(.el-textarea__inner:focus) {
-  border-color: var(--color-secondary, #3b82f6) !important;
+  border-color: var(--color-secondary) !important;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
 }
 
@@ -1082,11 +1082,11 @@ const handleConfirm = async (deployAfterSave = false) => {
 }
 
 :deep(.el-tabs__item.is-active) {
-  color: var(--color-secondary, #3b82f6);
+  color: var(--color-secondary);
 }
 
 :deep(.el-tabs__active-bar) {
-  background-color: var(--color-secondary, #3b82f6);
+  background-color: var(--color-secondary);
 }
 
 /* Scrollbar */
@@ -1099,18 +1099,18 @@ const handleConfirm = async (deployAfterSave = false) => {
 }
 
 .services-list::-webkit-scrollbar-thumb {
-  background: var(--border-color, #e2e8f0);
+  background: var(--border-color);
   border-radius: 3px;
 }
 
 .services-list::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted, #94a3b8);
+  background: var(--text-muted);
 }
 
 /* Buttons in form */
 :deep(.el-button--primary) {
-  background: var(--color-secondary, #3b82f6);
-  border-color: var(--color-secondary, #3b82f6);
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
 }
 
 :deep(.el-button--primary:hover) {
@@ -1119,8 +1119,8 @@ const handleConfirm = async (deployAfterSave = false) => {
 }
 
 :deep(.el-button--danger) {
-  background: var(--color-danger, #ef4444);
-  border-color: var(--color-danger, #ef4444);
+  background: var(--color-danger);
+  border-color: var(--color-danger);
 }
 
 :deep(.el-button--danger:hover) {

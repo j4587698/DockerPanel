@@ -963,7 +963,7 @@ const handleClose = () => {
 
 .template-list-section,
 .template-preview-section {
-  background: var(--bg-surface, #f8f9fa);
+  background: var(--bg-surface);
   border-radius: 8px;
   padding: 16px;
 }
@@ -979,7 +979,7 @@ const handleClose = () => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-main, #303133);
+  color: var(--text-main);
 }
 
 .header-buttons {
@@ -994,8 +994,8 @@ const handleClose = () => {
 }
 
 .template-card {
-  background: var(--bg-surface, #fff);
-  border: 1px solid var(--border-color, #e4e7ed);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
   cursor: pointer;
@@ -1009,7 +1009,7 @@ const handleClose = () => {
 
 .template-card.selected {
   border-color: #67c23a;
-  background-color: var(--bg-subtle, #f0f9ff);
+  background-color: var(--bg-subtle);
 }
 
 .template-header {
@@ -1029,7 +1029,7 @@ const handleClose = () => {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-main, #303133);
+  color: var(--text-main);
 }
 
 .template-actions {
@@ -1052,18 +1052,18 @@ const handleClose = () => {
 }
 
 .info-item .label {
-  color: var(--text-secondary, #606266);
+  color: var(--text-secondary);
   font-weight: 500;
   min-width: 60px;
 }
 
 .info-item .value {
-  color: var(--text-main, #303133);
+  color: var(--text-main);
   flex: 1;
 }
 
 .more-text {
-  color: var(--text-muted, #909399);
+  color: var(--text-muted);
   font-size: 11px;
 }
 
@@ -1074,7 +1074,7 @@ const handleClose = () => {
 .template-description p {
   margin: 0;
   font-size: 12px;
-  color: var(--text-secondary, #606266);
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -1082,7 +1082,7 @@ const handleClose = () => {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: var(--text-muted, #909399);
+  color: var(--text-muted);
 }
 
 .empty-state {
@@ -1104,7 +1104,7 @@ const handleClose = () => {
   margin: 0 0 12px 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-main, #303133);
+  color: var(--text-main);
 }
 
 .ports-list,
@@ -1122,7 +1122,7 @@ const handleClose = () => {
 }
 
 .env-value {
-  color: var(--text-main, #303133);
+  color: var(--text-main);
 }
 
 @media (max-width: 768px) {

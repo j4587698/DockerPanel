@@ -526,7 +526,7 @@ const clearCompletedTransfers = () => {
 
 .path-segment {
   cursor: pointer;
-  color: #409eff;
+  color: var(--color-secondary);
 }
 
 .path-segment:hover {
@@ -541,7 +541,7 @@ const clearCompletedTransfers = () => {
 }
 
 .file-name:hover {
-  color: #409eff;
+  color: var(--color-secondary);
 }
 
 .file-icon {
@@ -555,7 +555,7 @@ const clearCompletedTransfers = () => {
 .permissions {
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  color: #606266;
+  color: var(--text-secondary);
 }
 
 .batch-actions {
@@ -564,7 +564,7 @@ const clearCompletedTransfers = () => {
   gap: 16px;
   margin-top: 16px;
   padding: 12px 16px;
-  background-color: #f5f7fa;
+  background-color: var(--bg-subtle);
   border-radius: 4px;
 }
 
@@ -585,7 +585,7 @@ const clearCompletedTransfers = () => {
   align-items: center;
   gap: 16px;
   padding: 12px;
-  background-color: #f8f9fa;
+  background-color: var(--bg-subtle);
   border-radius: 6px;
 }
 
@@ -598,37 +598,21 @@ const clearCompletedTransfers = () => {
 
 .transfer-icon {
   font-size: 24px;
-  color: #409eff;
+  color: var(--color-secondary);
 }
 
 .transfer-name {
   font-weight: 500;
-  color: #303133;
+  color: var(--text-main);
 }
 
 .transfer-meta {
   font-size: 12px;
-  color: #909399;
+  color: var(--text-muted);
 }
 
 .transfer-progress {
   width: 200px;
 }
 
-</style>
-
-<style>
-/* === Dark Mode === */
-html.dark .batch-actions,
-html.dark .transfer-item {
-  background-color: #1a1a1a;
-}
-
-html.dark .transfer-name {
-  color: #e5eaf3;
-}
-
-html.dark .permissions {
-  color: #a3a6ad;
-}
 </style>

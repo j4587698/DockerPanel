@@ -99,13 +99,13 @@ const stepText = computed(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--color-primary, #409eff);
+  background: var(--color-primary);
   animation: dot-pulse 1.2s ease-in-out infinite;
 }
 
 .detail-dot.done {
   animation: none;
-  background: var(--color-success, #67c23a);
+  background: var(--color-success);
 }
 
 @keyframes dot-pulse {

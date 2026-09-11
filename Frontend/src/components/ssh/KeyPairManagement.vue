@@ -415,22 +415,16 @@ const handleKeyPairGenerated = () => {
 }
 
 .key-icon {
-  color: #409eff;
+  color: var(--color-secondary);
 }
 
 .fingerprint {
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  color: #606266;
-  background-color: #f5f7fa;
+  color: var(--text-secondary);
+  background-color: var(--bg-subtle);
   padding: 2px 6px;
   border-radius: 3px;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .batch-actions {
@@ -439,7 +433,7 @@ const handleKeyPairGenerated = () => {
   gap: 16px;
   margin-top: 16px;
   padding: 12px 16px;
-  background-color: #f5f7fa;
+  background-color: var(--bg-subtle);
   border-radius: 4px;
 }
 
@@ -448,16 +442,4 @@ const handleKeyPairGenerated = () => {
   font-size: 12px;
 }
 
-</style>
-
-<style>
-/* === Dark Mode === */
-html.dark .fingerprint {
-  background-color: #1a1a1a;
-  color: #a3a6ad;
-}
-
-html.dark .batch-actions {
-  background-color: #1a1a1a;
-}
 </style>

@@ -244,11 +244,11 @@ onMounted(() => loadMirrors())
 .mirror-label {
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-main, #333);
+  color: var(--text-main);
 }
 
 .info-icon {
-  color: var(--text-muted, #999);
+  color: var(--text-muted);
   cursor: help;
 }
 
@@ -265,10 +265,10 @@ onMounted(() => loadMirrors())
 .mirror-domain {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  color: var(--text-muted, #999);
+  color: var(--text-muted);
 }
 
-.search-item { padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
+.search-item { padding: 4px 0; border-bottom: 1px solid var(--border-color-light); }
 .search-item:last-child { border-bottom: none; }
 .item-name { font-weight: bold; color: #333; font-size: 14px; }
 .item-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #666; margin-top: 4px; }
@@ -282,12 +282,4 @@ onMounted(() => loadMirrors())
   gap: 8px;
 }
 
-/* 深色模式 */
-html.dark .mirror-label {
-  color: #f1f5f9;
-}
-
-html.dark .mirror-domain {
-  color: #64748b;
-}
 </style>

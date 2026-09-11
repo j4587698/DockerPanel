@@ -445,18 +445,18 @@ const formatBytes = (bytes: number) => {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #303133;
+  color: var(--text-main);
 }
 
 .stat-label {
   font-size: 13px;
-  color: #909399;
+  color: var(--text-muted);
 }
 
 .session-id {
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  color: #606266;
+  color: var(--text-secondary);
 }
 
 .connection-info {
@@ -465,11 +465,11 @@ const formatBytes = (bytes: number) => {
 
 .host {
   font-weight: 500;
-  color: #303133;
+  color: var(--text-main);
 }
 
 .port {
-  color: #909399;
+  color: var(--text-muted);
 }
 
 .status-cell {
@@ -511,24 +511,7 @@ const formatBytes = (bytes: number) => {
 }
 
 .download {
-  color: #409eff;
+  color: var(--color-secondary);
 }
 
-.pagination-wrapper {
-  display: flex;
-  justify-content: flex-end;
-}
-
-</style>
-
-<style>
-/* === Dark Mode === */
-html.dark .stat-value,
-html.dark .host {
-  color: #e5eaf3;
-}
-
-html.dark .session-id {
-  color: #a3a6ad;
-}
 </style>

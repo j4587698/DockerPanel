@@ -106,6 +106,7 @@ import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Cpu, Monitor, Connection, Folder } from '@element-plus/icons-vue'
 import { echarts, type ECharts } from '@/plugins/echarts'
+import { useAppStore } from '@/stores/app'
 
 interface ContainerStats {
   cpu: number
@@ -131,6 +132,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const appStore = useAppStore()
 
 // 当前统计数据
 const currentStats = ref<ContainerStats>({
@@ -208,17 +210,30 @@ const getXAxisLabels = (timestamps: string[]): string[] => {
   })
 }
 
+// 图表主题色：跟随 CSS 变量，暗色/亮色自动适配（与 Dashboard 同一方案）
+const getCssVar = (name: string, fallback: string) => {
+  if (typeof window === 'undefined') return fallback
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+}
+
 // 图表通用配置
 const getChartBaseOption = () => ({
   backgroundColor: 'transparent',
-  textStyle: { color: '#94a3b8', fontSize: 11 },
+  textStyle: { color: getCssVar('--text-muted', '#94a3b8'), fontSize: 11 },
   grid: { left: 65, right: 20, top: 20, bottom: 40 },
   tooltip: {
     trigger: 'axis',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    borderColor: '#334155',
-    textStyle: { color: '#e2e8f0' }
+    backgroundColor: getCssVar('--bg-elevated', '#1e293b'),
+    borderColor: getCssVar('--border-color', '#334155'),
+    textStyle: { color: getCssVar('--text-main', '#e2e8f0') }
   }
+})
+
+// 坐标轴配色（每次构建 option 时读取，主题切换后重建图表即可生效）
+const getChartAxisColors = () => ({
+  axis: getCssVar('--border-color', '#e2e8f0'),
+  split: getCssVar('--border-color-light', '#f1f5f9'),
+  label: getCssVar('--text-muted', '#94a3b8')
 })
 
 // 格式化函数 - 用于 ECharts (避免闭包问题)
@@ -237,6 +252,7 @@ const formatBytesForChart = (value: number): string => {
 // 初始化图表
 const initCharts = () => {
   const baseOption = getChartBaseOption()
+  const axisColors = getChartAxisColors()
 
   // CPU 图表
   if (cpuChartRef.value) {
@@ -256,8 +272,8 @@ const initCharts = () => {
       xAxis: {
         type: 'category',
         data: [],
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { show: true, color: '#64748b', fontSize: 10, interval: 9 },
+        axisLine: { lineStyle: { color: axisColors.axis } },
+        axisLabel: { show: true, color: axisColors.label, fontSize: 10, interval: 9 },
         axisTick: { show: false }
       },
       yAxis: {
@@ -265,8 +281,8 @@ const initCharts = () => {
         min: 0,
         max: 100,
         axisLine: { show: false },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
-        axisLabel: { formatter: '{value}%', color: '#64748b', fontSize: 10 }
+        splitLine: { lineStyle: { color: axisColors.split, type: 'dashed' } },
+        axisLabel: { formatter: '{value}%', color: axisColors.label, fontSize: 10 }
       },
       series: [{
         name: 'CPU',
@@ -303,18 +319,18 @@ const initCharts = () => {
       xAxis: {
         type: 'category',
         data: [],
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { show: true, color: '#64748b', fontSize: 10, interval: 9 },
+        axisLine: { lineStyle: { color: axisColors.axis } },
+        axisLabel: { show: true, color: axisColors.label, fontSize: 10, interval: 9 },
         axisTick: { show: false }
       },
       yAxis: {
         type: 'value',
         min: 0,
         axisLine: { show: false },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+        splitLine: { lineStyle: { color: axisColors.split, type: 'dashed' } },
         axisLabel: {
           formatter: function(value: number) { return formatBytesForChart(value) },
-          color: '#64748b',
+          color: axisColors.label,
           fontSize: 10
         }
       },
@@ -356,23 +372,23 @@ const initCharts = () => {
         data: [t('metrics.receive'), t('metrics.send')],
         top: 0,
         right: 0,
-        textStyle: { color: '#94a3b8', fontSize: 11 }
+        textStyle: { color: axisColors.label, fontSize: 11 }
       },
       xAxis: {
         type: 'category',
         data: [],
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { show: true, color: '#64748b', fontSize: 10, interval: 9 },
+        axisLine: { lineStyle: { color: axisColors.axis } },
+        axisLabel: { show: true, color: axisColors.label, fontSize: 10, interval: 9 },
         axisTick: { show: false }
       },
       yAxis: {
         type: 'value',
         min: 0,
         axisLine: { show: false },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+        splitLine: { lineStyle: { color: axisColors.split, type: 'dashed' } },
         axisLabel: {
           formatter: function(value: number) { return formatBytesForChart(value) + '/s' },
-          color: '#64748b',
+          color: axisColors.label,
           fontSize: 10
         }
       },
@@ -430,23 +446,23 @@ const initCharts = () => {
         data: [t('metrics.read'), t('metrics.write')],
         top: 0,
         right: 0,
-        textStyle: { color: '#94a3b8', fontSize: 11 }
+        textStyle: { color: axisColors.label, fontSize: 11 }
       },
       xAxis: {
         type: 'category',
         data: [],
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { show: true, color: '#64748b', fontSize: 10, interval: 9 },
+        axisLine: { lineStyle: { color: axisColors.axis } },
+        axisLabel: { show: true, color: axisColors.label, fontSize: 10, interval: 9 },
         axisTick: { show: false }
       },
       yAxis: {
         type: 'value',
         min: 0,
         axisLine: { show: false },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+        splitLine: { lineStyle: { color: axisColors.split, type: 'dashed' } },
         axisLabel: {
           formatter: function(value: number) { return formatBytesForChart(value) + '/s' },
-          color: '#64748b',
+          color: axisColors.label,
           fontSize: 10
         }
       },
@@ -584,6 +600,22 @@ const handleResize = () => {
   diskChart?.resize()
 }
 
+// 销毁图表实例
+const disposeCharts = () => {
+  cpuChart?.dispose(); cpuChart = null
+  memoryChart?.dispose(); memoryChart = null
+  networkChart?.dispose(); networkChart = null
+  diskChart?.dispose(); diskChart = null
+}
+
+// 主题切换后重建图表以应用新配色（getCssVar 在构建 option 时读取 CSS 变量）
+watch(() => appStore.actualTheme, async () => {
+  await nextTick()
+  disposeCharts()
+  initCharts()
+  updateCharts()
+})
+
 let updateInterval: number | null = null
 
 onMounted(async () => {
@@ -597,10 +629,7 @@ onMounted(async () => {
 onUnmounted(() => {
   if (updateInterval) clearInterval(updateInterval)
   window.removeEventListener('resize', handleResize)
-  cpuChart?.dispose()
-  memoryChart?.dispose()
-  networkChart?.dispose()
-  diskChart?.dispose()
+  disposeCharts()
 })
 
 // 监听 stats 变化
@@ -611,9 +640,3 @@ watch(() => props.stats, (newStats) => {
   }
 }, { immediate: true, deep: true })
 </script>
-
-<style>
-
-/* 使用非scoped样式 */
-
-</style>

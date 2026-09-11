@@ -334,7 +334,7 @@ const getTypeText = (type: string) => {
 .detail-content {
   margin: 0;
   padding: 12px;
-  background-color: #f5f7fa;
+  background-color: var(--bg-subtle);
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
@@ -349,39 +349,18 @@ const getTypeText = (type: string) => {
 }
 
 .username {
-  color: #409eff;
+  color: var(--color-secondary);
 }
 
 .host {
   font-weight: 500;
-  color: #303133;
+  color: var(--text-main);
 }
 
 .operation-content {
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  color: #606266;
+  color: var(--text-secondary);
 }
 
-.pagination-wrapper {
-  display: flex;
-  justify-content: flex-end;
-}
-
-</style>
-
-<style>
-/* === Dark Mode === */
-html.dark .detail-content {
-  background-color: #1a1a1a;
-  color: #e5eaf3;
-}
-
-html.dark .host {
-  color: #e5eaf3;
-}
-
-html.dark .operation-content {
-  color: #a3a6ad;
-}
 </style>

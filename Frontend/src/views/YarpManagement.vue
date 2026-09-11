@@ -67,7 +67,7 @@
       <el-table-column :label="t('proxy.yarpManagement.backendTarget')" min-width="200" align="center">
         <template #default="{ row }">
           <code class="target-badge">
-            {{ getContainerDisplayName(row) }}:{{ row.containerPort }}
+            {{ row.containerId ? `${getContainerDisplayName(row)}:${row.containerPort}` : (row.destinationAddress || 'unknown') }}
           </code>
         </template>
       </el-table-column>
@@ -145,6 +145,7 @@
           <el-col :span="16">
             <el-form-item :label="t('proxy.yarpManagement.targetContainer')" required>
               <el-select v-model="form.containerId" :placeholder="t('proxy.yarpManagement.selectContainer')" style="width: 100%" filterable>
+                <el-option :label="t('proxy.yarpManagement.hostMachine')" value="__host__" />
                 <el-option v-for="c in containers" :key="c.id" :label="c.name" :value="c.id">
                   <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <span>{{ c.name }}</span>
@@ -153,6 +154,7 @@
                     <span v-else style="font-size: 11px; color: #f59e0b;">{{ Object.keys(c.networkSettings?.networks || {})[0] || 'bridge' }}</span>
                   </div>
                 </el-option>
+                <el-option :label="t('proxy.yarpManagement.customTarget')" value="__custom__" />
               </el-select>
               <div v-if="selectedContainer && !selectedContainerInNetwork" style="color: #f59e0b; font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 4px; line-height: 1.4;">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -166,6 +168,12 @@
             </el-form-item>
           </el-col>
         </el-row>
+
+        <!-- 自定义目标地址：IP 或域名 -->
+        <el-form-item v-if="form.containerId === '__custom__'" :label="t('proxy.yarpManagement.customHostLabel')" required>
+          <el-input v-model="form.customHost" :placeholder="t('proxy.yarpManagement.customHostPlaceholder')" />
+          <div class="form-hint">{{ t('proxy.yarpManagement.customHostHint') }}</div>
+        </el-form-item>
 
         <el-form-item :label="t('proxy.yarpManagement.pathPrefixLabel')">
           <el-input v-model="form.pathPrefix" placeholder="/" />
@@ -267,6 +275,7 @@ const form = ref({
   domain: '',
   containerId: '',
   destinationAddress: '',
+  customHost: '',
   containerPort: 80,
   pathPrefix: '/',
   enableSsl: false,
@@ -324,9 +333,14 @@ watch(pageSize, () => { currentPage.value = 1 })
 const getContainerDisplayName = (mapping: any) => {
   // 优先使用 containerName
   if (mapping.containerName) return mapping.containerName
-  
+
   const containerId = String(mapping.containerId || '')
-  
+
+  // 自定义地址 / 本机映射没有 containerId，直接显示目标地址的主机部分
+  if (!containerId && mapping.destinationAddress) {
+    return mapping.destinationAddress
+  }
+
   // 从容器列表中查找（支持长短ID匹配）
   const container = containers.value.find(c => {
     const cId = String(c.id || '')
@@ -373,7 +387,10 @@ const getCertLabel = (cert: Certificate) => {
 const handleSubmit = async () => {
   if (!form.value.domain || !form.value.containerId) return
 
-  const container = containers.value.find(c => c.id === form.value.containerId)
+  const isHost = form.value.containerId === '__host__'
+  const isCustom = form.value.containerId === '__custom__'
+  const container = !isHost && !isCustom ? containers.value.find(c => c.id === form.value.containerId) : undefined
+
   if (container && !isContainerInPanelNetwork(container)) {
     try {
       await ElMessageBox.confirm(
@@ -407,12 +424,36 @@ const handleSubmit = async () => {
   }
 
   try {
-    // 构造目标地址
-    const destinationAddr = container ? `${container.name}:${form.value.containerPort}` : form.value.destinationAddress
+    // 构造目标地址：本机（宿主机）/ 本地容器 / 自定义主机 三种来源
+    let destinationAddr = ''
+    let containerName = ''
+    if (isHost) {
+      // 面板运行在容器中，通过 host-gateway 访问宿主机（compose 已配置 extra_hosts）
+      destinationAddr = `host.docker.internal:${form.value.containerPort}`
+      containerName = t('proxy.yarpManagement.hostMachine')
+    } else if (isCustom) {
+      const host = (form.value.customHost || '').trim()
+      if (!host) {
+        ElMessage.warning(t('proxy.yarpManagement.customHostRequired'))
+        return
+      }
+      // 回环地址在容器内指向面板自身，几乎必然不是用户意图
+      if (host === '127.0.0.1' || host === 'localhost' || host === '::1' || host.startsWith('127.')) {
+        ElMessage.warning(t('proxy.yarpManagement.customHostNoLoopback'))
+        return
+      }
+      destinationAddr = `${host}:${form.value.containerPort}`
+    } else {
+      if (!container) return
+      containerName = container.name
+      destinationAddr = `${container.name}:${form.value.containerPort}`
+    }
 
     const payload = {
       ...form.value,
-      containerName: container?.name || '',
+      // 哨兵值（__host__/__custom__）仅用于选择器，不入库
+      containerId: isHost || isCustom ? '' : form.value.containerId,
+      containerName,
       destinationAddress: destinationAddr,
       enableSsl: sslMode.value !== 'none',
       autoRequestCertificate: sslMode.value === 'auto',
@@ -442,6 +483,7 @@ const resetForm = () => {
     domain: '', 
     containerId: '', 
     destinationAddress: '',
+    customHost: '',
     containerPort: 80, 
     pathPrefix: '/', 
     enableSsl: false, 
@@ -466,11 +508,35 @@ const openCreateDialog = () => {
 
 const editMapping = (row: any) => {
   editingMappingId.value = row.id
+
+  // 回显目标：本机 / 容器 / 自定义地址 三种来源反推选择器值
+  const addr: string = row.destinationAddress || ''
+  const hostPart = addr.split(':')[0] || ''
+  const portPart = Number(addr.split(':')[1]) || 0
+  let containerId: string = row.containerId || ''
+  let customHost = ''
+  // 哨兵值（历史数据或重复编辑）一律走地址反推
+  if (containerId === '__host__' || containerId === '__custom__') containerId = ''
+  if (!containerId) {
+    if (hostPart === 'host.docker.internal') {
+      containerId = '__host__'
+    } else {
+      const matched = containers.value.find(c => c.name === hostPart)
+      if (matched) {
+        containerId = matched.id
+      } else if (hostPart) {
+        containerId = '__custom__'
+        customHost = hostPart
+      }
+    }
+  }
+
   form.value = {
     domain: row.domain || '',
-    containerId: row.containerId || '',
-    destinationAddress: row.destinationAddress || '',
-    containerPort: row.containerPort || 80,
+    containerId,
+    destinationAddress: addr,
+    customHost,
+    containerPort: row.containerPort || portPart || 80,
     pathPrefix: row.pathPrefix || '/',
     enableSsl: Boolean(row.enableSsl),
     certificateId: row.certificateId || '',

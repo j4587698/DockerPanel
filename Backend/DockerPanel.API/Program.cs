@@ -607,6 +607,11 @@ app.Use(async (context, next) =>
     {
         await next();
     }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+        // 客户端主动断开（导航离开/超时取消）：请求被取消是正常行为，不应记为 500 服务器错误
+        Log.Debug("客户端中止请求: {Method} {Path}", context.Request.Method, context.Request.Path);
+    }
     catch (Exception ex)
     {
         // BadHttpRequestException: missing required route/query parameter or invalid request body -> client error (400)

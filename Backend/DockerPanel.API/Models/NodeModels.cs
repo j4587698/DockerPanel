@@ -170,6 +170,18 @@ public class NodeInfo
     public string? HealthCheckMessage { get; set; }
 
     #endregion
+
+    /// <summary>
+    /// 返回清除敏感凭据后的副本（用于 API 响应）。
+    /// 密码与 SSH 隧道凭据不下发给客户端，前端编辑表单按"留空即不修改"处理。
+    /// </summary>
+    public NodeInfo SanitizedCopy()
+    {
+        var copy = (NodeInfo)MemberwiseClone();
+        copy.Password = null;
+        copy.SshTunnelConfig = copy.SshTunnelConfig?.SanitizedCopy();
+        return copy;
+    }
 }
 
 /// <summary>
@@ -257,6 +269,17 @@ public class NodeSshTunnelConfig
     /// SSH 连接ID（关联 SshConnectionConfigEntity）
     /// </summary>
     public string? SshConnectionId { get; set; }
+
+    /// <summary>
+    /// 返回清除敏感凭据后的副本（用于 API 响应，防止 SSH 密码/私钥口令下发到客户端）。
+    /// </summary>
+    public NodeSshTunnelConfig SanitizedCopy()
+    {
+        var copy = (NodeSshTunnelConfig)MemberwiseClone();
+        copy.SshPassword = null;
+        copy.SshPrivateKeyPassphrase = null;
+        return copy;
+    }
 }
 
 /// <summary>

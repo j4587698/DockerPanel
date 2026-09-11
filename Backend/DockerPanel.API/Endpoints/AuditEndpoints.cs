@@ -1,3 +1,4 @@
+using DockerPanel.API.Extensions;
 using DockerPanel.API.Models;
 using DockerPanel.API.Services;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -14,7 +15,8 @@ namespace DockerPanel.API.Endpoints
         /// </summary>
         public static IEndpointRouteBuilder MapAuditEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("api/audit");
+            // 审计日志包含所有用户的操作记录、IP 等敏感信息，仅 Admin 可读（与前端审计页面的角色限制一致）
+            var group = app.MapGroup("api/audit").RequireAdmin();
 
             group.MapGet("/logs", GetLogs);
             group.MapGet("/logs/{id}", GetLog);

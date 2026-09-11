@@ -2210,9 +2210,9 @@ const autoDetectVolumes = async () => {
 .network-config-section {
   margin-top: 16px;
   padding: 16px;
-  background: var(--bg-subtle, #f5f7fa);
+  background: var(--bg-subtle);
   border-radius: 8px;
-  border: 1px solid var(--border-color-light, #e4e7ed);
+  border: 1px solid var(--border-color-light);
 }
 
 .network-config-header {
@@ -2221,13 +2221,13 @@ const autoDetectVolumes = async () => {
   gap: 8px;
   margin-bottom: 16px;
   font-weight: 500;
-  color: var(--text-secondary, #606266);
+  color: var(--text-secondary);
 }
 
 .network-config-header .hint {
   font-weight: normal;
   font-size: 12px;
-  color: var(--text-muted, #909399);
+  color: var(--text-muted);
 }
 
 .sub-title {

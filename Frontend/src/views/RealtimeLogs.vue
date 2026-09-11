@@ -418,15 +418,15 @@ const escapeRegExp = (value: string) => {
 }
 
 .stat-card.error {
-  border-left: 4px solid #f56c6c;
+  border-left: 4px solid var(--color-danger);
 }
 
 .stat-card.warning {
-  border-left: 4px solid #e6a23c;
+  border-left: 4px solid var(--color-warning);
 }
 
 .stat-card.success {
-  border-left: 4px solid #67c23a;
+  border-left: 4px solid var(--color-success);
 }
 
 .stat-content {
@@ -438,19 +438,19 @@ const escapeRegExp = (value: string) => {
 
 .stat-icon {
   font-size: 32px;
-  color: #409eff;
+  color: var(--color-secondary);
 }
 
 .stat-card.error .stat-icon {
-  color: #f56c6c;
+  color: var(--color-danger);
 }
 
 .stat-card.warning .stat-icon {
-  color: #e6a23c;
+  color: var(--color-warning);
 }
 
 .stat-card.success .stat-icon {
-  color: #67c23a;
+  color: var(--color-success);
 }
 
 .stat-info {
@@ -507,13 +507,13 @@ const escapeRegExp = (value: string) => {
 }
 
 .connection-status.disconnected {
-  background-color: #fef0f0;
-  color: #f56c6c;
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
 .connection-status.connected {
-  background-color: #f0f9ff;
-  color: #67c23a;
+  background-color: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .empty-logs {
@@ -537,24 +537,24 @@ const escapeRegExp = (value: string) => {
 }
 
 .log-entry:hover {
-  border-color: var(--border-color-hover, #c0c4cc);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-color: var(--color-secondary);
+  box-shadow: var(--shadow-sm);
 }
 
 .log-entry.log-error {
-  border-left: 4px solid #f56c6c;
+  border-left: 4px solid var(--color-danger);
 }
 
 .log-entry.log-warning {
-  border-left: 4px solid #e6a23c;
+  border-left: 4px solid var(--color-warning);
 }
 
 .log-entry.log-info {
-  border-left: 4px solid #409eff;
+  border-left: 4px solid var(--color-secondary);
 }
 
 .log-entry.log-debug {
-  border-left: 4px solid #909399;
+  border-left: 4px solid var(--text-muted);
 }
 
 .log-header {
@@ -571,9 +571,9 @@ const escapeRegExp = (value: string) => {
 }
 
 .log-container-name {
-  color: #409eff;
+  color: var(--color-secondary);
   font-weight: 500;
-  background-color: #ecf5ff;
+  background-color: var(--color-info-bg);
   padding: 2px 6px;
   border-radius: 3px;
 }
@@ -591,7 +591,7 @@ const escapeRegExp = (value: string) => {
 }
 
 :deep(mark) {
-  background-color: #ff9800;
+  background-color: var(--color-warning);
   color: #000;
   padding: 0 2px;
   border-radius: 2px;

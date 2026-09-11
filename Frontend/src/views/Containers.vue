@@ -1,5 +1,5 @@
 <template>
-  <div class="containers-page" v-loading="loading">
+  <div class="page-container" v-loading="loading">
     <!-- Page Header -->
     <header class="page-header">
       <div class="header-content">
@@ -816,24 +816,6 @@ onUnmounted(() => {
 
 .no-ports { color: var(--text-secondary); }
 
-.containers-page {
-  padding: 24px 32px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
-
-/* === Page Header === */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 24px;
-  }
-  
-  .page-subtitle { margin: 6px 0 0 0; color: var(--text-muted); font-size: 14px; }
-
-.header-actions { display: flex; gap: 10px; }
-
 /* === Buttons === */
 .btn-icon { width: 16px; height: 16px; }
 
@@ -845,45 +827,7 @@ onUnmounted(() => {
   line-height: 1;
 }
 
-/* === Toolbar === */
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: var(--bg-surface);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  flex-wrap: wrap;
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  max-width: 320px;
-  min-width: 200px;
-  padding: 8px 12px;
-  background: var(--bg-glass-dark);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.search-box:focus-within { border-color: #3b82f6; }
-
-.search-icon { width: 16px; height: 16px; color: var(--text-muted); }
-
-.search-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 13px;
-  color: var(--text-main);
-  min-width: 0;
-}
+/* === Toolbar（页面级补充） === */
 
 .filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -920,14 +864,6 @@ onUnmounted(() => {
 }
 
 .filter-tab.active .tab-count { background: rgba(255, 255, 255, 0.2); }
-
-/* === Data Table === */
-.data-table {
-  background: var(--bg-surface);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
 
 .td-name {
   display: flex;
@@ -1082,118 +1018,9 @@ onUnmounted(() => {
 
 
 
-/* === Pagination === */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 0;
-  font-size: 13px;
-  color: var(--text-muted);
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.page-info { font-size: 12px; }
-
-.page-controls { display: flex; align-items: center; gap: 4px; }
-
-.page-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: all 0.15s ease;
-}
-
-.page-btn svg { width: 16px; height: 16px; }
-.page-btn:hover:not(:disabled) { border-color: #3b82f6; color: #3b82f6; }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.page-numbers { display: flex; gap: 4px; margin: 0 8px; }
-
-.page-num {
-  min-width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  transition: all 0.15s ease;
-}
-
-.page-num:hover { background: var(--bg-subtle); }
-.page-num.active { background: var(--color-secondary); color: #fff; }
-
-.page-size {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--bg-surface);
-  cursor: pointer;
-}
-
-/* === Empty State === */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60px 40px;
-  text-align: center;
-}
-
-.empty-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 16px;
-  color: var(--text-secondary);
-}
-
-.empty-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin: 0 0 8px 0;
-}
-
-.empty-desc {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin: 0 0 24px 0;
-}
-
 /* === Responsive === */
 @media (max-width: 768px) {
-  .containers-page { padding: 16px; }
-  .page-header { flex-direction: column; gap: 12px; align-items: stretch; }
-  .header-actions { justify-content: flex-end; }
-  .toolbar { padding: 10px 12px; }
-  .search-box { max-width: none; min-width: 0; width: 100%; }
   .filter-tabs { width: 100%; }
 }
-
-
-</style>
-
-<style>
-
-/* === Dark Mode === */
-html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
-html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
-html.dark .search-input { color: #f1f5f9; }
-html.dark .name { color: #f1f5f9; }
-html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
-html.dark .port { background: rgba(255, 255, 255, 0.1); }
 
 </style>

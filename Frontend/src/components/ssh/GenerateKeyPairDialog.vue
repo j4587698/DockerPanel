@@ -279,7 +279,7 @@ const saveAndClose = () => {
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--text-main);
 }
 
 .key-actions {
@@ -290,7 +290,7 @@ const saveAndClose = () => {
 .key-textarea :deep(.el-textarea__inner) {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
-  background-color: #f5f7fa;
+  background-color: var(--bg-subtle);
 }
 
 .key-info {
@@ -303,15 +303,4 @@ const saveAndClose = () => {
   gap: 12px;
 }
 
-</style>
-
-<style>
-/* === Dark Mode === */
-html.dark .key-header {
-  color: #e5eaf3;
-}
-
-html.dark .key-textarea .el-textarea__inner {
-  background-color: #1a1a1a;
-}
 </style>

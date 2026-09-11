@@ -1,5 +1,5 @@
 <template>
-  <div class="images-page" v-loading="loading">
+  <div class="page-container" v-loading="loading">
     <!-- Page Header -->
     <header class="page-header">
       <div class="header-content">
@@ -765,35 +765,10 @@ watch(() => settingsStore.defaultPageSize, (size) => {
 
 <style scoped>
 
-.images-page {
-  padding: 24px 32px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
-
-/* === Page Header === */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
-
-.page-subtitle { 
-  margin: 6px 0 0 0; 
-  color: var(--text-muted); 
-  font-size: 14px; 
-}
-
-.header-actions { 
-  display: flex; 
-  gap: 10px; 
-}
-
 /* === Buttons === */
-.btn-icon { 
-  width: 16px; 
-  height: 16px; 
+.btn-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .btn-sm {
@@ -804,67 +779,9 @@ watch(() => settingsStore.defaultPageSize, (size) => {
   line-height: 1;
 }
 
-/* === Toolbar === */
-.toolbar {
+.actions {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: var(--bg-surface);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  flex-wrap: wrap;
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  flex: 1;
-  max-width: 320px;
-  min-width: 200px;
-  padding: 8px 12px;
-  background: var(--bg-glass-dark);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.search-box:focus-within { border-color: #3b82f6; }
-
-.search-icon { width: 16px; height: 16px; color: var(--text-muted); }
-
-.search-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 13px;
-  color: var(--text-main);
-  min-width: 0;
-}
-
-.actions { 
-  display: flex; 
-  gap: 8px; 
-}
-
-.stats { 
-  margin-left: auto; 
-  font-size: 13px; 
-  color: var(--text-muted); 
-}
-
-.stats strong { 
-  color: var(--text-main); 
-}
-
-/* === Data Table === */
-.data-table {
-  background: var(--bg-surface);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  overflow: hidden;
 }
 
 .td-repo {
@@ -922,12 +839,12 @@ watch(() => settingsStore.defaultPageSize, (size) => {
 
 .repo-name.clickable {
   cursor: pointer;
-  color: var(--color-primary, #3b82f6);
+  color: var(--color-secondary);
   transition: color 0.2s;
 }
 
 .repo-name.clickable:hover {
-  color: var(--color-primary-hover, #2563eb);
+  color: var(--color-secondary);
   text-decoration: underline;
 }
 
@@ -988,137 +905,10 @@ watch(() => settingsStore.defaultPageSize, (size) => {
 
 
 
-/* === Pagination === */
-.pagination { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-top: 16px; 
-  font-size: 12px; 
-  color: var(--text-muted); 
-}
-
-.page-info {
-  font-size: 13px;
-}
-
-.page-controls { 
-  display: flex; 
-  align-items: center; 
-  gap: 6px; 
-}
-
-.page-btn { 
-  padding: 6px 10px; 
-  border-radius: 6px; 
-  border: 1px solid var(--border-color); 
-  background: var(--bg-surface); 
-  cursor: pointer; 
-  font-size: 12px; 
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.page-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.page-btn:hover:not(:disabled) { 
-  border-color: #3b82f6; 
-  color: #3b82f6; 
-  background: rgba(59, 130, 246, 0.08);
-}
-
-.page-btn:disabled { 
-  opacity: 0.5; 
-  cursor: not-allowed; 
-}
-
-.page-numbers {
-  display: flex;
-  gap: 4px;
-}
-
-.page-num { 
-  padding: 6px 12px;
-  border-radius: 6px; 
-  border: 1px solid transparent;
-  background: transparent; 
-  cursor: pointer; 
-  font-size: 12px; 
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
-}
-
-.page-num:hover {
-  background: var(--bg-subtle);
-}
-
-.page-num.active { 
-  font-weight: 600; 
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.2);
-}
-
-.page-size {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
-  font-size: 12px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-/* === Empty State === */
-.empty-state { 
-  text-align: center; 
-  padding: 80px 40px; 
-  color: var(--text-muted); 
-}
-
-.empty-icon { 
-  margin-bottom: 16px; 
-}
-
-.empty-icon svg { 
-  width: 48px; 
-  height: 48px; 
-  opacity: 0.5;
-}
-
-.empty-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-main);
-  margin: 0 0 8px 0;
-}
-
-.empty-desc {
-  font-size: 14px;
-  margin: 0 0 20px 0;
-}
-
-/* === Responsive === */
-@media (max-width: 768px) {
-  .images-page { padding: 16px; }
-  .page-header { flex-direction: column; gap: 12px; align-items: stretch; }
-  .header-actions { flex-wrap: wrap; gap: 8px; }
-  .toolbar { flex-wrap: wrap; }
-  .search-box { max-width: none; width: 100%; }
-  .stats { width: 100%; text-align: center; }
-  .pagination { flex-direction: column; gap: 8px; align-items: center; }
-}
-
+/* === Responsive（页面级补充） === */
 @media (max-width: 480px) {
-  .images-page { padding: 12px; }
   .btn { padding: 6px 8px; font-size: 11px; }
   .btn-icon { width: 12px; height: 12px; }
-  .empty-state { padding: 40px 20px; }
 }
 
 /* === Build Form === */
@@ -1198,187 +988,5 @@ watch(() => settingsStore.defaultPageSize, (size) => {
   text-align: left;
 }
 
-
-</style>
-
-<style>
-
-/* === Dark Mode === */
-html.dark .toolbar, html.dark .data-table { 
-  background: rgba(30, 41, 59, 0.8); 
-  border-color: rgba(255, 255, 255, 0.1); 
-}
-
-html.dark .search-box { 
-  background: rgba(15, 23, 42, 0.6); 
-  border-color: rgba(255, 255, 255, 0.1); 
-}
-
-html.dark .search-input { 
-  color: #f1f5f9; 
-}
-
-html.dark .table-header { 
-  background: rgba(15, 23, 42, 0.6); 
-  color: #94a3b8; 
-  border-bottom-color: rgba(255, 255, 255, 0.1); 
-}
-
-html.dark .table-row { 
-  border-bottom-color: rgba(255, 255, 255, 0.05); 
-}
-
-html.dark .table-row:hover { 
-  background: rgba(255, 255, 255, 0.03); 
-}
-
-html.dark .table-row.selected { 
-  background: rgba(59, 130, 246, 0.1); 
-}
-
-html.dark .repo-name, html.dark .stats strong, html.dark .page-num.active { 
-  color: #f1f5f9; 
-}
-
-html.dark .action-btn, html.dark .page-btn, html.dark .page-size {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
-}
-
-
-html.dark .tag { 
-  background: rgba(59, 130, 246, 0.2); 
-}
-
-html.dark .empty-title {
-  color: #f1f5f9;
-}
-
-/* 构建进度样式 */
-.build-progress-container {
-  padding: 0 16px;
-}
-
-.build-progress-item {
-  padding: 16px;
-  margin-bottom: 16px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
-}
-
-html.dark .build-progress-item {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.progress-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.build-id {
-  font-family: monospace;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.build-step {
-  font-size: 13px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.build-step.is-error {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.build-step.is-success {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-}
-
-.progress-detail {
-  margin-top: 8px;
-  font-size: 13px;
-  color: #475569;
-}
-
-html.dark .progress-detail {
-  color: #94a3b8;
-}
-
-.progress-stream {
-  margin-top: 8px;
-  max-height: 100px;
-  overflow-y: auto;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-  padding: 8px;
-}
-
-html.dark .progress-stream {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.progress-stream pre {
-  margin: 0;
-  font-family: monospace;
-  font-size: 11px;
-  color: #64748b;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.progress-time {
-  margin-top: 8px;
-  font-size: 11px;
-  color: #94a3b8;
-}
-
-.no-progress {
-  text-align: center;
-  color: #94a3b8;
-  padding: 40px;
-}
-
-/* 后台任务按钮 */
-.task-btn {
-  position: relative;
-}
-
-.task-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background: #3b82f6;
-  color: white;
-  font-size: 10px;
-  font-weight: 600;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-}
-
-html.dark .task-badge {
-  background: #60a5fa;
-}
-
-/* 抽屉头部 */
-.drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-}
 
 </style>

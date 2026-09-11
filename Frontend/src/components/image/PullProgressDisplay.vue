@@ -118,7 +118,7 @@ const sortedProgress = computed(() => {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px; 
   color: var(--text-muted); 
-  background: var(--bg-subtle, rgba(255,255,255,0.1));
+  background: var(--bg-subtle);
   padding: 1px 4px;
   border-radius: 3px;
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-page" v-loading="settingsStore.loading">
+  <div class="page-container" v-loading="settingsStore.loading">
     <!-- Page Header -->
     <header class="page-header">
       <div class="header-content">
@@ -822,24 +822,6 @@ onMounted(() => {
 
 <style scoped>
 
-.settings-page {
-  padding: 24px 32px;
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 32px;
-}
-
-.page-subtitle { margin: 6px 0 0 0; color: var(--text-secondary); font-size: 14px; }
-.header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-
 .settings-action {
   height: 36px;
   padding: 0 14px;
@@ -876,16 +858,10 @@ onMounted(() => {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .settings-grid {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
   width: 100%;
-}
-
-@media (max-width: 768px) {
-  .settings-grid {
-    grid-template-columns: 1fr !important;
-  }
 }
 
 .settings-card {
@@ -1138,14 +1114,11 @@ onMounted(() => {
 
 /* 响应式 */
 @media (max-width: 768px) {
-  .settings-page { padding: 16px; }
-  .page-header { flex-direction: column; gap: 16px; }
-  .settings-grid { grid-template-columns: 1fr !important; }
+  .settings-grid { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
-  .settings-page { padding: 12px; }
   .card-body { padding: 16px; }
   .card-header { padding: 16px; }
   .header-actions { width: 100%; }

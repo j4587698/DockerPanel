@@ -1,5 +1,5 @@
 <template>
-  <div class="certs-page" v-loading="loading">
+  <div class="page-container" v-loading="loading">
     <!-- Page Header -->
     <header class="page-header">
       <div class="header-content">
@@ -723,22 +723,6 @@ onMounted(() => refreshAll())
 
 <style scoped>
 
-.certs-page {
-  padding: 24px 32px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
-
-.page-subtitle { margin: 6px 0 0 0; color: var(--text-muted); font-size: 14px; }
-.header-actions { display: flex; gap: 10px; }
-
 .btn-icon { width: 16px; height: 16px; }
 
 /* Tab Navigation */
@@ -829,33 +813,6 @@ onMounted(() => refreshAll())
 .stat-value { font-size: 24px; font-weight: 700; color: var(--text-main); }
 .stat-label { font-size: 12px; color: var(--text-muted); }
 
-/* Toolbar */
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: var(--bg-surface);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  max-width: 300px;
-  padding: 8px 12px;
-  background: var(--bg-glass-dark);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.search-icon { width: 16px; height: 16px; color: var(--text-muted); }
-.search-input { flex: 1; border: none; background: transparent; outline: none; font-size: 13px; }
-
 .filter-tabs { display: flex; gap: 6px; }
 
 .filter-tab {
@@ -887,15 +844,8 @@ onMounted(() => refreshAll())
 }
 
 /* Table */
-.data-table {
-  background: var(--bg-surface);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
-
 .td-domain { display: flex; align-items: center; gap: 12px; cursor: pointer; }
-.td-domain:hover .domain-tag { background: var(--primary-color); color: #fff; }
+.td-domain:hover .domain-tag { background: var(--color-secondary); color: #fff; }
 .td-domain:hover .cert-icon { transform: scale(1.05); }
 
 .cert-icon {
@@ -965,100 +915,18 @@ onMounted(() => refreshAll())
   color: var(--text-muted);
 }
 
-/* Pagination */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.page-controls { display: flex; align-items: center; gap: 4px; }
-
-.page-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-muted);
-}
-
-.page-btn svg { width: 16px; height: 16px; }
-.page-btn:hover:not(:disabled) { border-color: #f59e0b; color: #f59e0b; }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.page-numbers { display: flex; gap: 4px; margin: 0 8px; }
-
-.page-num {
-  min-width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.page-num:hover { background: var(--bg-subtle); }
-.page-num.active { background: var(--color-secondary); color: #fff; }
-
-.page-size {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  font-size: 12px;
-  background: var(--bg-surface);
-}
-
-/* Empty */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60px 40px;
-  text-align: center;
-}
-
-.empty-icon { width: 64px; height: 64px; margin-bottom: 16px; color: var(--text-secondary); }
-.empty-title { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin: 0 0 8px 0; }
-.empty-desc { font-size: 14px; color: var(--text-muted); margin: 0 0 24px 0; }
-
 /* Responsive */
 @media (max-width: 1200px) {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
-  .certs-page { padding: 16px; }
-  .page-header { flex-direction: column; gap: 12px; }
   .stats-row { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .stat-card { padding: 16px; }
-  .toolbar { flex-wrap: wrap; }
-  .search-box { max-width: none; width: 100%; }
   .filter-tabs { width: 100%; overflow-x: auto; }
   .pagination { flex-direction: column; gap: 12px; }
   .tab-nav { flex-wrap: wrap; }
 }
 
-
-</style>
-
-<style>
-
-/* Dark Mode */
-html.dark .stat-card, html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
-html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
-html.dark .search-input { color: #f1f5f9; }
-html.dark .stat-value { color: #f1f5f9; }
-html.dark .domain-tag { background: rgba(255, 255, 255, 0.1); color: #f1f5f9; }
-html.dark .page-btn, html.dark .tab-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 
 </style>

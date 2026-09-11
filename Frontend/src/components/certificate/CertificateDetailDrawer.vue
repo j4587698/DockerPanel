@@ -831,12 +831,12 @@ const getProgressStatus = (status: number) => {
 }
 
 .domain-item:hover {
-  border-color: var(--primary-color);
+  border-color: var(--color-secondary);
   background: var(--bg-glass);
 }
 
 .domain-icon {
-  color: var(--primary-color);
+  color: var(--color-secondary);
 }
 
 .domain-name {

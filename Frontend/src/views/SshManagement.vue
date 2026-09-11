@@ -170,9 +170,10 @@
                   </template>
                 </el-table-column>
 
-                <el-table-column :label="t('common.actions')" width="154" align="center" fixed="right">
+                <el-table-column :label="t('common.actions')" width="186" align="center" fixed="right">
                   <template #default="{ row }">
                     <div class="actions-cell">
+                      <el-button class="table-action-btn success" :icon="Connection" :title="t('ssh.openTerminal')" @click="openTerminal(row)" />
                       <el-button class="table-action-btn test" :icon="Monitor" :title="t('ssh.testConnection')" @click="testConnection(row)" />
                       <el-button class="table-action-btn edit" :icon="Edit" :title="t('ssh.editConnection')" @click="handleConnectionAction('edit', row)" />
                       <el-button class="table-action-btn sessions" :icon="View" :title="t('ssh.sessionManagement')" @click="showSessions(row)" />
@@ -821,41 +822,15 @@ const formatTime = (time: string) => {
 
 
 
-/* === Empty State === */
+/* === Empty State（在全局样式基础上补充卡片外观） === */
 .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60px 40px;
-  text-align: center;
   background: var(--bg-surface);
   border-radius: 12px;
   border: 1px solid var(--border-color);
 }
 
-.empty-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 16px;
-  color: var(--text-secondary);
-}
-
-.empty-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin: 0 0 8px 0;
-}
-
 .empty-desc {
-  font-size: 14px;
-  color: var(--text-muted);
   margin: 0;
-}
-
-.pagination-wrapper {
-  margin-top: 20px;
-  text-align: right;
 }
 
 :deep(.el-tabs__header) {
@@ -928,20 +903,5 @@ const formatTime = (time: string) => {
   .stats-icon { width: 40px; height: 40px; font-size: 20px; }
   .stats-value { font-size: 20px; }
 }
-
-</style>
-
-<style>
-
-/* Dark mode support */
-html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
-html.dark .table-header { background: #0f172a; border-color: rgba(255, 255, 255, 0.05); color: #94a3b8; }
-html.dark .table-row { border-color: rgba(255, 255, 255, 0.05); }
-html.dark .table-row:hover { background: rgba(255, 255, 255, 0.03); }
-html.dark .hostname { color: #f1f5f9; }
-html.dark .td { color: #cbd5e1; }
-html.dark .action-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
-html.dark .port-code { background: rgba(255, 255, 255, 0.1); }
-html.dark .empty-state { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 
 </style>

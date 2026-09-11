@@ -358,9 +358,7 @@ const getUptime = (c: Container | null) => {
 }
 </script>
 
-<style>
-
-/* 使用非scoped样式，继承父组件全局样式 */
+<style scoped>
 
 /* 反向代理样式 */
 .proxy-mappings {
@@ -374,9 +372,9 @@ const getUptime = (c: Container | null) => {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: rgba(24, 144, 255, 0.08);
+  background: rgba(59, 130, 246, 0.08);
   border-radius: 6px;
-  border: 1px solid rgba(24, 144, 255, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .proxy-domain {
@@ -386,13 +384,13 @@ const getUptime = (c: Container | null) => {
 }
 
 .proxy-domain .el-icon {
-  color: var(--primary-color, #1890ff);
+  color: var(--color-secondary);
 }
 
 .domain-text {
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
   font-weight: 600;
-  color: var(--primary-color, #1890ff);
+  color: var(--color-secondary);
 }
 
 .proxy-target {
@@ -400,17 +398,17 @@ const getUptime = (c: Container | null) => {
   align-items: center;
   gap: 6px;
   margin-left: auto;
-  color: var(--text-secondary, #666);
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .proxy-port {
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
-  color: var(--text-primary, #333);
+  color: var(--text-main);
 }
 
 .proxy-path {
-  color: var(--text-muted, #999);
+  color: var(--text-muted);
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
   font-size: 12px;
 }

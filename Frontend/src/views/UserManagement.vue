@@ -528,12 +528,6 @@ onMounted(() => {
   max-width: 1480px;
 }
 
-.header-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
 .user-stats .stat-card {
   min-width: 0;
 }

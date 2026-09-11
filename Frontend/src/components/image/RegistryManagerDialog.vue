@@ -495,7 +495,7 @@ watch(visible, (val) => {
 .mirror-url {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  background: var(--bg-subtle, #f5f5f5);
+  background: var(--bg-subtle);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -516,10 +516,6 @@ watch(visible, (val) => {
 
 
 
-/* 深色模式 */
-html.dark .mirror-url {
-  background: rgba(255, 255, 255, 0.1);
-}
 
 .action-btns {
   display: flex;

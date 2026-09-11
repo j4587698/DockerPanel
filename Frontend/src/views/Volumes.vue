@@ -1,5 +1,5 @@
 <template>
-  <div class="volumes-page" v-loading="loading">
+  <div class="page-container" v-loading="loading">
     <!-- Page Header -->
     <header class="page-header">
       <div class="header-content">
@@ -582,59 +582,7 @@ onMounted(() => {
 
 <style scoped>
 
-.volumes-page {
-  padding: 24px 32px;
-  max-width: 1600px;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 24px;
-  }
-  
-  .page-subtitle { margin: 6px 0 0 0; color: var(--text-muted); font-size: 14px; }
-.header-actions { display: flex; gap: 10px; }
-
 .btn-icon { width: 16px; height: 16px; }
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: var(--bg-surface);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  max-width: 320px;
-  padding: 8px 12px;
-  background: var(--bg-glass-dark);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.search-icon { width: 16px; height: 16px; color: var(--text-muted); }
-.search-input { flex: 1; border: none; background: transparent; outline: none; font-size: 13px; }
-
-.stats { display: flex; gap: 16px; margin-left: auto; font-size: 13px; color: var(--text-muted); }
-.stats strong { color: var(--text-main); }
-
-.data-table {
-  background: var(--bg-surface);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  overflow: hidden;
-}
 
 .td-name { display: flex; align-items: center; gap: 12px; }
 
@@ -707,46 +655,7 @@ onMounted(() => {
 
 
 
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.page-controls { display: flex; align-items: center; gap: 8px; }
 .page-current { font-weight: 500; }
-
-.page-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-muted);
-}
-
-.page-btn svg { width: 16px; height: 16px; }
-.page-btn:hover:not(:disabled) { border-color: #f97316; color: #f97316; }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60px 40px;
-  text-align: center;
-}
-
-.empty-icon { width: 64px; height: 64px; margin-bottom: 16px; color: var(--text-secondary); }
-.empty-title { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin: 0 0 8px 0; }
-.empty-desc { font-size: 14px; color: var(--text-muted); margin: 0 0 24px 0; }
 
 .modern-dialog :deep(.el-dialog__footer) { display: flex; gap: 10px; justify-content: flex-end; }
 
@@ -908,26 +817,5 @@ onMounted(() => {
   height: 32px;
   opacity: 0.5;
 }
-
-@media (max-width: 768px) {
-  .volumes-page { padding: 16px; }
-  .page-header { flex-direction: column; gap: 12px; }
-  .toolbar { flex-wrap: wrap; }
-  .search-box { max-width: none; width: 100%; }
-}
-
-
-</style>
-
-<style>
-
-/* === Dark Mode === */
-html.dark .toolbar, html.dark .data-table { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
-html.dark .search-box { background: #0f172a; border-color: rgba(255, 255, 255, 0.1); }
-html.dark .search-input { color: #f1f5f9; }
-html.dark .name { color: #f1f5f9; }
-html.dark .stats strong { color: #f1f5f9; }
-html.dark .driver-badge { background: rgba(255, 255, 255, 0.1); }
-html.dark .page-btn { background: #1e293b; border-color: rgba(255, 255, 255, 0.1); }
 
 </style>

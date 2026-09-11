@@ -241,7 +241,7 @@ const handleConnectNetwork = () => {
 }
 </script>
 
-<style>
+<style scoped>
 
 .recreate-dialog-content {
   padding: 0 4px;

@@ -64,8 +64,8 @@ class SignalRService {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private readonly heartbeatInterval = 30000 // 30秒心跳
 
-  // 活跃订阅跟踪（用于重连后恢复订阅）
-  private activeSubscriptions: Set<string> = new Set()
+  // 活跃订阅跟踪（用于重连后恢复订阅）。key 为 "方法名:参数JSON"，value 为恢复时要重放的方法与参数
+  private activeSubscriptions: Map<string, { method: string; args: any[] }> = new Map()
 
   // 当前语言设置（用于重连后恢复）
   private currentLanguage: string = ''
@@ -538,11 +538,11 @@ class SignalRService {
   private restoreSubscriptions(): void {
     if (this.activeSubscriptions.size === 0) return
 
-    this.debugLog('恢复订阅:', Array.from(this.activeSubscriptions))
+    this.debugLog('恢复订阅:', Array.from(this.activeSubscriptions.keys()))
 
-    this.activeSubscriptions.forEach(sub => {
-      this.invoke(sub).catch(error => {
-        console.error(`恢复订阅 ${sub} 失败:`, error)
+    this.activeSubscriptions.forEach(({ method, args }) => {
+      this.invoke(method, ...args).catch(error => {
+        console.error(`恢复订阅 ${method} 失败:`, error)
       })
     })
   }
@@ -604,57 +604,65 @@ class SignalRService {
   }
 
   // Hub方法的便捷调用
-  async subscribeToContainers() {
-    this.activeSubscriptions.add('SubscribeToContainers')
-    return await this.invoke('SubscribeToContainers')
+  // 多节点：订阅方法接受可选 nodeId（不传 = 默认节点，与后端语义一致），
+  // 重连恢复时按 "方法名:参数" 记录并原样重放
+  private trackSubscription(method: string, args: any[]): string {
+    const key = `${method}:${JSON.stringify(args)}`
+    this.activeSubscriptions.set(key, { method, args })
+    return key
   }
 
-  async unsubscribeFromContainers() {
-    this.activeSubscriptions.delete('SubscribeToContainers')
-    return await this.invoke('UnsubscribeFromContainers')
+  async subscribeToContainers(nodeId?: string) {
+    this.trackSubscription('SubscribeToContainers', [nodeId ?? null])
+    return await this.invoke('SubscribeToContainers', nodeId ?? null)
   }
 
-  async subscribeToImages() {
-    this.activeSubscriptions.add('SubscribeToImages')
-    return await this.invoke('SubscribeToImages')
+  async unsubscribeFromContainers(nodeId?: string) {
+    this.activeSubscriptions.delete(`SubscribeToContainers:${JSON.stringify([nodeId ?? null])}`)
+    return await this.invoke('UnsubscribeFromContainers', nodeId ?? null)
   }
 
-  async unsubscribeFromImages() {
-    this.activeSubscriptions.delete('SubscribeToImages')
-    return await this.invoke('UnsubscribeFromImages')
+  async subscribeToImages(nodeId?: string) {
+    this.trackSubscription('SubscribeToImages', [nodeId ?? null])
+    return await this.invoke('SubscribeToImages', nodeId ?? null)
   }
 
-  async subscribeToSystemStats() {
-    this.activeSubscriptions.add('SubscribeToSystemStats')
-    return await this.invoke('SubscribeToSystemStats')
+  async unsubscribeFromImages(nodeId?: string) {
+    this.activeSubscriptions.delete(`SubscribeToImages:${JSON.stringify([nodeId ?? null])}`)
+    return await this.invoke('UnsubscribeFromImages', nodeId ?? null)
   }
 
-  async unsubscribeFromSystemStats() {
-    this.activeSubscriptions.delete('SubscribeToSystemStats')
-    return await this.invoke('UnsubscribeFromSystemStats')
+  async subscribeToSystemStats(nodeId?: string) {
+    this.trackSubscription('SubscribeToSystemStats', [nodeId ?? null])
+    return await this.invoke('SubscribeToSystemStats', nodeId ?? null)
   }
 
-  async subscribeToContainerStats() {
-    this.activeSubscriptions.add('SubscribeToContainerStats')
-    return await this.invoke('SubscribeToContainerStats')
+  async unsubscribeFromSystemStats(nodeId?: string) {
+    this.activeSubscriptions.delete(`SubscribeToSystemStats:${JSON.stringify([nodeId ?? null])}`)
+    return await this.invoke('UnsubscribeFromSystemStats', nodeId ?? null)
   }
 
-  async unsubscribeFromContainerStats() {
-    this.activeSubscriptions.delete('SubscribeToContainerStats')
-    return await this.invoke('UnsubscribeFromContainerStats')
+  async subscribeToContainerStats(nodeId?: string) {
+    this.trackSubscription('SubscribeToContainerStats', [nodeId ?? null])
+    return await this.invoke('SubscribeToContainerStats', nodeId ?? null)
   }
 
-  async subscribeToStats() {
+  async unsubscribeFromContainerStats(nodeId?: string) {
+    this.activeSubscriptions.delete(`SubscribeToContainerStats:${JSON.stringify([nodeId ?? null])}`)
+    return await this.invoke('UnsubscribeFromContainerStats', nodeId ?? null)
+  }
+
+  async subscribeToStats(nodeId?: string) {
     // 后端使用 SubscribeToSystemStats 来标记连接活跃
-    return await this.invoke('SubscribeToSystemStats');
+    return await this.invoke('SubscribeToSystemStats', nodeId ?? null);
   }
 
-  async subscribeToLogs(containerId: string, tailLines: number = 100) {
-    return await this.invoke('SubscribeToLogs', containerId, tailLines)
+  async subscribeToLogs(containerId: string, tailLines: number = 100, nodeId?: string) {
+    return await this.invoke('SubscribeToLogs', containerId, tailLines, nodeId ?? null)
   }
 
-  async unsubscribeFromLogs(containerId: string) {
-    return await this.invoke('UnsubscribeFromLogs', containerId)
+  async unsubscribeFromLogs(containerId: string, nodeId?: string) {
+    return await this.invoke('UnsubscribeFromLogs', containerId, nodeId ?? null)
   }
 
   async ping() {

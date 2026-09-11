@@ -487,7 +487,7 @@ const startLogStream = async () => {
   
   try {
     // 传0只订阅增量新日志
-    await signalrService.subscribeToLogs(container.value.id, 0)
+    await signalrService.subscribeToLogs(container.value.id, 0, localStorage.getItem('docker-panel-current-node') || undefined)
     
     logsUnsubscribe = signalrService.subscribe('logs', (msg: any) => {
       const data = msg.data
@@ -523,7 +523,7 @@ const stopLogStream = async () => {
   }
   if (container.value) {
     try {
-      await signalrService.unsubscribeFromLogs(container.value.id)
+      await signalrService.unsubscribeFromLogs(container.value.id, localStorage.getItem('docker-panel-current-node') || undefined)
     } catch (err) {}
   }
 }
@@ -948,7 +948,8 @@ const connectTerminal = async () => {
       containerId: container.value.id,
       shell: selectedShell.value,
       cols: terminal?.cols || 80,
-      rows: terminal?.rows || 24
+      rows: terminal?.rows || 24,
+      nodeId: localStorage.getItem('docker-panel-current-node') || undefined
     })
     
   } catch (error) {
@@ -1006,14 +1007,15 @@ const startSignalRSubscriptions = async () => {
     }
   })
 
-  await signalrService.subscribeToContainerStats()
+  // 多节点：统计订阅附带当前选中节点
+  await signalrService.subscribeToContainerStats(localStorage.getItem('docker-panel-current-node') || undefined)
 }
 
 const stopSignalRSubscriptions = async () => {
   statsUnsubscribe?.()
   logsUnsubscribe?.()
   containerUnsubscribe?.()
-  await signalrService.unsubscribeFromContainerStats().catch(() => {})
+  await signalrService.unsubscribeFromContainerStats(localStorage.getItem('docker-panel-current-node') || undefined).catch(() => {})
 }
 
 // --- Lifecycle ---

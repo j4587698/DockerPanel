@@ -358,8 +358,9 @@ export const useContainersStore = defineStore('containers', () => {
       }
     })
 
-    // 告知后端我们想要容器统计信息
-    await signalrService.subscribeToContainerStats()
+    // 告知后端我们想要容器统计信息（多节点：附带当前选中节点）
+    const nodeId = localStorage.getItem('docker-panel-current-node') || undefined
+    await signalrService.subscribeToContainerStats(nodeId)
   }
 
   const stopStatsMonitoring = async () => {
@@ -368,7 +369,8 @@ export const useContainersStore = defineStore('containers', () => {
       statsUnsubscribe = null
     }
     // 取消后端订阅
-    await signalrService.unsubscribeFromContainerStats().catch(() => {})
+    const nodeId = localStorage.getItem('docker-panel-current-node') || undefined
+    await signalrService.unsubscribeFromContainerStats(nodeId).catch(() => {})
   }
 
   // 容器列表实时同步（由后端 docker events 推送 ContainersUpdated）
@@ -391,7 +393,9 @@ export const useContainersStore = defineStore('containers', () => {
     })
 
     // 告知后端我们想要容器列表更新（订阅时后端也会立即推送当前列表）
-    await signalrService.subscribeToContainers()
+    // 多节点：附带当前选中节点，后端只推送该节点的列表
+    const nodeId = localStorage.getItem('docker-panel-current-node') || undefined
+    await signalrService.subscribeToContainers(nodeId)
   }
 
   const stopContainerListSync = async () => {
@@ -400,7 +404,8 @@ export const useContainersStore = defineStore('containers', () => {
       containerListUnsubscribe = null
     }
     // 取消后端订阅
-    await signalrService.unsubscribeFromContainers().catch(() => {})
+    const nodeId = localStorage.getItem('docker-panel-current-node') || undefined
+    await signalrService.unsubscribeFromContainers(nodeId).catch(() => {})
   }
 
   return {

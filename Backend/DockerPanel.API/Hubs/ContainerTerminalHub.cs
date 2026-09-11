@@ -49,7 +49,7 @@ public class ContainerTerminalHub : Hub
                 return;
             }
 
-            var client = await dockerEngine.GetClientAsync();
+            var client = await dockerEngine.GetClientAsync(request.NodeId);
 
             // 确定要使用的 shell
             var shell = await DetermineShellAsync(client, request.ContainerId, request.Shell);
@@ -335,6 +335,8 @@ public class ContainerTerminalHub : Hub
         public string? Shell { get; set; }
         public int Cols { get; set; } = 80;
         public int Rows { get; set; } = 24;
+        /// <summary>目标节点 ID（不传 = 默认节点）</summary>
+        public string? NodeId { get; set; }
     }
 
     private class TerminalSession

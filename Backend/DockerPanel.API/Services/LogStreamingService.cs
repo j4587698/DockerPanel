@@ -57,39 +57,46 @@ public class LogStreamingService : IHostedService
     /// <summary>
     /// 订阅容器日志
     /// </summary>
-    public async Task SubscribeToLogsAsync(string connectionId, string containerId, int tailLines = 100)
+    /// <summary>日志流键："{节点}:{容器ID}"（节点隔离，避免跨节点容器 ID 冲突）</summary>
+    private static string StreamKey(string containerId, string nodeKey) => $"{nodeKey}:{containerId}";
+
+    public async Task SubscribeToLogsAsync(string connectionId, string containerId, int tailLines = 100, string nodeKey = "default")
     {
+        var streamKey = StreamKey(containerId, nodeKey);
+
         // 添加订阅者
-        if (!_containerSubscribers.ContainsKey(containerId))
+        if (!_containerSubscribers.ContainsKey(streamKey))
         {
-            _containerSubscribers[containerId] = new HashSet<string>();
+            _containerSubscribers[streamKey] = new HashSet<string>();
         }
-        
-        _containerSubscribers[containerId].Add(connectionId);
-        
-        _logger.LogInformation("连接 {ConnectionId} 订阅容器 {ContainerId} 的日志", connectionId, containerId);
-        
+
+        _containerSubscribers[streamKey].Add(connectionId);
+
+        _logger.LogInformation("连接 {ConnectionId} 订阅容器 {ContainerId} 的日志, 节点: {NodeId}", connectionId, containerId, nodeKey);
+
         // 如果该容器还没有活跃的日志流，启动一个新的
-        if (!_activeStreams.ContainsKey(containerId))
+        if (!_activeStreams.ContainsKey(streamKey))
         {
-            await StartLogStreamAsync(containerId, tailLines);
+            await StartLogStreamAsync(containerId, tailLines, nodeKey);
         }
     }
 
     /// <summary>
     /// 取消订阅容器日志
     /// </summary>
-    public void UnsubscribeFromLogs(string connectionId, string containerId)
+    public void UnsubscribeFromLogs(string connectionId, string containerId, string nodeKey = "default")
     {
-        if (_containerSubscribers.TryGetValue(containerId, out var subscribers))
+        var streamKey = StreamKey(containerId, nodeKey);
+
+        if (_containerSubscribers.TryGetValue(streamKey, out var subscribers))
         {
             subscribers.Remove(connectionId);
-            
+
             // 如果没有订阅者了，停止日志流
             if (subscribers.Count == 0)
             {
-                _containerSubscribers.TryRemove(containerId, out _);
-                StopLogStream(containerId);
+                _containerSubscribers.TryRemove(streamKey, out _);
+                StopLogStream(streamKey);
             }
         }
     }
@@ -114,28 +121,32 @@ public class LogStreamingService : IHostedService
     /// <summary>
     /// 启动容器的日志流
     /// </summary>
-    private async Task StartLogStreamAsync(string containerId, int tailLines)
+    private async Task StartLogStreamAsync(string containerId, int tailLines, string nodeKey)
     {
+        var streamKey = StreamKey(containerId, nodeKey);
+        // "default" 交给 DockerEngine 解析默认节点
+        var engineNodeId = string.Equals(nodeKey, "default", StringComparison.OrdinalIgnoreCase) ? null : nodeKey;
+
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var dockerEngine = scope.ServiceProvider.GetService<IContainerEngine>() as DockerEngine;
-            
+
             if (dockerEngine == null)
             {
                 _logger.LogWarning("无法获取 Docker 引擎实例");
                 return;
             }
 
-            var client = await dockerEngine.GetClientAsync();
+            var client = await dockerEngine.GetClientAsync(engineNodeId);
             var cts = new CancellationTokenSource();
-            
+
             var context = new LogStreamContext
             {
                 CancellationTokenSource = cts
             };
-            
-            _activeStreams[containerId] = context;
+
+            _activeStreams[streamKey] = context;
             
             _logger.LogInformation("启动容器 {ContainerId} 的日志流", containerId);
             
@@ -177,7 +188,7 @@ public class LogStreamingService : IHostedService
                         var logEntry = ParseLogLine(line);
                         
                         // 推送给订阅者
-                        await BroadcastLogAsync(containerId, logEntry);
+                        await BroadcastLogAsync(streamKey, containerId, logEntry);
                     }
                 }
                 catch (OperationCanceledException)
@@ -188,8 +199,8 @@ public class LogStreamingService : IHostedService
                 {
                     // 容器在当前连接的守护进程上不存在：要么已被删除/重建，
                     // 要么列表与日志流连到了不同的节点。把实际目标打出来便于区分。
-                    _logger.LogWarning("容器 {ContainerId} 日志流失败：目标 {Target} 上无此容器",
-                        containerId, await dockerEngine.DescribeTargetAsync());
+                    _logger.LogWarning("容器 {ContainerId} 日志流失败：节点 {NodeId} 目标 {Target} 上无此容器",
+                        containerId, nodeKey, await dockerEngine.DescribeTargetAsync());
                 }
                 catch (Exception ex)
                 {
@@ -197,7 +208,7 @@ public class LogStreamingService : IHostedService
                 }
                 finally
                 {
-                    _activeStreams.TryRemove(containerId, out _);
+                    _activeStreams.TryRemove(streamKey, out _);
                 }
             }, cts.Token);
         }
@@ -210,12 +221,12 @@ public class LogStreamingService : IHostedService
     /// <summary>
     /// 停止容器的日志流
     /// </summary>
-    private void StopLogStream(string containerId)
+    private void StopLogStream(string streamKey)
     {
-        if (_activeStreams.TryRemove(containerId, out var context))
+        if (_activeStreams.TryRemove(streamKey, out var context))
         {
             context.CancellationTokenSource.Cancel();
-            _logger.LogInformation("已停止容器 {ContainerId} 的日志流", containerId);
+            _logger.LogInformation("已停止日志流 {StreamKey}", streamKey);
         }
     }
 
@@ -266,13 +277,13 @@ public class LogStreamingService : IHostedService
     }
 
     /// <summary>
-    /// 广播日志给订阅者
+    /// 广播日志给订阅者（按 节点:容器 组播）
     /// </summary>
-    private async Task BroadcastLogAsync(string containerId, LogEntry logEntry)
+    private async Task BroadcastLogAsync(string streamKey, string containerId, LogEntry logEntry)
     {
-        if (_containerSubscribers.TryGetValue(containerId, out var subscribers) && subscribers.Count > 0)
+        if (_containerSubscribers.TryGetValue(streamKey, out var subscribers) && subscribers.Count > 0)
         {
-            await _hubContext.Clients.Group($"logs:{containerId}").SendAsync("logs", new Serialization.LogStreamMessage
+            await _hubContext.Clients.Group($"logs:{streamKey}").SendAsync("logs", new Serialization.LogStreamMessage
             {
                 ContainerId = containerId,
                 Message = logEntry.Message,

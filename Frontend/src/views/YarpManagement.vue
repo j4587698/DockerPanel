@@ -513,7 +513,8 @@ const toggleEnabled = async (mapping: any) => {
 onMounted(() => {
   fetchMappings()
   fetchCertificates()
-  containerStore.fetchContainers({ all: true })
+  // 反代目标只能是面板宿主机的本地容器（域名映射用本地网桥的容器名寻址），固定拉取本地节点
+  containerStore.fetchContainers({ all: true, nodeId: 'local' })
 })
 </script>
 

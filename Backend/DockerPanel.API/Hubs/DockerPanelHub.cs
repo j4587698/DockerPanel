@@ -26,16 +26,58 @@ public class DockerPanelHub : Hub
     public static bool HasConnections => _connectionCount > 0;
 
     /// <summary>
+    /// 规范化订阅的节点 ID（未指定 = 默认节点，与后端 nodeId=null 的语义一致）
+    /// </summary>
+    private static string NormalizeNodeId(string? nodeId) =>
+        string.IsNullOrWhiteSpace(nodeId) ? "default" : nodeId.Trim();
+
+    /// <summary>订阅键："{类型}:{节点ID}"</summary>
+    private static string SubKey(string kind, string? nodeId) => $"{kind}:{NormalizeNodeId(nodeId)}";
+
+    /// <summary>
     /// 检查是否有任何连接订阅了指定类型
     /// </summary>
     public static bool HasSubscription(string subscriptionType)
     {
+        var prefix = subscriptionType + ":";
         foreach (var kvp in _subscriptions)
         {
-            if (kvp.Value.Contains(subscriptionType))
-                return true;
+            foreach (var key in kvp.Value)
+            {
+                if (key.Equals(subscriptionType, StringComparison.Ordinal) ||
+                    key.StartsWith(prefix, StringComparison.Ordinal))
+                    return true;
+            }
         }
         return false;
+    }
+
+    /// <summary>
+    /// 获取订阅了指定类型的所有节点 ID（去重，"default" 表示默认节点）
+    /// </summary>
+    public static List<string> GetSubscribedNodeIds(string kind)
+    {
+        var prefix = kind + ":";
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in _subscriptions)
+        {
+            foreach (var key in kvp.Value)
+            {
+                if (key.Equals(kind, StringComparison.Ordinal))
+                    result.Add("default");
+                else if (key.StartsWith(prefix, StringComparison.Ordinal))
+                    result.Add(key[prefix.Length..]);
+            }
+        }
+        return result.ToList();
+    }
+
+    /// <summary>
+    /// 获取订阅了某个精确键的所有连接 ID
+    /// </summary>
+    public static List<string> GetConnectionsFor(string key)
+    {
+        return _subscriptions.Where(kvp => kvp.Value.Contains(key)).Select(kvp => kvp.Key).ToList();
     }
 
     /// <summary>
@@ -126,9 +168,9 @@ public class DockerPanelHub : Hub
     }
 
     /// <summary>
-    /// 订阅容器状态更新
+    /// 订阅容器状态更新（可指定节点，默认节点传 null）
     /// </summary>
-    public async Task SubscribeToContainers()
+    public async Task SubscribeToContainers(string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
 
@@ -137,14 +179,14 @@ public class DockerPanelHub : Hub
             _subscriptions[connectionId] = new HashSet<string>();
         }
 
-        _subscriptions[connectionId].Add("containers");
+        _subscriptions[connectionId].Add(SubKey("containers", nodeId));
 
-        _logger.LogInformation("客户端 {ConnectionId} 订阅了容器状态更新", connectionId);
+        _logger.LogInformation("客户端 {ConnectionId} 订阅了容器状态更新, 节点: {NodeId}", connectionId, NormalizeNodeId(nodeId));
 
         // 发送当前容器状态
         try
         {
-            var containers = await _containerService.GetContainersAsync(all: true);
+            var containers = await _containerService.GetContainersAsync(nodeId, all: true);
             await Clients.Caller.SendAsync("ContainersUpdated", containers);
         }
         catch (Exception ex)
@@ -159,23 +201,23 @@ public class DockerPanelHub : Hub
     /// <summary>
     /// 取消订阅容器状态更新
     /// </summary>
-    public Task UnsubscribeFromContainers()
+    public Task UnsubscribeFromContainers(string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
 
         if (_subscriptions.TryGetValue(connectionId, out var subs))
         {
-            subs.Remove("containers");
-            _logger.LogInformation("客户端 {ConnectionId} 取消订阅容器状态更新", connectionId);
+            subs.Remove(SubKey("containers", nodeId));
+            _logger.LogInformation("客户端 {ConnectionId} 取消订阅容器状态更新, 节点: {NodeId}", connectionId, NormalizeNodeId(nodeId));
         }
 
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// 订阅系统资源监控
+    /// 订阅系统资源监控（可指定节点，默认节点传 null）
     /// </summary>
-    public async Task SubscribeToSystemStats()
+    public async Task SubscribeToSystemStats(string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
 
@@ -184,9 +226,9 @@ public class DockerPanelHub : Hub
             _subscriptions[connectionId] = new HashSet<string>();
         }
 
-        _subscriptions[connectionId].Add("systemstats");
+        _subscriptions[connectionId].Add(SubKey("systemstats", nodeId));
 
-        _logger.LogInformation("客户端 {ConnectionId} 订阅了系统资源监控", connectionId);
+        _logger.LogInformation("客户端 {ConnectionId} 订阅了系统资源监控, 节点: {NodeId}", connectionId, NormalizeNodeId(nodeId));
 
         // 发送当前系统状态
         try
@@ -206,23 +248,23 @@ public class DockerPanelHub : Hub
     /// <summary>
     /// 取消订阅系统资源监控
     /// </summary>
-    public Task UnsubscribeFromSystemStats()
+    public Task UnsubscribeFromSystemStats(string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
 
         if (_subscriptions.TryGetValue(connectionId, out var subs))
         {
-            subs.Remove("systemstats");
-            _logger.LogInformation("客户端 {ConnectionId} 取消订阅系统资源监控", connectionId);
+            subs.Remove(SubKey("systemstats", nodeId));
+            _logger.LogInformation("客户端 {ConnectionId} 取消订阅系统资源监控, 节点: {NodeId}", connectionId, NormalizeNodeId(nodeId));
         }
 
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// 订阅镜像列表更新
+    /// 订阅镜像列表更新（可指定节点，默认节点传 null）
     /// </summary>
-    public async Task SubscribeToImages()
+    public async Task SubscribeToImages(string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
 
@@ -231,14 +273,14 @@ public class DockerPanelHub : Hub
             _subscriptions[connectionId] = new HashSet<string>();
         }
 
-        _subscriptions[connectionId].Add("images");
+        _subscriptions[connectionId].Add(SubKey("images", nodeId));
 
-        _logger.LogInformation("客户端 {ConnectionId} 订阅了镜像列表更新", connectionId);
+        _logger.LogInformation("客户端 {ConnectionId} 订阅了镜像列表更新, 节点: {NodeId}", connectionId, NormalizeNodeId(nodeId));
 
         // 发送当前镜像列表
         try
         {
-            var images = await _imageService.GetImagesAsync();
+            var images = await _imageService.GetImagesAsync(nodeId);
             await Clients.Caller.SendAsync("ImagesUpdated", images);
         }
         catch (Exception ex)
@@ -253,23 +295,23 @@ public class DockerPanelHub : Hub
     /// <summary>
     /// 取消订阅镜像列表更新
     /// </summary>
-    public Task UnsubscribeFromImages()
+    public Task UnsubscribeFromImages(string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
 
         if (_subscriptions.TryGetValue(connectionId, out var subs))
         {
-            subs.Remove("images");
-            _logger.LogInformation("客户端 {ConnectionId} 取消订阅镜像列表更新", connectionId);
+            subs.Remove(SubKey("images", nodeId));
+            _logger.LogInformation("客户端 {ConnectionId} 取消订阅镜像列表更新, 节点: {NodeId}", connectionId, NormalizeNodeId(nodeId));
         }
 
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// 订阅容器统计信息
+    /// 订阅容器统计信息（可指定节点，默认节点传 null）
     /// </summary>
-    public async Task SubscribeToContainerStats()
+    public async Task SubscribeToContainerStats(string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
 
@@ -278,14 +320,14 @@ public class DockerPanelHub : Hub
             _subscriptions[connectionId] = new HashSet<string>();
         }
 
-        _subscriptions[connectionId].Add("containerstats");
+        _subscriptions[connectionId].Add(SubKey("containerstats", nodeId));
 
-        _logger.LogInformation("客户端 {ConnectionId} 订阅了容器统计信息", connectionId);
+        _logger.LogInformation("客户端 {ConnectionId} 订阅了容器统计信息, 节点: {NodeId}", connectionId, NormalizeNodeId(nodeId));
 
         // 发送当前容器状态
         try
         {
-            var containers = await _containerService.GetContainersAsync(all: true);
+            var containers = await _containerService.GetContainersAsync(nodeId, all: true);
             await Clients.Caller.SendAsync("ContainersUpdated", containers);
         }
         catch (Exception ex)
@@ -300,65 +342,67 @@ public class DockerPanelHub : Hub
     /// <summary>
     /// 取消订阅容器统计信息
     /// </summary>
-    public Task UnsubscribeFromContainerStats()
+    public Task UnsubscribeFromContainerStats(string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
 
         if (_subscriptions.TryGetValue(connectionId, out var subs))
         {
-            subs.Remove("containerstats");
-            _logger.LogInformation("客户端 {ConnectionId} 取消订阅容器统计信息", connectionId);
+            subs.Remove(SubKey("containerstats", nodeId));
+            _logger.LogInformation("客户端 {ConnectionId} 取消订阅容器统计信息, 节点: {NodeId}", connectionId, NormalizeNodeId(nodeId));
         }
 
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// 订阅实时日志
+    /// 订阅实时日志（可指定节点，默认节点传 null）
     /// </summary>
-    public async Task SubscribeToLogs(string containerId, int tailLines = 100)
+    public async Task SubscribeToLogs(string containerId, int tailLines = 100, string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
+        var nodeKey = NormalizeNodeId(nodeId);
 
         if (!_subscriptions.ContainsKey(connectionId))
         {
             _subscriptions[connectionId] = new HashSet<string>();
         }
 
-        var subscriptionKey = $"logs:{containerId}";
+        var subscriptionKey = $"logs:{nodeKey}:{containerId}";
         _subscriptions[connectionId].Add(subscriptionKey);
 
         // 将连接加入 SignalR 组，便于组播
-        await Groups.AddToGroupAsync(connectionId, $"logs:{containerId}");
+        await Groups.AddToGroupAsync(connectionId, subscriptionKey);
 
-        _logger.LogInformation("客户端 {ConnectionId} 订阅了容器 {ContainerId} 的日志", connectionId, containerId);
+        _logger.LogInformation("客户端 {ConnectionId} 订阅了容器 {ContainerId} 的日志, 节点: {NodeId}", connectionId, containerId, nodeKey);
 
         // 启动日志流推送
-        await _logStreamingService.SubscribeToLogsAsync(connectionId, containerId, tailLines);
+        await _logStreamingService.SubscribeToLogsAsync(connectionId, containerId, tailLines, nodeKey);
 
         // 发送订阅确认
         await Clients.Caller.SendAsync("LogsSubscribed", new LogsSubscribedMessage { ContainerId = containerId, TailLines = tailLines });
     }
-    
+
     /// <summary>
     /// 取消订阅实时日志
     /// </summary>
-    public async Task UnsubscribeFromLogs(string containerId)
+    public async Task UnsubscribeFromLogs(string containerId, string? nodeId = null)
     {
         var connectionId = Context.ConnectionId;
-        
+        var nodeKey = NormalizeNodeId(nodeId);
+
         if (_subscriptions.TryGetValue(connectionId, out var subs))
         {
-            subs.Remove($"logs:{containerId}");
+            subs.Remove($"logs:{nodeKey}:{containerId}");
         }
-        
+
         // 从 SignalR 组移除
-        await Groups.RemoveFromGroupAsync(connectionId, $"logs:{containerId}");
-        
+        await Groups.RemoveFromGroupAsync(connectionId, $"logs:{nodeKey}:{containerId}");
+
         // 清理日志流订阅
-        _logStreamingService.UnsubscribeFromLogs(connectionId, containerId);
-        
-        _logger.LogInformation("客户端 {ConnectionId} 取消订阅容器 {ContainerId} 的日志", connectionId, containerId);
+        _logStreamingService.UnsubscribeFromLogs(connectionId, containerId, nodeKey);
+
+        _logger.LogInformation("客户端 {ConnectionId} 取消订阅容器 {ContainerId} 的日志, 节点: {NodeId}", connectionId, containerId, nodeKey);
     }
 
     /// <summary>
@@ -423,26 +467,22 @@ public class DockerPanelHub : Hub
     }
 
     /// <summary>
-    /// 广播容器状态更新给所有订阅的客户端
+    /// 广播容器状态更新给订阅了该节点的客户端
     /// </summary>
-    public static async Task BroadcastContainerUpdate(IHubContext<DockerPanelHub> hubContext, object containers)
+    public static async Task BroadcastContainerUpdate(IHubContext<DockerPanelHub> hubContext, object containers, string? nodeId = null)
     {
-        var connections = _subscriptions.Where(kvp => kvp.Value.Contains("containers")).Select(kvp => kvp.Key);
-
-        foreach (var connectionId in connections)
+        foreach (var connectionId in GetConnectionsFor(SubKey("containers", nodeId)))
         {
             await hubContext.Clients.Client(connectionId).SendAsync("ContainersUpdated", containers);
         }
     }
 
     /// <summary>
-    /// 广播镜像列表更新给所有订阅的客户端
+    /// 广播镜像列表更新给订阅了该节点的客户端
     /// </summary>
-    public static async Task BroadcastImageUpdate(IHubContext<DockerPanelHub> hubContext, object images)
+    public static async Task BroadcastImageUpdate(IHubContext<DockerPanelHub> hubContext, object images, string? nodeId = null)
     {
-        var connections = _subscriptions.Where(kvp => kvp.Value.Contains("images")).Select(kvp => kvp.Key);
-
-        foreach (var connectionId in connections)
+        foreach (var connectionId in GetConnectionsFor(SubKey("images", nodeId)))
         {
             await hubContext.Clients.Client(connectionId).SendAsync("ImagesUpdated", images);
         }
@@ -453,34 +493,12 @@ public class DockerPanelHub : Hub
     /// </summary>
     public static async Task BroadcastSystemStatsUpdate(IHubContext<DockerPanelHub> hubContext, Services.ClusterResourceStats stats)
     {
-        var connections = _subscriptions.Where(kvp => kvp.Value.Contains("systemstats")).Select(kvp => kvp.Key);
+        var connections = _subscriptions.Where(kvp => kvp.Value.Any(k => k == "systemstats" || k.StartsWith("systemstats:", StringComparison.Ordinal))).Select(kvp => kvp.Key);
 
         foreach (var connectionId in connections)
         {
             await hubContext.Clients.Client(connectionId).SendAsync("SystemStatsUpdated", stats);
         }
-    }
-
-    /// <summary>
-    /// 广播日志给特定容器的订阅者
-    /// </summary>
-    public static async Task BroadcastLogUpdate(IHubContext<DockerPanelHub> hubContext, string containerId, Serialization.LogStreamMessage logEntry)
-    {
-        var subscriptionKey = $"logs:{containerId}";
-        var connections = _subscriptions.Where(kvp => kvp.Value.Contains(subscriptionKey)).Select(kvp => kvp.Key);
-
-        foreach (var connectionId in connections)
-        {
-            await hubContext.Clients.Client(connectionId).SendAsync("LogUpdated", logEntry);
-        }
-    }
-
-    /// <summary>
-    /// 广播日志给所有连接的客户端（用于实时日志页面）
-    /// </summary>
-    public static async Task BroadcastLogToAll(IHubContext<DockerPanelHub> hubContext, Serialization.LogStreamMessage logEntry)
-    {
-        await hubContext.Clients.All.SendAsync("logs", logEntry);
     }
 
     /// <summary>

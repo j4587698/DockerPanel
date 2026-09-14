@@ -222,14 +222,18 @@
               </el-form-item>
             </el-col>
             <el-col :span="12">
-              <el-form-item :label="t('proxy.yarpManagement.httpVersion', '后端 HTTP 版本')">
-                <el-select v-model="form.httpVersion" :placeholder="t('common.default', '自动')" style="width: 100%" clearable>
-                  <el-option label="HTTP/1.1" value="1.1" />
-                  <el-option label="HTTP/2" value="2" />
-                </el-select>
+              <el-form-item :label="t('proxy.yarpManagement.requestTimeout', '请求总超时 (秒)')">
+                <el-input-number v-model="form.requestTimeoutSeconds" :min="0" :step="10" :placeholder="t('proxy.yarpManagement.requestTimeoutPlaceholder', '留空 = 不限')" style="width: 100%" :controls="false" />
+                <div class="form-help">{{ t('proxy.yarpManagement.requestTimeoutHelp', '整个请求（含响应体传输）的总时限；留空 = 不限制，与 nginx 默认一致') }}</div>
               </el-form-item>
             </el-col>
           </el-row>
+          <el-form-item :label="t('proxy.yarpManagement.httpVersion', '后端 HTTP 版本')">
+            <el-select v-model="form.httpVersion" :placeholder="t('common.default', '自动')" style="width: 100%" clearable>
+              <el-option label="HTTP/1.1" value="1.1" />
+              <el-option label="HTTP/2" value="2" />
+            </el-select>
+          </el-form-item>
         </div>
       </el-form>
       <template #footer>
@@ -287,6 +291,7 @@ const form = ref({
   priority: 100,
   forceHttps: false,
   activityTimeoutSeconds: undefined as number | undefined,
+  requestTimeoutSeconds: undefined as number | undefined,
   httpVersion: ''
 })
 
@@ -495,6 +500,7 @@ const resetForm = () => {
     priority: 100,
     forceHttps: false,
     activityTimeoutSeconds: undefined,
+    requestTimeoutSeconds: undefined,
     httpVersion: ''
   }
   sslMode.value = 'none'
@@ -547,10 +553,11 @@ const editMapping = (row: any) => {
     priority: row.priority ?? 100,
     forceHttps: row.forceHttps ?? false,
     activityTimeoutSeconds: row.activityTimeoutSeconds,
+    requestTimeoutSeconds: row.requestTimeoutSeconds,
     httpVersion: row.httpVersion || ''
   }
   sslMode.value = row.autoRequestCertificate ? 'auto' : (row.enableSsl ? 'existing' : 'none')
-  showAdvanced.value = form.value.forceHttps || (form.value.activityTimeoutSeconds !== undefined && form.value.activityTimeoutSeconds !== null) || !!form.value.httpVersion
+  showAdvanced.value = form.value.forceHttps || (form.value.activityTimeoutSeconds !== undefined && form.value.activityTimeoutSeconds !== null) || (form.value.requestTimeoutSeconds !== undefined && form.value.requestTimeoutSeconds !== null) || !!form.value.httpVersion
   showCreateDialog.value = true
 }
 

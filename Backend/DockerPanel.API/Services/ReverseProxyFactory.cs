@@ -759,7 +759,7 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
                 Timeout = new ProxyTimeoutConfig
                 {
                     ActiveConnectionTimeoutSeconds = firstMapping.ActivityTimeoutSeconds ?? 100,
-                    RequestTimeoutSeconds = firstMapping.RequestTimeoutSeconds ?? 100
+                    RequestTimeoutSeconds = firstMapping.RequestTimeoutSeconds ?? 0
                 },
                 HttpVersion = firstMapping.HttpVersion
             };
@@ -789,7 +789,8 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
                 ClusterId = clusterId,
                 Enabled = true,
                 Priority = firstMapping.Priority,
-                ForceHttps = firstMapping.ForceHttps
+                ForceHttps = firstMapping.ForceHttps,
+                RequestTimeoutSeconds = firstMapping.RequestTimeoutSeconds
             };
             _routes[routeId] = ConvertToRouteConfig(route);
 
@@ -866,6 +867,10 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
                 Hosts = new[] { config.Host }.Where(h => !string.IsNullOrEmpty(h)).ToArray(),
                 Path = config.PathPattern
             },
+            // 请求总超时：显式填写正数才启用，0/未设置 = 不设总时限（默认，与 nginx 模型一致）
+            #if NET8_0_OR_GREATER
+            Timeout = config.RequestTimeoutSeconds is > 0 ? TimeSpan.FromSeconds(config.RequestTimeoutSeconds.Value) : null,
+            #endif
             Transforms = transforms,
             Metadata = metadata.Count > 0 ? metadata : null
         };

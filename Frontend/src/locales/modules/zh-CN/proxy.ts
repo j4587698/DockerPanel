@@ -111,6 +111,9 @@ export default {
     forceHttpsHelp: '开启后所有 HTTP 请求将自动 301 重定向到 HTTPS',
     activityTimeout: '空闲超时（秒）',
     timeoutHelp: '超过此时间无活动请求将自动断开连接',
+    requestTimeout: '请求总超时（秒）',
+    requestTimeoutPlaceholder: '留空 = 不限',
+    requestTimeoutHelp: '整个请求（含响应体传输）的总时限；留空 = 不限制，与 nginx 默认一致。',
     httpVersion: 'HTTP 版本',
 
     // 网络检查与自动加入

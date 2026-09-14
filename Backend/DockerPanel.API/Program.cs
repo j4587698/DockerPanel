@@ -380,6 +380,10 @@ builder.WebHost.ConfigureKestrel((context, options) =>
     // 关闭请求体最小速率限制，避免慢速大文件转发过程中被 Kestrel 中途掐断
     options.Limits.MinRequestBodyDataRate = null;
 
+    // 关闭响应侧最小速率限制：面板是 YARP 网关，需要透传 SSE/流式响应（如 AI 流式、日志流），
+    // new-api 等上游的“思考/排队停顿”可能超过 30s 无字节，Kestrel 默认 240B/s×30s 会中途掐断
+    options.Limits.MinResponseDataRate = null;
+
     // HTTP 端口（始终启用）
     var httpPort = context.Configuration.GetInt("HTTP_PORT", 80);
     options.ListenAnyIP(httpPort);

@@ -104,6 +104,9 @@ export default {
     forceHttpsHelp: 'When enabled, all HTTP requests will be 301 redirected to HTTPS',
     activityTimeout: 'Idle Timeout (s)',
     timeoutHelp: 'Connection will be closed after this period of inactivity',
+    requestTimeout: 'Total Request Timeout (s)',
+    requestTimeoutPlaceholder: 'Leave empty = unlimited',
+    requestTimeoutHelp: 'Total deadline for the whole request (including response body). Leave empty for unlimited, matching nginx defaults.',
     httpVersion: 'HTTP Version',
 
     // Network check & auto join

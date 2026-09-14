@@ -55,6 +55,12 @@ public class ProxyRouteConfig
     public int Priority { get; set; } = 0;
 
     /// <summary>
+    /// 请求总超时（秒）。0/未设置 = 不设总时限（默认，与 nginx 模型一致）；
+    /// 显式填写正数后，整个请求（含响应体传输）超过该秒数即被终止。
+    /// </summary>
+    public int? RequestTimeoutSeconds { get; set; }
+
+    /// <summary>
     /// 响应头转换
     /// </summary>
     public List<ProxyHeaderTransformConfig>? ResponseHeaderTransforms { get; set; }
@@ -252,9 +258,9 @@ public class ProxySessionAffinityConfig
 public class ProxyTimeoutConfig
 {
     /// <summary>
-    /// 请求超时（秒）
+    /// 请求超时（秒）。0 = 不限（默认，不设总时限）
     /// </summary>
-    public int RequestTimeoutSeconds { get; set; } = 100;
+    public int RequestTimeoutSeconds { get; set; } = 0;
 
     /// <summary>
     /// 活动连接超时（秒）

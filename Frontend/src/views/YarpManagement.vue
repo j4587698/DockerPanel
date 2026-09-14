@@ -217,8 +217,8 @@
           <el-row :gutter="16">
             <el-col :span="12">
               <el-form-item :label="t('proxy.yarpManagement.activityTimeout', '空闲超时 (秒)')">
-                <el-input-number v-model="form.activityTimeoutSeconds" :min="0" :step="10" :placeholder="t('common.default', '默认') + ' 100'" style="width: 100%" :controls="false" />
-                <div class="form-help">{{ t('proxy.yarpManagement.timeoutHelp', '0 = 不限时') }}</div>
+                <el-input-number v-model="form.activityTimeoutSeconds" :min="0" :step="10" :placeholder="t('proxy.yarpManagement.timeoutHelp', '留空 = 不限')" style="width: 100%" :controls="false" />
+                <div class="form-help">{{ t('proxy.yarpManagement.timeoutHelp', '超过此时间无数据即断开；留空/0 = 不限（默认，透传流式用）') }}</div>
               </el-form-item>
             </el-col>
             <el-col :span="12">

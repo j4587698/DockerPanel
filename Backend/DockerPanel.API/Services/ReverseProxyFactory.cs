@@ -758,7 +758,9 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
                 Destinations = destinations,
                 Timeout = new ProxyTimeoutConfig
                 {
-                    ActiveConnectionTimeoutSeconds = firstMapping.ActivityTimeoutSeconds ?? 100,
+                    // 空闲/活跃超时：默认 0 = 不限（透传 SSE/流式时，"思考/排队"停顿不应被面板掐断）；
+                    // 需要防护的映射可在前端"空闲超时"显式填秒数
+                    ActiveConnectionTimeoutSeconds = firstMapping.ActivityTimeoutSeconds ?? 0,
                     RequestTimeoutSeconds = firstMapping.RequestTimeoutSeconds ?? 0
                 },
                 HttpVersion = firstMapping.HttpVersion

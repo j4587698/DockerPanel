@@ -136,7 +136,7 @@ public class LoggingSettings
 {
     public string LogLevel { get; set; } = "Information";
     public bool EnableFileLogging { get; set; } = true;
-    public string LogPath { get; set; } = "./logs";
+    public string LogPath { get; set; } = "./Logs";
     public int LogRetentionDays { get; set; } = 7;
     public bool EnableConsoleLogging { get; set; } = true;
     public bool EnableStructuredLogging { get; set; } = true;

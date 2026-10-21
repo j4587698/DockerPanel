@@ -289,7 +289,13 @@ public class SettingsService : ISettingsService
         settings.UI.RefreshInterval = Math.Clamp(settings.UI.RefreshInterval <= 0 ? 3000 : settings.UI.RefreshInterval, 3000, 60000);
         settings.UI.DefaultPageSize = new[] { 10, 20, 50, 100 }.Contains(settings.UI.DefaultPageSize) ? settings.UI.DefaultPageSize : 20;
         settings.Logging.LogLevel = NormalizeLogLevel(settings.Logging.LogLevel);
-        settings.Logging.LogPath = string.IsNullOrWhiteSpace(settings.Logging.LogPath) ? "./logs" : settings.Logging.LogPath.Trim();
+        settings.Logging.LogPath = string.IsNullOrWhiteSpace(settings.Logging.LogPath) ? "./Logs" : settings.Logging.LogPath.Trim();
+        // 历史版本默认值为 ./logs，而容器把卷挂载在 /app/Logs：Linux 大小写敏感导致日志写进容器可写层、
+        // 宿主机永远看不到。这里把旧默认值归一化为 ./Logs（用户自定义路径不受影响）。
+        if (string.Equals(settings.Logging.LogPath, "./logs", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.Logging.LogPath = "./Logs";
+        }
         settings.Logging.LogRetentionDays = Math.Clamp(settings.Logging.LogRetentionDays <= 0 ? 7 : settings.Logging.LogRetentionDays, 1, 3650);
     }
 

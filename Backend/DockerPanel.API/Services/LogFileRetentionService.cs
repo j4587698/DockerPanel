@@ -101,7 +101,13 @@ public class LogFileRetentionService : BackgroundService
 
     private string ResolveLogDirectory(string? logPath)
     {
-        var path = string.IsNullOrWhiteSpace(logPath) ? "./logs" : logPath.Trim();
+        var path = string.IsNullOrWhiteSpace(logPath) ? "./Logs" : logPath.Trim();
+        // 与 Serilog 实际写入目录保持一致（容器挂载点为 /app/Logs，大小写敏感）
+        if (string.Equals(path, "./logs", StringComparison.OrdinalIgnoreCase))
+        {
+            path = "./Logs";
+        }
+
         return Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(_environment.ContentRootPath, path));
     }
 }

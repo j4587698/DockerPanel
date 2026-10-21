@@ -3,9 +3,11 @@ using DockerPanel.API.Services;
 using DockerPanel.API.Services.Acme;
 using DockerPanel.API.Serialization;
 using DockerPanel.API.Endpoints;
+using DockerPanel.API.Utils;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using Serilog.Filters;
 using Scalar.AspNetCore;
 using Yarp.ReverseProxy.Configuration;
 using System.Text.Json;
@@ -41,11 +43,23 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("System", LogEventLevel.Warning)
     .Enrich.FromLogContext()
+    // 控制台输出全部日志（含访问日志），保证 `docker logs` 里始终能看到客户端 IP。
     .WriteTo.Console(outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
-    .WriteTo.File("logs/DockerPanel-.txt",
-        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}",
-        rollingInterval: Serilog.RollingInterval.Day,
-        retainedFileCountLimit: 30));
+    // 业务日志：排除访问日志，避免一个文件里混两种格式。
+    .WriteTo.Logger(appLog => appLog
+        .Filter.ByExcluding(Matching.WithProperty("LogType", "Access"))
+        .WriteTo.File("Logs/DockerPanel-.txt",
+            outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}",
+            rollingInterval: Serilog.RollingInterval.Day,
+            retainedFileCountLimit: 30))
+    // 访问日志：独立文件 + 纯文本模板（不带时间戳前缀），一行一条，
+    // fail2ban / awk / 日志采集器可直接按行解析，无需剥离 Serilog 头。
+    .WriteTo.Logger(accessLog => accessLog
+        .Filter.ByIncludingOnly(Matching.WithProperty("LogType", "Access"))
+        .WriteTo.File("Logs/access-.log",
+            outputTemplate: "{Message:lj}{NewLine}",
+            rollingInterval: Serilog.RollingInterval.Day,
+            retainedFileCountLimit: 30)));
 
 // 添加服务到容器
 // Minimal API 全局 JSON：源生成上下文（camelCase + 字符串枚举）+ 字典转换器。
@@ -667,29 +681,60 @@ app.Use(async (context, next) =>
     }
 });
 
-// 记录请求日志（必须在控制器之前）
+// 访问日志：nginx combined 风格单行，单独写入 Logs/access-YYYYMMDD.log（见文件头部 Serilog 配置）。
+// 客户端 IP 取 Connection.RemoteIpAddress（Kestrel 直连对端）；IPv4-mapped IPv6（::ffff:1.2.3.4）
+// 归一化成 IPv4，否则同一访客会以两种形式出现，后续按 IP 统计 / 封禁会漏计。
+// 一个请求只写一条（请求结束时），比原来「开始 + 完成」两条省一半 I/O。
 app.Use(async (context, next) =>
 {
-    var startTime = DateTime.UtcNow;
-
-    Log.Information("开始处理请求: {Method} {Path}", context.Request.Method, context.Request.Path);
+    var startTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
+    var remoteIpAddress = context.Connection.RemoteIpAddress;
+    var clientIp = remoteIpAddress is null
+        ? "-"
+        : remoteIpAddress.IsIPv4MappedToIPv6 ? remoteIpAddress.MapToIPv4().ToString() : remoteIpAddress.ToString();
 
     try
     {
         await next();
 
-        var duration = DateTime.UtcNow - startTime;
-        Log.Information("完成处理请求: {Method} {Path} - 状态码: {StatusCode} - 耗时: {Duration}ms",
-            context.Request.Method, context.Request.Path, context.Response.StatusCode, duration.TotalMilliseconds);
+        WriteAccessLog(context, clientIp, startTimestamp, context.Response.StatusCode);
+    }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+        // 客户端主动断开（导航离开 / 超时取消）：按 nginx 惯例记为 499，再交回外层中间件处理
+        WriteAccessLog(context, clientIp, startTimestamp, 499);
+        throw;
     }
     catch (Exception ex)
     {
-        var duration = DateTime.UtcNow - startTime;
-        Log.Error(ex, "处理请求异常: {Method} {Path} - 耗时: {Duration}ms",
-            context.Request.Method, context.Request.Path, duration.TotalMilliseconds);
+        Log.Error(ex, "处理请求异常: {Method} {Host}{Path} - 客户端IP: {ClientIp}",
+            context.Request.Method, context.Request.Host.Value, context.Request.Path, clientIp);
+
+        // 真正的 500 要等外层错误中间件才写入响应，这里先按 500 记账
+        WriteAccessLog(context, clientIp, startTimestamp, 500);
         throw;
     }
 });
+
+static void WriteAccessLog(HttpContext context, string clientIp, long startTimestamp, int statusCode)
+{
+    var elapsedMs = System.Diagnostics.Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+
+    Log.ForContext("LogType", "Access").Information("{AccessLogLine}",
+        AccessLogFormatter.Format(
+            DateTimeOffset.Now,
+            clientIp,
+            context.Request.Method,
+            $"{context.Request.PathBase}{context.Request.Path}{context.Request.QueryString}",
+            context.Request.Protocol,
+            statusCode,
+            context.Response.ContentLength ?? 0,
+            context.Request.Headers.Referer.ToString(),
+            context.Request.Headers.UserAgent.ToString(),
+            elapsedMs,
+            context.Request.Host.Value,
+            context.Request.Headers["X-Forwarded-For"].ToString()));
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

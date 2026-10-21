@@ -731,8 +731,22 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// 端点 Order：ASP.NET Core 排序先比 Order，Order 相同才比路由段优先级（字面量 > catch-all）。
+// 面板自身注册了 /api/auth/login、/api/auth/me、/api/auth/change-password 等端点，与容器应用的
+// 路径完全重合；默认 Order=0 时字面量段永远赢过 YARP 的 /{**catch-all}，请求根本到不了容器，
+// 还会因为 isYarp=false 被 CSRF 中间件拦成 403 CSRF_INVALID。把代理端点提到 -1 即可反超。
+const int proxyRouteOrder = -1;
+// ACME HTTP-01 校验必须比代理更靠前，否则映射域名上的证书签发/续期请求会被代理吞掉。
+const int acmeChallengeOrder = -2;
+
 // 启用YARP反向代理 - 使用数据库配置的路由
-app.MapReverseProxy();
+app.MapReverseProxy().Add(endpointBuilder =>
+{
+    if (endpointBuilder is RouteEndpointBuilder routeEndpointBuilder)
+    {
+        routeEndpointBuilder.Order = proxyRouteOrder;
+    }
+});
 
 // 添加直接的ACME挑战端点映射（ACME CA 服务器调用，必须匿名）
 app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChallengeStore challengeStore, ILogger<Program> logger) =>
@@ -753,7 +767,13 @@ app.MapGet("/.well-known/acme-challenge/{token}", async (string token, IAcmeChal
         Error = "挑战文件不存在",
         Message = token
     });
-}).AllowAnonymous();
+}).AllowAnonymous().Add(endpointBuilder =>
+{
+    if (endpointBuilder is RouteEndpointBuilder routeEndpointBuilder)
+    {
+        routeEndpointBuilder.Order = acmeChallengeOrder;
+    }
+});
 
 // 映射 Minimal API 端点（控制器已全部迁移完毕，MVC 框架不再启用）
 app.MapSettingsEndpoints();

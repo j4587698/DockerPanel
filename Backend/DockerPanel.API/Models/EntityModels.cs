@@ -147,6 +147,21 @@ public class ContainerHostConfig
     /// PID 命名空间模式，"host" 表示共享宿主机 PID
     /// </summary>
     public string? PidMode { get; set; }
+
+    /// <summary>
+    /// 设备映射（--device），重建时必须原样带回，否则 GPU / USB 设备会全部消失
+    /// </summary>
+    public List<DeviceMapping>? Devices { get; set; }
+
+    /// <summary>
+    /// tmpfs 挂载（容器路径 -> 挂载选项）
+    /// </summary>
+    public Dictionary<string, string>? Tmpfs { get; set; }
+
+    /// <summary>
+    /// ulimit 限制，重建时丢失会退回默认值（典型症状是 nofile 变小导致连接数受限）
+    /// </summary>
+    public List<UlimitConfig>? Ulimits { get; set; }
 }
 
 /// <summary>

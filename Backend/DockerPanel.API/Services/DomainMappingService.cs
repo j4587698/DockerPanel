@@ -286,15 +286,17 @@ public class DomainMappingService
         {
             var container = await _containerService.GetContainerAsync(containerId);
             var mappings = new List<DomainMapping>();
-            
+
+            // 这里必须包含已禁用的映射：删除容器时如果只清理启用的，
+            // 被禁用的那条会永远挂在已删除的容器 ID 上，变成再也清不掉的僵尸记录。
             if (container != null && !string.IsNullOrEmpty(container.Name))
             {
-                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerNameAsync(container.Name);
+                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerNameAsync(container.Name, includeDisabled: true);
             }
-            
+
             if (mappings.Count == 0)
             {
-                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerIdAsync(containerId);
+                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerIdAsync(containerId, includeDisabled: true);
             }
 
             foreach (var mapping in mappings)
@@ -328,30 +330,29 @@ public class DomainMappingService
         try
         {
             var container = await _containerService.GetContainerAsync(containerId);
-            var mappings = new List<DomainMapping>();
-            
+            var allMappings = new List<DomainMapping>();
+
             if (container != null && !string.IsNullOrEmpty(container.Name))
             {
-                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerNameAsync(container.Name);
-                
+                // 修复阶段必须包含已禁用的映射，否则它们会一直挂在旧容器 ID 上变成僵尸记录
+                allMappings = await _reverseProxyFactory.GetDomainMappingsByContainerNameAsync(container.Name, includeDisabled: true);
+
                 // 自动修复外部重建导致的 ContainerId 变更
-                foreach (var mapping in mappings)
+                foreach (var mapping in allMappings.Where(m => m.ContainerId != containerId))
                 {
-                    if (mapping.ContainerId != containerId)
-                    {
-                        mapping.ContainerId = containerId;
-                        await _reverseProxyFactory.UpdateDomainMappingAsync(mapping);
-                        _logger.LogInformation("已自动修复映射 {Id} 的 ContainerId 为 {NewId}", mapping.Id, containerId);
-                    }
+                    mapping.ContainerId = containerId;
+                    await _reverseProxyFactory.UpdateDomainMappingAsync(mapping);
+                    _logger.LogInformation("已自动修复映射 {Id} 的 ContainerId 为 {NewId}", mapping.Id, containerId);
                 }
             }
-            
-            if (mappings.Count == 0)
+
+            if (allMappings.Count == 0)
             {
-                mappings = await _reverseProxyFactory.GetDomainMappingsByContainerIdAsync(containerId);
+                allMappings = await _reverseProxyFactory.GetDomainMappingsByContainerIdAsync(containerId, includeDisabled: true);
             }
 
-            foreach (var mapping in mappings)
+            // 对外只展示启用的映射，保持原有行为
+            foreach (var mapping in allMappings.Where(m => m.Enabled))
             {
                 result.Add(new DomainMappingInfo
                 {

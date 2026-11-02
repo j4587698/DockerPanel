@@ -530,10 +530,10 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
     /// <summary>
     /// 根据容器ID获取域名映射
     /// </summary>
-    public Task<List<DomainMapping>> GetDomainMappingsByContainerIdAsync(string containerId)
+    public Task<List<DomainMapping>> GetDomainMappingsByContainerIdAsync(string containerId, bool includeDisabled = false)
     {
         var mappings = _domainMappings.Values
-            .Where(m => m.ContainerId == containerId && m.Enabled)
+            .Where(m => m.ContainerId == containerId && (includeDisabled || m.Enabled))
             .OrderByDescending(m => m.Priority)
             .ToList();
 
@@ -543,10 +543,10 @@ public class ReverseProxyFactory : IReverseProxyFactory, IProxyConfigProvider, I
     /// <summary>
     /// 根据容器名称获取域名映射
     /// </summary>
-    public Task<List<DomainMapping>> GetDomainMappingsByContainerNameAsync(string containerName)
+    public Task<List<DomainMapping>> GetDomainMappingsByContainerNameAsync(string containerName, bool includeDisabled = false)
     {
         var mappings = _domainMappings.Values
-            .Where(m => m.ContainerName == containerName && m.Enabled)
+            .Where(m => m.ContainerName == containerName && (includeDisabled || m.Enabled))
             .OrderByDescending(m => m.Priority)
             .ToList();
 

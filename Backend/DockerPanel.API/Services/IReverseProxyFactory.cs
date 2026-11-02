@@ -73,12 +73,18 @@ public interface IReverseProxyFactory
     /// <summary>
     /// 根据容器ID获取域名映射
     /// </summary>
-    Task<List<DomainMapping>> GetDomainMappingsByContainerIdAsync(string containerId);
+    /// <param name="containerId">容器 ID</param>
+    /// <param name="includeDisabled">
+    /// 是否包含已禁用的映射。清理/修复场景必须传 true，否则被禁用的映射会残留成僵尸记录。
+    /// </param>
+    Task<List<DomainMapping>> GetDomainMappingsByContainerIdAsync(string containerId, bool includeDisabled = false);
 
     /// <summary>
     /// 根据容器名称获取域名映射
     /// </summary>
-    Task<List<DomainMapping>> GetDomainMappingsByContainerNameAsync(string containerName);
+    /// <param name="containerName">容器名称</param>
+    /// <param name="includeDisabled">是否包含已禁用的映射</param>
+    Task<List<DomainMapping>> GetDomainMappingsByContainerNameAsync(string containerName, bool includeDisabled = false);
 
     /// <summary>
     /// 从数据库构建YARP配置

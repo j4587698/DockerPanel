@@ -399,6 +399,7 @@ public class DockerEngine : IContainerEngine, IDisposable
             }
 
             // 解析重启策略
+            var config = response.Config;
             var restartPolicyName = response.HostConfig?.RestartPolicy?.Name.ToString()?.ToLower() ?? "no";
             var restartPolicy = new Models.RestartPolicy
             {
@@ -406,11 +407,82 @@ public class DockerEngine : IContainerEngine, IDisposable
                 MaximumRetryCount = (int)(response.HostConfig?.RestartPolicy?.MaximumRetryCount ?? 0L)
             };
 
+            // 解析主机配置。重建容器完全依赖这些字段：漏掉任何一项，
+            // 重建后就会静默丢失（特权模式、只读根分区、DNS、capabilities 等）。
+            var hostCfg = response.HostConfig;
+            var hostConfigModel = new Models.ContainerHostConfig
+            {
+                NetworkMode = hostCfg?.NetworkMode,
+                Privileged = hostCfg?.Privileged ?? false,
+                AutoRemove = hostCfg?.AutoRemove ?? false,
+                ReadOnlyRootfs = hostCfg?.ReadonlyRootfs ?? false,
+                Dns = hostCfg?.DNS?.ToList(),
+                DnsSearch = hostCfg?.DNSSearch?.ToList(),
+                ExtraHosts = hostCfg?.ExtraHosts?.ToList(),
+                CapAdd = hostCfg?.CapAdd?.ToList(),
+                CapDrop = hostCfg?.CapDrop?.ToList(),
+                ShmSize = hostCfg?.ShmSize,
+                Init = hostCfg?.Init ?? false,
+                Runtime = hostCfg?.Runtime,
+                PidMode = hostCfg?.PidMode
+            };
+
+            // 解析资源限制。只有真正设过限制时才生成对象，
+            // 否则重建会写入一堆 0，把"未限制"变成"限制为 0"。
+            Models.ResourceLimits? resources = null;
+            if (hostCfg != null &&
+                (hostCfg.Memory > 0 || hostCfg.MemorySwap > 0 || hostCfg.MemoryReservation > 0 ||
+                 hostCfg.CPUQuota > 0 || hostCfg.CPUPeriod > 0 || hostCfg.CPUShares > 0 ||
+                 !string.IsNullOrEmpty(hostCfg.CpusetCpus) || (hostCfg.PidsLimit ?? 0) > 0))
+            {
+                resources = new Models.ResourceLimits
+                {
+                    MemoryLimit = hostCfg.Memory > 0 ? hostCfg.Memory.ToString() : null,
+                    MemorySwap = hostCfg.MemorySwap > 0 ? hostCfg.MemorySwap.ToString() : null,
+                    MemoryReservation = hostCfg.MemoryReservation > 0 ? hostCfg.MemoryReservation.ToString() : null,
+                    CpuQuota = hostCfg.CPUQuota > 0 ? hostCfg.CPUQuota.ToString() : null,
+                    CpuPeriod = hostCfg.CPUPeriod > 0 ? hostCfg.CPUPeriod.ToString() : null,
+                    CpuShares = hostCfg.CPUShares > 0 ? hostCfg.CPUShares.ToString() : null,
+                    CpusetCpus = hostCfg.CpusetCpus,
+                    PidsLimit = hostCfg.PidsLimit,
+                    ShmSize = hostCfg.ShmSize > 0 ? hostCfg.ShmSize.ToString() : null
+                };
+            }
+
+            // 解析健康检查（Docker 里是纳秒级 TimeSpan，这里统一换算成秒，与创建请求保持一致）
+            Models.HealthConfig? healthConfigModel = null;
+            var imageHealth = config?.Healthcheck;
+            if (imageHealth?.Test != null && imageHealth.Test.Count > 0)
+            {
+                healthConfigModel = new Models.HealthConfig
+                {
+                    Test = imageHealth.Test.ToList(),
+                    Interval = (long)(imageHealth.Interval?.TotalSeconds ?? 0),
+                    Timeout = (long)(imageHealth.Timeout?.TotalSeconds ?? 0),
+                    Retries = (int)(imageHealth.Retries ?? 0),
+                    StartPeriod = (long)(imageHealth.StartPeriod?.TotalSeconds ?? 0)
+                };
+            }
+
+            // 解析日志驱动与轮转配置，重建时保留，避免日志大小限制失效后撑爆磁盘
+            Models.LogConfig? logConfigModel = null;
+            if (hostCfg?.LogConfig != null && !string.IsNullOrEmpty(hostCfg.LogConfig.Type))
+            {
+                logConfigModel = new Models.LogConfig
+                {
+                    Driver = hostCfg.LogConfig.Type,
+                    MaxSize = hostCfg.LogConfig.Config != null &&
+                              hostCfg.LogConfig.Config.TryGetValue("max-size", out var maxSize) ? maxSize : null,
+                    MaxFile = hostCfg.LogConfig.Config != null &&
+                              hostCfg.LogConfig.Config.TryGetValue("max-file", out var maxFile) &&
+                              int.TryParse(maxFile, out var maxFileCount) ? maxFileCount : null
+                };
+            }
+
             _logger.LogInformation("最终端口数: {PortCount}, 网络数: {NetworkCount}", ports.Count, networkSettings.Networks.Count);
 
             // 解析日期字符串
             var state = response.State;
-            var config = response.Config;
             DateTime? startedAt = null;
             DateTime? finishedAt = null;
             if (!string.IsNullOrEmpty(state?.StartedAt) && DateTime.TryParse(state.StartedAt, out var startTime))
@@ -455,6 +527,15 @@ public class DockerEngine : IContainerEngine, IDisposable
                 NetworkSettings = networkSettings,
                 Labels = config?.Labels?.ToDictionary(k => k.Key, v => v.Value) ?? new Dictionary<string, string>(),
                 RestartPolicy = restartPolicy,
+                Resources = resources,
+                Health = healthConfigModel,
+                LogConfig = logConfigModel,
+                HostConfig = hostConfigModel,
+                User = config?.User,
+                Tty = config?.Tty ?? false,
+                OpenStdin = config?.OpenStdin ?? false,
+                StopSignal = config?.StopSignal,
+                StopTimeout = config?.StopTimeout != null ? (int?)Convert.ToInt32(config.StopTimeout) : null,
                 Mounts = mounts,
                 HostName = config?.Hostname ?? "",
                 NodeId = await ResolveNodeIdAsync(nodeId)

@@ -38,6 +38,36 @@ public class ContainerInfo
     public string NodeId { get; set; } = string.Empty;
     public string HostName { get; set; } = string.Empty;
     public ContainerHostConfig? HostConfig { get; set; }
+
+    /// <summary>
+    /// 运行用户（--user），重建容器时需要原样带上
+    /// </summary>
+    public string? User { get; set; }
+
+    /// <summary>
+    /// 是否分配 TTY（-t），重建时需要保留，否则部分交互式镜像行为改变
+    /// </summary>
+    public bool Tty { get; set; }
+
+    /// <summary>
+    /// 是否保持标准输入打开（-i）
+    /// </summary>
+    public bool OpenStdin { get; set; }
+
+    /// <summary>
+    /// 日志驱动与轮转配置，重建时需要保留，否则日志大小限制失效
+    /// </summary>
+    public LogConfig? LogConfig { get; set; }
+
+    /// <summary>
+    /// 停止信号（--stop-signal）
+    /// </summary>
+    public string? StopSignal { get; set; }
+
+    /// <summary>
+    /// 停止超时秒数（--stop-timeout）
+    /// </summary>
+    public int? StopTimeout { get; set; }
     
     /// <summary>
     /// 域名映射（反向代理配置），非持久化属性
@@ -67,6 +97,56 @@ public class ContainerHostConfig
     public RestartPolicy? RestartPolicy { get; set; }
     public bool Privileged { get; set; }
     public bool AutoRemove { get; set; }
+
+    /// <summary>
+    /// 只读根文件系统
+    /// </summary>
+    public bool ReadOnlyRootfs { get; set; }
+
+    /// <summary>
+    /// 自定义 DNS 服务器
+    /// </summary>
+    public List<string>? Dns { get; set; }
+
+    /// <summary>
+    /// DNS 搜索域
+    /// </summary>
+    public List<string>? DnsSearch { get; set; }
+
+    /// <summary>
+    /// 额外的 hosts 记录（host:ip）
+    /// </summary>
+    public List<string>? ExtraHosts { get; set; }
+
+    /// <summary>
+    /// 额外授予的 Linux capabilities
+    /// </summary>
+    public List<string>? CapAdd { get; set; }
+
+    /// <summary>
+    /// 显式移除的 Linux capabilities
+    /// </summary>
+    public List<string>? CapDrop { get; set; }
+
+    /// <summary>
+    /// /dev/shm 大小（字节）
+    /// </summary>
+    public long? ShmSize { get; set; }
+
+    /// <summary>
+    /// 是否使用 tini 作为 1 号进程
+    /// </summary>
+    public bool Init { get; set; }
+
+    /// <summary>
+    /// 容器运行时（runc / nvidia 等）
+    /// </summary>
+    public string? Runtime { get; set; }
+
+    /// <summary>
+    /// PID 命名空间模式，"host" 表示共享宿主机 PID
+    /// </summary>
+    public string? PidMode { get; set; }
 }
 
 /// <summary>

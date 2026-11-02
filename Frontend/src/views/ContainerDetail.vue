@@ -127,6 +127,7 @@
             :container-id="container?.id || ''"
             :container-name="container?.name || ''"
             :container-image="container?.image || ''"
+            @container-updated="handleContainerReplaced"
           />
 
           <!-- FILES TAB -->
@@ -631,6 +632,17 @@ const handleEditSuccess = async (newContainerId?: string) => {
     await router.replace(`/containers/${newContainerId}`)
   } else {
     // 重新加载当前页面数据
+    await loadContainerDetail()
+  }
+}
+
+// 自动升级会重建容器并生成新 ID，需要跟着切过去，
+// 否则当前页面会继续用已删除的旧容器 ID 请求日志/终端/统计/启停
+const handleContainerReplaced = async (newContainerId: string) => {
+  await containersStore.fetchContainers()
+  if (newContainerId && newContainerId !== route.params.id) {
+    await router.replace(`/containers/${newContainerId}`)
+  } else {
     await loadContainerDetail()
   }
 }

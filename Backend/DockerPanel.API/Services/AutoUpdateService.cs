@@ -106,6 +106,12 @@ public class UpdateResult
 {
     public bool Success { get; set; }
     public string ContainerId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 重建后的新容器 ID（容器重建会生成新 ID，前端需要据此切换）
+    /// </summary>
+    public string? NewContainerId { get; set; }
+
     public string? OldDigest { get; set; }
     public string? NewDigest { get; set; }
     public string? ErrorMessage { get; set; }
@@ -160,7 +166,55 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
 
     public async Task<ContainerAutoUpdateConfig?> GetConfigAsync(string containerId)
     {
-        return _db.AutoUpdateConfigs.FindOne(c => c.ContainerId == containerId);
+        var config = _db.AutoUpdateConfigs.FindOne(c => c.ContainerId == containerId);
+        if (config != null)
+        {
+            return config;
+        }
+
+        // 容器被外部工具（docker compose / watchtower）重建后 ID 会变，
+        // 旧配置仍挂在已删除的 ID 上。这里按容器名兜底认领一次，
+        // 避免新容器上开关显示为"未配置"、用户以为自动升级丢了。
+        return await TryAdoptStaleConfigAsync(containerId);
+    }
+
+    /// <summary>
+    /// 按容器名认领指向旧容器 ID 的自动更新配置。
+    /// </summary>
+    private async Task<ContainerAutoUpdateConfig?> TryAdoptStaleConfigAsync(string containerId)
+    {
+        try
+        {
+            var container = await _containerEngine.GetContainerAsync(containerId);
+            var name = (container?.Name ?? string.Empty).TrimStart('/');
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            var stale = _db.AutoUpdateConfigs
+                .Find(c => c.ContainerName == name && c.ContainerId != containerId)
+                .FirstOrDefault();
+
+            if (stale == null)
+            {
+                return null;
+            }
+
+            // 旧 ID 上还有容器活着说明不是重建，别抢别人的配置
+            if (await _containerEngine.GetContainerAsync(stale.ContainerId) != null)
+            {
+                return null;
+            }
+
+            await MigrateConfigToNewContainerAsync(stale, container!);
+            return stale;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "按容器名认领自动更新配置失败: {ContainerId}", containerId);
+            return null;
+        }
     }
 
     public async Task<ContainerAutoUpdateConfig> SetConfigAsync(string containerId, ContainerAutoUpdateConfig config)
@@ -189,6 +243,97 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
     public async Task DeleteConfigAsync(string containerId)
     {
         _db.AutoUpdateConfigs.DeleteMany(c => c.ContainerId == containerId);
+    }
+
+    /// <summary>
+    /// 把自动更新配置迁移到重建后的新容器上（容器重建会生成新的容器 ID）
+    /// </summary>
+    private async Task MigrateConfigToNewContainerAsync(ContainerAutoUpdateConfig config, ContainerInfo newContainer)
+    {
+        var oldContainerId = config.ContainerId;
+        var newName = (newContainer.Name ?? string.Empty).TrimStart('/');
+
+        // 新容器上可能已存在一条配置（历史遗留或用户手动创建），
+        // 以当前这条正在升级的配置为准，删掉重复记录，避免配置越积越多。
+        var duplicates = _db.AutoUpdateConfigs
+            .Find(c => c.ContainerId == newContainer.Id)
+            .Where(c => c.Id != config.Id)
+            .ToList();
+
+        foreach (var duplicate in duplicates)
+        {
+            _logger.LogWarning("删除重复的自动更新配置: 容器 {ContainerId}, 配置 {ConfigId}",
+                newContainer.Id, duplicate.Id);
+            _db.AutoUpdateConfigs.Delete(duplicate.Id);
+        }
+
+        config.ContainerId = newContainer.Id;
+        config.ContainerName = newName;
+        config.UpdatedAt = DateTime.UtcNow;
+        _db.AutoUpdateConfigs.Update(config);
+
+        _logger.LogInformation("自动更新配置已迁移到新容器: {OldId} -> {NewId} ({Name})",
+            oldContainerId, newContainer.Id, newName);
+    }
+
+    /// <summary>
+    /// 对账：ContainerId 已失效（容器被面板重建、被 docker compose 重建或已被删除）的配置，
+    /// 按容器名迁移到现存容器上。
+    /// </summary>
+    private async Task<int> ReconcileStaleConfigsAsync()
+    {
+        try
+        {
+            var configs = _db.AutoUpdateConfigs.FindAll().ToList();
+            if (configs.Count == 0)
+            {
+                return 0;
+            }
+
+            var containers = (await _containerService.GetContainersAsync(all: true)).ToList();
+            if (containers.Count == 0)
+            {
+                return 0;
+            }
+
+            var existingIds = containers
+                .Select(c => c.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var byName = containers
+                .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+                .GroupBy(c => c.Name!.TrimStart('/'), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var migrated = 0;
+            foreach (var config in configs)
+            {
+                if (existingIds.Contains(config.ContainerId) || string.IsNullOrWhiteSpace(config.ContainerName))
+                {
+                    continue;
+                }
+
+                if (!byName.TryGetValue(config.ContainerName.TrimStart('/'), out var match))
+                {
+                    continue;
+                }
+
+                await MigrateConfigToNewContainerAsync(config, match);
+                migrated++;
+            }
+
+            if (migrated > 0)
+            {
+                _logger.LogInformation("自动更新配置对账完成：{Count} 条失效配置已按容器名迁移到新容器", migrated);
+            }
+
+            return migrated;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "自动更新配置对账失败");
+            return 0;
+        }
     }
 
     public async Task<ImageUpdateCheckResult> CheckUpdateAsync(string containerId)
@@ -265,6 +410,10 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
     public async Task<List<ImageUpdateCheckResult>> CheckAllUpdatesAsync()
     {
         var results = new List<ImageUpdateCheckResult>();
+
+        // 先修复失效的容器 ID，否则整轮检查都会拿旧 ID 去查，全部返回"容器不存在"
+        await ReconcileStaleConfigsAsync();
+
         var configs = _db.AutoUpdateConfigs.Find(c => c.EnableUpdateCheck).ToList();
         
         foreach (var config in configs)
@@ -341,6 +490,7 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             result.NewDigest = newImage?.Id;
             result.OldDigest = config.CurrentLocalDigest;
             
+            ContainerInfo? newContainer = null;
             if (!pullOnly)
             {
                 // 更新状态为正在重启
@@ -351,7 +501,16 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
                 await PushPullProgressAsync(pullId, container.Image ?? "", "重启中", 90, "正在重建容器并重新启动...");
 
                 // 重建容器（删除并使用相同配置重新创建），使容器真正使用刚拉取的新镜像
-                await _containerService.RecreateContainerAsync(containerId, pullLatest: false, autoStart: true);
+                newContainer = await _containerService.RecreateContainerAsync(containerId, pullLatest: false, autoStart: true);
+            }
+
+            // 重建会产生全新的容器 ID，自动更新配置必须跟着迁移。
+            // 否则配置仍挂在已被删除的旧容器上：新容器读不到配置（开关显示为关闭），
+            // 旧配置变成僵尸，每轮检查都会报"容器不存在"，之后也不会再自动升级。
+            if (newContainer != null && !string.Equals(newContainer.Id, containerId, StringComparison.Ordinal))
+            {
+                await MigrateConfigToNewContainerAsync(config, newContainer);
+                result.NewContainerId = newContainer.Id;
             }
             
             // 更新配置
@@ -391,8 +550,9 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             // 广播失败状态，让前端收起进度
             await PushPullProgressAsync($"update-{containerId}", "", "失败", 100, $"升级失败: {ex.Message}");
 
-            // 更新失败状态
-            var config = await GetConfigAsync(containerId);
+            // 更新失败状态。若重建已经完成但后续步骤失败，配置已迁移到新容器，
+            // 此时必须按新 ID 回查，否则失败状态会写不进去。
+            var config = await GetConfigAsync(result.NewContainerId ?? containerId);
             if (config != null)
             {
                 config.Status = AutoUpdateStatus.UpdateFailed;
@@ -433,6 +593,8 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
 
     public async Task<List<ContainerAutoUpdateConfig>> GetAllConfigsAsync()
     {
+        // 读取前先对账，把指向已删除容器的僵尸配置按容器名修好
+        await ReconcileStaleConfigsAsync();
         return _db.AutoUpdateConfigs.FindAll().ToList();
     }
 

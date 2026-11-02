@@ -58,6 +58,9 @@ namespace DockerPanel.API.Endpoints
             group.MapPost("certificates/{certificateId}/renew", RenewCertificate).RequireWriteAccess();
             group.MapPost("certificates/{certificateId}/auto-renewal/enable", EnableAutoRenewal).RequireWriteAccess();
             group.MapPost("certificates/{certificateId}/auto-renewal/disable", DisableAutoRenewal).RequireWriteAccess();
+            // 兼容前端实际调用的路径（auto-renew 而非 auto-renewal），此前两边不一致导致开关请求 404
+            group.MapPost("certificates/{certificateId}/auto-renew/enable", EnableAutoRenewal).RequireWriteAccess();
+            group.MapPost("certificates/{certificateId}/auto-renew/disable", DisableAutoRenewal).RequireWriteAccess();
             group.MapPost("certificates/{certificateId}/retry", RetryCertificate).RequireWriteAccess();
             group.MapPost("certificates/{certificateId}/revoke", RevokeCertificate).RequireWriteAccess();
             group.MapDelete("certificates/{certificateId}", DeleteCertificate).RequireWriteAccess();
@@ -930,7 +933,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static IResult EnableAutoRenewal(string certificateId, TinyDbContext dbContext, ILocalizationService localization, ILogger<LoggingTag> logger)
+        private static async Task<IResult> EnableAutoRenewal(string certificateId, TinyDbContext dbContext, ICertificateAutoService certificateAutoService, ILocalizationService localization, ILogger<LoggingTag> logger)
         {
             logger.LogInformation("启用证书自动续期: {CertificateId}", certificateId);
             try
@@ -943,6 +946,15 @@ namespace DockerPanel.API.Endpoints
                     certificate.AutoRenewalEnabled = true;
                     certificate.UpdatedAt = DateTime.UtcNow;
                     certificatesCollection.Update(certificate);
+
+                    // 同步到续期服务：否则定时续期任务因内存中缺少配置而直接失败
+                    var configured = await certificateAutoService.EnableAutoRenewalAsync(certificate.Id);
+                    if (!configured)
+                    {
+                        logger.LogWarning("证书 {CertificateId} 已标记自动续期，但续期配置未能建立（可能缺少 ACME 账户信息），续期时仍会失败",
+                            certificate.Id);
+                    }
+
                     logger.LogInformation("已启用证书自动续期: {CertificateId}", certificateId);
                     return TypedResults.Ok(new ActionBooleanResponse { Success = true, Message = localization.GetMessage("certificate.autoRenewEnabled") });
                 }
@@ -968,7 +980,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static IResult DisableAutoRenewal(string certificateId, TinyDbContext dbContext, ILocalizationService localization, ILogger<LoggingTag> logger)
+        private static async Task<IResult> DisableAutoRenewal(string certificateId, TinyDbContext dbContext, ICertificateAutoService certificateAutoService, ILocalizationService localization, ILogger<LoggingTag> logger)
         {
             logger.LogInformation("禁用证书自动续期: {CertificateId}", certificateId);
             try
@@ -981,6 +993,10 @@ namespace DockerPanel.API.Endpoints
                     certificate.AutoRenewalEnabled = false;
                     certificate.UpdatedAt = DateTime.UtcNow;
                     certificatesCollection.Update(certificate);
+
+                    // 同步禁用续期服务中的配置
+                    await certificateAutoService.DisableAutoRenewalAsync(certificate.Id);
+
                     logger.LogInformation("已禁用证书自动续期: {CertificateId}", certificateId);
                     return TypedResults.Ok(new ActionBooleanResponse { Success = true, Message = localization.GetMessage("certificate.autoRenewDisabled") });
                 }

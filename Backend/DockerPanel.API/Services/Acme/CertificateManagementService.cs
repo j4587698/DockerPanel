@@ -168,9 +168,16 @@ namespace DockerPanel.API.Services.Acme
             {
                 _logger.LogInformation("获取即将到期的证书: 天数={Days}", daysBeforeExpiry);
 
-                var expiryDate = DateTime.UtcNow.AddDays(daysBeforeExpiry);
+                var now = DateTime.UtcNow;
+                var expiryDate = now.AddDays(daysBeforeExpiry);
+
+                // 注意：这里必须包含"已经过期"的证书（ExpiresAt <= now）。
+                // 之前只取 now < ExpiresAt <= now+15d，一旦错过 15 天窗口（例如服务停机、
+                // 续期连续失败），证书就再也不会进入续期队列，只能永久过期。
                 var expiringRecords = _certificateCollection
-                    .Find(x => x.ExpiresAt <= expiryDate && x.ExpiresAt > DateTime.UtcNow && x.Status != "revoked")
+                    .FindAll()
+                    .Where(x => x.ExpiresAt <= expiryDate &&
+                                !IsTerminalCertificateStatus(x.Status))
                     .ToList();
 
                 var expiringCertificates = expiringRecords.Select(record => new ExpiringCertificate
@@ -178,10 +185,10 @@ namespace DockerPanel.API.Services.Acme
                     CertificateId = record.Id.ToString(),
                     Domains = record.Domains,
                     ExpiresAt = record.ExpiresAt,
-                    DaysUntilExpiry = (int)(record.ExpiresAt - DateTime.UtcNow).TotalDays,
+                    DaysUntilExpiry = (int)Math.Floor((record.ExpiresAt - now).TotalDays),
                     AutoRenewalEnabled = record.AutoRenewalEnabled,
                     NextRenewalAttempt = record.NextRenewalAttempt,
-                    Status = record.Status,
+                    Status = record.ExpiresAt <= now ? "expired" : record.Status,
                     AccountId = record.AccountId,
                     NotificationEmails = record.NotificationEmails ?? new List<string>()
                 }).ToList();
@@ -315,7 +322,49 @@ namespace DockerPanel.API.Services.Acme
             {
                 _logger.LogInformation("启用证书自动续期: {CertificateId}", certificateId);
 
-                var result = await _certificateAutoService.SetAutoRenewalConfigurationAsync(certificateId, configuration);
+                // 前端/批量操作可能只传了一个空配置，这里补全关键字段，
+                // 否则会因为 AccountId 为空导致配置校验失败，用户"开启了自动续期"却从未生效。
+                var effectiveConfig = configuration ?? new AutoRenewalConfiguration();
+                var record = FindCertificateById(certificateId);
+
+                if (string.IsNullOrWhiteSpace(effectiveConfig.AccountId))
+                {
+                    effectiveConfig.AccountId = record?.AccountId ?? string.Empty;
+                }
+                if (effectiveConfig.RenewalDaysBeforeExpiry <= 0)
+                {
+                    var globalConfig = await _certificateAutoService.GetGlobalAutoRenewalConfigurationAsync();
+                    effectiveConfig.RenewalDaysBeforeExpiry = globalConfig.DefaultRenewalDaysBeforeExpiry > 0
+                        ? globalConfig.DefaultRenewalDaysBeforeExpiry
+                        : 15;
+                }
+                if (effectiveConfig.NotificationEmails.Count == 0 && record?.NotificationEmails != null)
+                {
+                    effectiveConfig.NotificationEmails = record.NotificationEmails;
+                }
+                effectiveConfig.AutoRenewalEnabled = true;
+
+                CertificateAutoRenewalConfigResult result;
+                if (effectiveConfig.Settings.Count == 0 && record != null)
+                {
+                    // 有证书记录但没有签发参数时，让自动续期服务按证书记录推导
+                    // （账户、挑战方式、DNS 凭据等），否则配置校验会因参数缺失而失败
+                    var enabled = await _certificateAutoService.EnableAutoRenewalAsync(certificateId);
+                    var savedConfig = await _certificateAutoService.GetAutoRenewalConfigurationAsync(certificateId);
+                    result = new CertificateAutoRenewalConfigResult
+                    {
+                        Success = enabled,
+                        Message = enabled ? "启用自动续期成功" : "启用自动续期失败：无法根据证书记录推导续期参数",
+                        CertificateId = certificateId,
+                        Configuration = savedConfig ?? effectiveConfig,
+                        ConfiguredAt = DateTime.UtcNow,
+                        ValidationErrors = enabled ? new List<string>() : new List<string> { "续期配置不完整" }
+                    };
+                }
+                else
+                {
+                    result = await _certificateAutoService.SetAutoRenewalConfigurationAsync(certificateId, effectiveConfig);
+                }
 
                 await RecordOperationAsync(certificateId, "enable-auto-renewal",
                     result.Success ? "启用自动续期成功" : "启用自动续期失败",
@@ -1442,6 +1491,22 @@ namespace DockerPanel.API.Services.Acme
                 return domains[0].StartsWith("*.") ? "wildcard" : "single";
             }
             return domains.Any(d => d.StartsWith("*.")) ? "wildcard" : "multi-domain";
+        }
+
+        /// <summary>
+        /// 判断证书状态是否为"终态"（已撤销/已归档/已被替换），这些证书不再参与自动续期
+        /// </summary>
+        private static bool IsTerminalCertificateStatus(string? status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                return false;
+            }
+
+            return status.Equals("revoked", StringComparison.OrdinalIgnoreCase)
+                || status.Equals("archived", StringComparison.OrdinalIgnoreCase)
+                || status.Equals("superseded", StringComparison.OrdinalIgnoreCase)
+                || status.Equals("deleted", StringComparison.OrdinalIgnoreCase);
         }
 
         private string ExportToPem(CertificateRecord record, bool includePrivateKey)

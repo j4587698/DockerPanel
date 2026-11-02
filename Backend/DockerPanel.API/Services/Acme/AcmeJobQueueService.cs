@@ -47,6 +47,58 @@ namespace DockerPanel.API.Services.Acme
             }
         }
 
+        /// <summary>
+        /// 判断指定类型 + 指定证书是否已存在待处理/处理中的任务（用于入队去重）
+        /// </summary>
+        public async Task<bool> HasActiveJobAsync(string jobType, string certificateId)
+        {
+            try
+            {
+                await Task.CompletedTask;
+
+                if (string.IsNullOrWhiteSpace(certificateId))
+                {
+                    return false;
+                }
+
+                var collection = _dbContext.GetCollection<AcmeJobRecord>(DbCollections.AcmeJobs);
+                var activeJobs = collection
+                    .FindAll()
+                    .Where(j => string.Equals(j.JobType, jobType, StringComparison.OrdinalIgnoreCase) &&
+                                (j.Status == "Pending" || j.Status == "Processing"))
+                    .ToList();
+
+                foreach (var job in activeJobs)
+                {
+                    if (string.IsNullOrWhiteSpace(job.Payload))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        using var document = JsonDocument.Parse(job.Payload);
+                        if (document.RootElement.TryGetProperty("CertificateId", out var property) &&
+                            string.Equals(property.GetString(), certificateId, StringComparison.Ordinal))
+                        {
+                            return true;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // 忽略无法解析的历史任务载荷
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "检查重复 ACME 任务失败: JobType={JobType}, CertificateId={CertificateId}", jobType, certificateId);
+                return false;
+            }
+        }
+
         public async Task<AcmeJobRecord?> DequeueAsync()
         {
             try
@@ -58,7 +110,7 @@ namespace DockerPanel.API.Services.Acme
                 var jobs = collection.FindAll().ToList();
                 
                 var jobToProcess = jobs.FirstOrDefault(j => 
-                    j.Status == "Pending" || 
+                    (j.Status == "Pending" && (j.NextAttemptAt == null || j.NextAttemptAt <= DateTime.UtcNow)) ||
                     (j.Status == "Processing" && j.UpdatedAt < timeoutThreshold));
 
                 if (jobToProcess != null)
@@ -114,6 +166,8 @@ namespace DockerPanel.API.Services.Acme
                     else
                     {
                         job.Status = "Pending"; // 允许重试
+                        // 退避重试：5 分钟、10 分钟，避免失败后立即重复向 CA 下单触发限流
+                        job.NextAttemptAt = DateTime.UtcNow.AddMinutes(5 * job.RetryCount);
                     }
                     
                     job.ErrorMessage = errorMessage;

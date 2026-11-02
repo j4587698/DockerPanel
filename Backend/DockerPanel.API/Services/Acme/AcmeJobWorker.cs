@@ -70,7 +70,17 @@ namespace DockerPanel.API.Services.Acme
                     var payload = JsonSerializer.Deserialize<AutoRenewalJobPayload>(job.Payload, DockerPanelJsonContext.Default.AutoRenewalJobPayload);
                     if (payload != null && !string.IsNullOrEmpty(payload.CertificateId))
                     {
-                        await autoService.AutoRenewCertificateAsync(payload.CertificateId, stoppingToken);
+                        var renewalResult = await autoService.AutoRenewCertificateAsync(payload.CertificateId, stoppingToken);
+
+                        // 关键：续期失败必须抛出，否则任务会被标记为 Completed，
+                        // 失败被静默吞掉，证书就这么一直拖到过期。
+                        if (!renewalResult.Success)
+                        {
+                            var reason = renewalResult.Errors.Count > 0
+                                ? string.Join("; ", renewalResult.Errors)
+                                : renewalResult.Message;
+                            throw new InvalidOperationException($"证书续期失败: {reason}");
+                        }
                     }
                     else
                     {

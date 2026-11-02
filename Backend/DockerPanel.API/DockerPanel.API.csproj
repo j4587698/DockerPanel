@@ -45,7 +45,9 @@
     <PackageReference Include="AcmeForge" Version="0.1.1" />
     <PackageReference Include="DnsClient" Version="1.8.0" />
     <PackageReference Include="Docker.DotNet.Enhanced" Version="4.3.3" />
-    <PackageReference Include="TinyDb" Version="0.6.2" />
+    <!-- 注意：不要降级到 0.6.2 及以下，该版本嵌套对象内的 DateTime? 无法反序列化，
+         会导致包含该字段的整张表 FindAll() 抛 NotSupportedException（见 TinyDbAotCompatibilityTests） -->
+    <PackageReference Include="TinyDb" Version="0.6.3" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />

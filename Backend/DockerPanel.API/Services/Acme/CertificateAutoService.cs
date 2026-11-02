@@ -33,6 +33,7 @@ namespace DockerPanel.API.Services.Acme
         private readonly ConcurrentDictionary<string, AutoRenewalConfiguration> _renewalConfigurations;
         private readonly SemaphoreSlim _renewalSemaphore;
         private GlobalAutoRenewalConfiguration _globalConfig;
+        private int _renewalCheckRunning;
 
         public CertificateAutoService(
             ILogger<CertificateAutoService> logger,
@@ -53,8 +54,10 @@ namespace DockerPanel.API.Services.Acme
             _renewalSemaphore = new SemaphoreSlim(5, 5); // 限制并发续期数量
             _globalConfig = LoadGlobalConfiguration();
 
-            // 设置定时检查器
-            _renewalCheckTimer = new Timer(CheckForRenewals, null, TimeSpan.Zero, _globalConfig.RenewalCheckInterval);
+            // 定时器不在构造函数中启动：构造函数执行时应用可能尚未完成初始化，
+            // 此时立即触发续期检查会因数据库/依赖未就绪而失败。
+            // 真正的启动在 StartAsync 中完成（带启动延迟）。
+            _renewalCheckTimer = new Timer(OnRenewalTimerTick, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         /// <summary>
@@ -222,6 +225,11 @@ namespace DockerPanel.API.Services.Acme
                 result.CertificateId = certificateData.CertificateFingerprint;
                 result.CertificateData = certificateData.Certificate;
                 result.PrivateKeyData = certificateData.PrivateKey;
+                result.CertificateChain = certificateData.CertificateChain;
+                result.SerialNumber = certificateData.SerialNumber;
+                result.Issuer = certificateData.Issuer;
+                result.IssuedAt = certificateData.IssuedAt;
+                result.ExpiresAt = certificateData.ExpiresAt;
                 result.CompletedAt = DateTime.UtcNow;
 
                 await _progressService.UpdateProgressStepAsync(progressId, CertificateApplicationStep.DownloadingCertificate, "证书下载成功");
@@ -307,10 +315,12 @@ namespace DockerPanel.API.Services.Acme
             };
 
             _activeTasks[taskId] = taskStatus;
+            var semaphoreAcquired = false;
 
             try
             {
                 await _renewalSemaphore.WaitAsync(cancellationToken);
+                semaphoreAcquired = true;
 
                 taskStatus.Status = "running";
                 taskStatus.StartedAt = DateTime.UtcNow;
@@ -324,13 +334,31 @@ namespace DockerPanel.API.Services.Acme
                     TaskId = taskId
                 };
 
-                // 获取续期配置
+                // 获取续期配置（内存 -> 数据库 -> 按证书记录自动补全）
                 var renewalConfig = await GetAutoRenewalConfigurationAsync(certificateId);
-                if (renewalConfig == null || !renewalConfig.AutoRenewalEnabled)
+                if (renewalConfig == null)
                 {
                     result.Success = false;
                     result.Message = "证书未启用自动续期或配置不存在";
-                    result.Errors.Add("自动续期配置未找到或已禁用");
+                    result.Errors.Add($"自动续期配置未找到: {certificateId}");
+                    _logger.LogWarning("自动续期失败：证书 {CertificateId} 既无内存配置也无持久化配置", certificateId);
+                    return result;
+                }
+
+                if (!renewalConfig.AutoRenewalEnabled)
+                {
+                    result.Success = false;
+                    result.Message = "证书未启用自动续期";
+                    result.Errors.Add("自动续期已禁用，跳过续期");
+                    return result;
+                }
+
+                if (string.IsNullOrWhiteSpace(renewalConfig.AccountId))
+                {
+                    result.Success = false;
+                    result.Message = "续期配置缺少 ACME 账户，无法续期";
+                    result.Errors.Add("证书未关联 ACME 账户（可能是手动导入的证书），请重新签发或补全账户信息");
+                    _logger.LogWarning("自动续期失败：证书 {CertificateId} 未关联 ACME 账户", certificateId);
                     return result;
                 }
 
@@ -358,7 +386,9 @@ namespace DockerPanel.API.Services.Acme
                     UseWildcard = renewalConfig.Settings.GetValueOrDefault("UseWildcard", false) as bool? ?? false,
                     PreferredChallengeTypes = renewalConfig.Settings.GetValueOrDefault("PreferredChallengeTypes") as List<string> ?? new List<string> { "http-01", "dns-01" },
                     DnsCredentials = renewalConfig.Settings.GetValueOrDefault("DnsCredentials") as Dictionary<string, Dictionary<string, object>>,
-                    EnableAutoRenewal = true,
+                    // 续期成功后由 AutoRenewCertificateAsync 自行写回原记录的续期配置，
+                    // 这里不再生成新证书配置（否则会以指纹为键写出一条孤立的配置）
+                    EnableAutoRenewal = false,
                     RenewalDaysBeforeExpiry = renewalConfig.RenewalDaysBeforeExpiry,
                     NotificationEmails = renewalConfig.NotificationEmails
                 };
@@ -375,83 +405,20 @@ namespace DockerPanel.API.Services.Acme
                     result.Message = "续期申请失败";
                     result.Errors.AddRange(autoResult.Errors);
                     result.RenewalSteps.AddRange(autoResult.ValidationSteps);
+
+                    // 失败退避：记录下次允许尝试的时间，避免每个检查周期都重复下单触发 CA 限流
+                    await ScheduleRetryAsync(certificateId, renewalConfig);
                     return result;
                 }
 
-                result.NewCertificateId = autoResult.CertificateId;
-                result.RenewalSteps.AddRange(autoResult.ValidationSteps);
                 taskStatus.ProgressPercentage = 80;
-                taskStatus.CurrentStep = "更新续期配置";
+                taskStatus.CurrentStep = "保存新证书";
 
-                // 更新新证书的续期配置
-                if (autoResult.CertificateId != null)
-                {
-                    var newRenewalConfig = new AutoRenewalConfiguration
-                    {
-                        CertificateId = autoResult.CertificateId,
-                        AccountId = renewalConfig.AccountId,
-                        AutoRenewalEnabled = true,
-                        RenewalDaysBeforeExpiry = renewalConfig.RenewalDaysBeforeExpiry,
-                        NotificationEmails = renewalConfig.NotificationEmails,
-                        Settings = renewalConfig.Settings,
-                        LastRenewalAttempt = DateTime.UtcNow,
-                        NextRenewalAttempt = await CalculateNextRenewalDateAsync(autoResult.CertificateId, renewalConfig.RenewalDaysBeforeExpiry),
-                        RenewalAttempts = 1
-                    };
-
-                    await SetAutoRenewalConfigurationAsync(autoResult.CertificateId, newRenewalConfig);
-                    result.RenewalSteps.Add("新证书续期配置更新成功");
-
-                    // 迁移绑定该证书的 DomainMapping 到新证书 ID
-                    if (autoResult.CertificateId != certificateId)
-                    {
-                        try
-                        {
-                            using var updateScope = _scopeFactory.CreateScope();
-                            var dbContext = updateScope.ServiceProvider.GetRequiredService<TinyDbContext>();
-                            var mappingsCollection = dbContext.GetCollection<DomainMapping>("domain_mappings");
-                            var affectedMappings = mappingsCollection.Find(m => m.CertificateId == certificateId).ToList();
-
-                            if (affectedMappings.Count > 0)
-                            {
-                                foreach (var mapping in affectedMappings)
-                                {
-                                    mapping.CertificateId = autoResult.CertificateId;
-                                    mapping.UpdatedAt = DateTime.UtcNow;
-                                    mappingsCollection.Update(mapping);
-                                    _logger.LogInformation("续期后自动更新域名映射 {Domain} 证书绑定: {OldCertId} -> {NewCertId}", 
-                                        mapping.Domain, certificateId, autoResult.CertificateId);
-                                }
-
-                                var proxyFactory = updateScope.ServiceProvider.GetService<IReverseProxyFactory>();
-                                if (proxyFactory != null)
-                                {
-                                    await proxyFactory.ReloadConfigAsync();
-                                }
-
-                                var sniSelector = updateScope.ServiceProvider.GetService<SniCertificateSelector>();
-                                if (sniSelector != null)
-                                {
-                                    foreach (var mapping in affectedMappings)
-                                    {
-                                        sniSelector.ClearCache(mapping.Domain);
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception mapEx)
-                        {
-                            _logger.LogError(mapEx, "续期后更新域名映射失败: {OldCertId} -> {NewCertId}", certificateId, autoResult.CertificateId);
-                        }
-                    }
-                }
-
-                taskStatus.ProgressPercentage = 90;
-                taskStatus.CurrentStep = "清理旧配置";
-
-                // 禁用旧证书的自动续期
-                await DisableAutoRenewalAsync(certificateId);
-                result.RenewalSteps.Add("旧证书自动续期已禁用");
+                // 关键：原地更新原证书记录（保持 Id 不变），而不是写入一条新记录。
+                // 否则 DomainMapping / SNI 仍然指向旧证书，续期"成功"但线上依旧使用旧证书。
+                result.NewCertificateId = await ApplyRenewedCertificateAsync(certificateId, autoResult, renewalConfig);
+                result.RenewalSteps.AddRange(autoResult.ValidationSteps);
+                result.RenewalSteps.Add("新证书已写回证书记录");
 
                 taskStatus.ProgressPercentage = 100;
                 taskStatus.CurrentStep = "续期完成";
@@ -463,8 +430,7 @@ namespace DockerPanel.API.Services.Acme
                 result.RenewalCompletedAt = DateTime.UtcNow;
                 result.RenewalSteps.Add("续期流程完成");
 
-                _logger.LogInformation("证书自动续期成功: {OldCertificateId} -> {NewCertificateId}",
-                    certificateId, result.NewCertificateId);
+                _logger.LogInformation("证书自动续期成功: {CertificateId} 已更新为新证书", certificateId);
 
                 return result;
             }
@@ -489,7 +455,10 @@ namespace DockerPanel.API.Services.Acme
             }
             finally
             {
-                _renewalSemaphore.Release();
+                if (semaphoreAcquired)
+                {
+                    _renewalSemaphore.Release();
+                }
                 _activeTasks.TryRemove(taskId, out _);
             }
         }
@@ -579,8 +548,17 @@ namespace DockerPanel.API.Services.Acme
 
                 configuration.CertificateId = certificateId;
                 configuration.NextRenewalAttempt = await CalculateNextRenewalDateAsync(certificateId, configuration.RenewalDaysBeforeExpiry);
+                configuration.UpdatedAt = DateTime.UtcNow;
+                if (configuration.CreatedAt == default)
+                {
+                    configuration.CreatedAt = DateTime.UtcNow;
+                }
 
                 _renewalConfigurations[certificateId] = configuration;
+
+                // 关键：同步持久化到证书记录，否则进程重启后配置全部丢失，
+                // 自动续期会因“配置不存在”而永久失效。
+                await PersistRenewalConfigurationAsync(certificateId, configuration);
 
                 _logger.LogInformation("证书自动续期配置设置成功: {CertificateId}", certificateId);
 
@@ -613,8 +591,19 @@ namespace DockerPanel.API.Services.Acme
         /// </summary>
         public async Task<AutoRenewalConfiguration?> GetAutoRenewalConfigurationAsync(string certificateId)
         {
-            await Task.CompletedTask;
-            _renewalConfigurations.TryGetValue(certificateId, out var configuration);
+            // 1. 内存缓存优先
+            if (_renewalConfigurations.TryGetValue(certificateId, out var cached))
+            {
+                return cached;
+            }
+
+            // 2. 回落到数据库（进程重启后内存配置会丢失）
+            var configuration = await LoadRenewalConfigurationFromDatabaseAsync(certificateId);
+            if (configuration != null)
+            {
+                _renewalConfigurations[certificateId] = configuration;
+            }
+
             return configuration;
         }
 
@@ -1125,7 +1114,12 @@ namespace DockerPanel.API.Services.Acme
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("证书自动服务已启动");
+            _logger.LogInformation("证书自动服务已启动，续期检查间隔: {Interval}，提前续期天数: {Days}",
+                _globalConfig.RenewalCheckInterval, _globalConfig.DefaultRenewalDaysBeforeExpiry);
+
+            // 启动后延迟 30 秒再执行首次检查，等待应用完成初始化（数据库、反向代理等）
+            var startupDelay = TimeSpan.FromSeconds(30);
+            _renewalCheckTimer?.Change(startupDelay, _globalConfig.RenewalCheckInterval);
             return Task.CompletedTask;
         }
 
@@ -1140,31 +1134,504 @@ namespace DockerPanel.API.Services.Acme
 
         #region Private Methods
 
-        private async void CheckForRenewals(object? state)
+        private void OnRenewalTimerTick(object? state)
         {
+            // Timer 回调不能是 async，这里用 Interlocked 防止上一次检查未结束时重入
+            if (Interlocked.CompareExchange(ref _renewalCheckRunning, 1, 0) != 0)
+            {
+                _logger.LogDebug("上一次证书续期检查尚未结束，跳过本次检查");
+                return;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await CheckForRenewalsAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "定时续期检查失败");
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _renewalCheckRunning, 0);
+                }
+            });
+        }
+
+        private async Task CheckForRenewalsAsync()
+        {
+            if (!_globalConfig.GlobalAutoRenewalEnabled)
+            {
+                return;
+            }
+
+            var daysBeforeExpiry = _globalConfig.DefaultRenewalDaysBeforeExpiry;
+            var expiringCertificates = (await GetExpiringCertificatesAsync(daysBeforeExpiry)).ToList();
+
+            if (expiringCertificates.Count == 0)
+            {
+                _logger.LogDebug("定时续期检查完成：没有即将到期或已过期的证书");
+                return;
+            }
+
+            _logger.LogInformation("定时续期检查：发现 {Count} 个即将到期或已过期的证书（提前 {Days} 天）",
+                expiringCertificates.Count, daysBeforeExpiry);
+
+            var now = DateTime.UtcNow;
+            var enqueued = 0;
+
+            foreach (var certificate in expiringCertificates.Where(c => c.AutoRenewalEnabled))
+            {
+                // 续期失败退避：未到下次允许尝试的时间就跳过，避免频繁下单触发 CA 限流。
+                // 若证书已过期，则退避时间一定晚于过期时间，仍需按退避时间拦截；
+                // 若证书未过期，但记录里的下次续期时间已经晚于证书过期时间，视为无效计划，忽略之。
+                var nextAttempt = certificate.NextRenewalAttempt;
+                if (nextAttempt.HasValue && nextAttempt.Value > now &&
+                    (certificate.ExpiresAt <= now || nextAttempt.Value < certificate.ExpiresAt))
+                {
+                    _logger.LogDebug("证书 {CertificateId} 未到下次续期时间 {NextRenewalAttempt}，跳过",
+                        certificate.CertificateId, nextAttempt);
+                    continue;
+                }
+
+                using var scope = _scopeFactory.CreateScope();
+                var jobQueue = scope.ServiceProvider.GetRequiredService<AcmeJobQueueService>();
+
+                // 队列去重：同一证书已有待处理/处理中的续期任务时不再重复入队
+                if (await jobQueue.HasActiveJobAsync("AutoRenewal", certificate.CertificateId))
+                {
+                    _logger.LogDebug("证书 {CertificateId} 已有待处理的续期任务，跳过", certificate.CertificateId);
+                    continue;
+                }
+
+                await jobQueue.EnqueueAsync("AutoRenewal", new AutoRenewalJobPayload
+                {
+                    CertificateId = certificate.CertificateId
+                }, DockerPanel.API.Serialization.DockerPanelJsonContext.Default.AutoRenewalJobPayload);
+
+                enqueued++;
+                _logger.LogInformation("已提交证书续期任务: {CertificateId}, 域名={Domains}, 剩余天数={Days}",
+                    certificate.CertificateId, string.Join(",", certificate.Domains), certificate.DaysUntilExpiry);
+            }
+
+            if (enqueued > 0)
+            {
+                _logger.LogInformation("本次续期检查共提交 {Count} 个续期任务", enqueued);
+            }
+        }
+
+        /// <summary>
+        /// 续期成功后，将新证书原地写回原有证书记录（保持 Id 不变），
+        /// 并刷新续期配置、SNI 缓存与反向代理配置。
+        /// </summary>
+        private async Task<string> ApplyRenewedCertificateAsync(string certificateId, AutoCertificateResult autoResult, AutoRenewalConfiguration renewalConfig)
+        {
+            if (string.IsNullOrWhiteSpace(autoResult.CertificateData))
+            {
+                throw new InvalidOperationException("续期结果中缺少证书内容，无法写回证书记录");
+            }
+
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
+            var certificates = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
+
+            var record = FindCertificateRecord(certificates.FindAll(), certificateId)
+                ?? throw new InvalidOperationException($"未找到待更新的证书记录: {certificateId}");
+
+            var (issuedAt, expiresAt) = ResolveCertificateValidity(autoResult, record);
+            var daysBeforeExpiry = renewalConfig.RenewalDaysBeforeExpiry > 0
+                ? renewalConfig.RenewalDaysBeforeExpiry
+                : _globalConfig.DefaultRenewalDaysBeforeExpiry;
+
+            record.CertificateData = autoResult.CertificateData;
+            if (!string.IsNullOrWhiteSpace(autoResult.PrivateKeyData))
+            {
+                record.PrivateKeyData = autoResult.PrivateKeyData;
+            }
+            if (!string.IsNullOrWhiteSpace(autoResult.CertificateChain))
+            {
+                record.CertificateChain = autoResult.CertificateChain!;
+            }
+
+            record.IssuedAt = issuedAt;
+            record.ExpiresAt = expiresAt;
+            record.Status = "active";
+            if (!string.IsNullOrWhiteSpace(autoResult.CertificateId))
+            {
+                record.Fingerprint = autoResult.CertificateId!;
+            }
+            if (!string.IsNullOrWhiteSpace(autoResult.SerialNumber))
+            {
+                record.SerialNumber = autoResult.SerialNumber!;
+            }
+            if (!string.IsNullOrWhiteSpace(autoResult.Issuer))
+            {
+                record.Issuer = autoResult.Issuer!;
+            }
+            if (!string.IsNullOrWhiteSpace(autoResult.OrderId))
+            {
+                record.OrderId = autoResult.OrderId;
+            }
+            record.AutoRenewalEnabled = true;
+            record.UpdatedAt = DateTime.UtcNow;
+
+            var newConfig = new AutoRenewalConfiguration
+            {
+                Id = renewalConfig.Id,
+                CertificateId = record.Id,
+                AccountId = renewalConfig.AccountId,
+                AutoRenewalEnabled = true,
+                RenewalDaysBeforeExpiry = daysBeforeExpiry,
+                RenewalSchedule = renewalConfig.RenewalSchedule,
+                NotificationEmails = renewalConfig.NotificationEmails,
+                Settings = renewalConfig.Settings,
+                LastRenewalAttempt = DateTime.UtcNow,
+                NextRenewalAttempt = expiresAt.AddDays(-daysBeforeExpiry),
+                RenewalAttempts = renewalConfig.RenewalAttempts + 1,
+                RenewalInProgress = false,
+                CreatedAt = renewalConfig.CreatedAt == default ? DateTime.UtcNow : renewalConfig.CreatedAt,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            // 续期配置随证书一起持久化（TinyDb 0.6.3 起支持嵌套对象内的 DateTime?，
+            // 详见 TinyDbAotCompatibilityTests；0.6.2 及以下会导致整表反序列化失败）
+            record.AutoRenewalConfiguration = newConfig;
+            record.NextRenewalAttempt = newConfig.NextRenewalAttempt;
+            certificates.Update(record);
+
+            _renewalConfigurations[record.Id] = newConfig;
+
+            _logger.LogInformation("续期后的新证书已写回记录 {CertificateId}，新有效期至 {ExpiresAt}，下次续期时间 {NextRenewalAttempt}",
+                record.Id, expiresAt, newConfig.NextRenewalAttempt);
+
+            // 刷新 SNI 证书缓存并重载反向代理，使新证书立即生效
             try
             {
-                if (!_globalConfig.GlobalAutoRenewalEnabled) return;
+                var sniSelector = scope.ServiceProvider.GetService<SniCertificateSelector>();
+                sniSelector?.ClearCache();
 
-                _logger.LogDebug("执行定时续期检查");
-
-                var expiringCertificates = await GetExpiringCertificatesAsync(_globalConfig.DefaultRenewalDaysBeforeExpiry);
-
-                foreach (var certificate in expiringCertificates.Where(c => c.AutoRenewalEnabled))
+                var proxyFactory = scope.ServiceProvider.GetService<IReverseProxyFactory>();
+                if (proxyFactory != null)
                 {
-                    // 将续期任务加入基于 TinyDb 的持久化后台队列
-                    using var scope = _scopeFactory.CreateScope();
-                    var jobQueue = scope.ServiceProvider.GetRequiredService<AcmeJobQueueService>();
-                    
-                    await jobQueue.EnqueueAsync("AutoRenewal", new AutoRenewalJobPayload
-                    {
-                        CertificateId = certificate.CertificateId
-                    }, DockerPanel.API.Serialization.DockerPanelJsonContext.Default.AutoRenewalJobPayload);
+                    await proxyFactory.ReloadConfigAsync();
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "定时续期检查失败");
+                _logger.LogError(ex, "续期后刷新证书缓存/代理配置失败: {CertificateId}", record.Id);
+            }
+
+            return record.Id;
+        }
+
+        /// <summary>
+        /// 续期失败后设置重试退避时间
+        /// </summary>
+        private async Task ScheduleRetryAsync(string certificateId, AutoRenewalConfiguration renewalConfig)
+        {
+            var retryAt = DateTime.UtcNow.AddHours(Math.Max(1, _globalConfig.RenewalCheckInterval.TotalHours));
+
+            renewalConfig.LastRenewalAttempt = DateTime.UtcNow;
+            renewalConfig.NextRenewalAttempt = retryAt;
+            renewalConfig.RenewalAttempts++;
+            renewalConfig.UpdatedAt = DateTime.UtcNow;
+            _renewalConfigurations[certificateId] = renewalConfig;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
+                var certificates = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
+
+                var record = FindCertificateRecord(certificates.FindAll(), certificateId);
+                if (record != null)
+                {
+                    record.NextRenewalAttempt = retryAt;
+                    record.AutoRenewalConfiguration = renewalConfig;
+                    record.UpdatedAt = DateTime.UtcNow;
+                    certificates.Update(record);
+                }
+
+                _logger.LogWarning("证书 {CertificateId} 续期失败，第 {Attempts} 次尝试，下次重试时间: {RetryAt}",
+                    certificateId, renewalConfig.RenewalAttempts, retryAt);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "记录续期失败退避时间时出错: {CertificateId}", certificateId);
+            }
+
+            await Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// 解析新证书的有效期（优先使用下载结果，缺失时从 PEM 解析）
+        /// </summary>
+        private (DateTime IssuedAt, DateTime ExpiresAt) ResolveCertificateValidity(AutoCertificateResult autoResult, CertificateRecord record)
+        {
+            var issuedAt = autoResult.IssuedAt;
+            var expiresAt = autoResult.ExpiresAt;
+
+            if (expiresAt <= DateTime.UtcNow)
+            {
+                try
+                {
+                    using var cert = System.Security.Cryptography.X509Certificates.X509Certificate2.CreateFromPem(autoResult.CertificateData);
+                    issuedAt = cert.NotBefore.ToUniversalTime();
+                    expiresAt = cert.NotAfter.ToUniversalTime();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "解析新证书有效期失败: {CertificateId}", record.Id);
+                }
+            }
+
+            if (expiresAt <= DateTime.UtcNow)
+            {
+                throw new InvalidOperationException("新证书有效期无效，无法写回证书记录");
+            }
+
+            return (issuedAt == default ? DateTime.UtcNow : issuedAt, expiresAt);
+        }
+
+        /// <summary>
+        /// 按 证书ID / 指纹 / ACME证书ID / 订单ID 查找证书记录
+        /// </summary>
+        private static CertificateRecord? FindCertificateRecord(IEnumerable<CertificateRecord> records, string certificateId)
+        {
+            if (string.IsNullOrWhiteSpace(certificateId))
+            {
+                return null;
+            }
+
+            var list = records as IList<CertificateRecord> ?? records.ToList();
+
+            return list.FirstOrDefault(r => string.Equals(r.Id, certificateId, StringComparison.Ordinal))
+                ?? list.FirstOrDefault(r => !string.IsNullOrEmpty(r.Fingerprint) &&
+                                            string.Equals(r.Fingerprint, certificateId, StringComparison.OrdinalIgnoreCase))
+                ?? list.FirstOrDefault(r => !string.IsNullOrEmpty(r.CertificateId) &&
+                                            string.Equals(r.CertificateId, certificateId, StringComparison.Ordinal))
+                ?? list.FirstOrDefault(r => !string.IsNullOrEmpty(r.OrderId) &&
+                                            string.Equals(r.OrderId, certificateId, StringComparison.Ordinal));
+        }
+
+        /// <summary>
+        /// 从数据库加载续期配置；证书记录存在但缺少配置时按记录信息自动补全
+        /// </summary>
+        private async Task<AutoRenewalConfiguration?> LoadRenewalConfigurationFromDatabaseAsync(string certificateId)
+        {
+            try
+            {
+                await Task.CompletedTask;
+
+                using var scope = _scopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
+                var certificates = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
+
+                var record = FindCertificateRecord(certificates.FindAll(), certificateId);
+                if (record == null)
+                {
+                    _logger.LogWarning("加载续期配置失败：未找到证书记录 {CertificateId}", certificateId);
+                    return null;
+                }
+
+                if (record.AutoRenewalConfiguration != null)
+                {
+                    var stored = record.AutoRenewalConfiguration;
+                    stored.CertificateId = record.Id;
+                    stored.AutoRenewalEnabled = record.AutoRenewalEnabled;
+                    if (string.IsNullOrEmpty(stored.AccountId))
+                    {
+                        stored.AccountId = record.AccountId;
+                    }
+                    return stored;
+                }
+
+                // 历史数据/订单流程签发的证书只有 AutoRenewalEnabled 标记，没有完整配置
+                if (!record.AutoRenewalEnabled)
+                {
+                    return null;
+                }
+
+                _logger.LogInformation("证书记录缺少续期配置，按记录信息自动补全: {CertificateId}", certificateId);
+                return BuildDefaultRenewalConfiguration(record);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "从数据库加载续期配置失败: {CertificateId}", certificateId);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 依据证书记录构造默认续期配置
+        /// </summary>
+        private AutoRenewalConfiguration BuildDefaultRenewalConfiguration(CertificateRecord record)
+        {
+            var settings = new Dictionary<string, object>
+            {
+                ["KeyType"] = MapKeyType(record.KeyAlgorithm, record.KeySize),
+                ["UseWildcard"] = record.Domains?.Any(d => d.StartsWith("*.")) ?? false
+            };
+
+            // 挑战类型白名单：尽量覆盖所有可用方式，避免单一方式失效后续期彻底失败
+            var challengeTypes = new List<string> { "http-01", "tls-alpn-01" };
+
+            var dnsCredentials = ExtractDnsCredentials(record.Metadata);
+            if (dnsCredentials.Count > 0)
+            {
+                settings["DnsCredentials"] = dnsCredentials;
+                challengeTypes.Add("dns-01");
+            }
+            else if (record.Domains?.Any(d => d.StartsWith("*.")) == true)
+            {
+                // 通配符证书只能走 dns-01，即使缺少凭据也要列上，让错误信息更明确
+                challengeTypes.Add("dns-01");
+            }
+
+            settings["PreferredChallengeTypes"] = challengeTypes;
+
+            // 兼容早期只把提前续期天数写在 Metadata 里的记录；新记录直接读 AutoRenewalConfiguration
+            var daysBeforeExpiry = _globalConfig.DefaultRenewalDaysBeforeExpiry;
+            var storedDays = GetMetadataString(record.Metadata, "renewalDaysBeforeExpiry");
+            if (int.TryParse(storedDays, out var parsedDays) && parsedDays > 0)
+            {
+                daysBeforeExpiry = parsedDays;
+            }
+
+            return new AutoRenewalConfiguration
+            {
+                CertificateId = record.Id,
+                AccountId = record.AccountId ?? string.Empty,
+                AutoRenewalEnabled = record.AutoRenewalEnabled,
+                RenewalDaysBeforeExpiry = daysBeforeExpiry,
+                NotificationEmails = record.NotificationEmails ?? new List<string>(),
+                Settings = settings,
+                NextRenewalAttempt = record.NextRenewalAttempt,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+        }
+
+        /// <summary>
+        /// 从证书元数据中提取 DNS 凭据（兼容扁平字段与嵌套两种存储格式）
+        /// </summary>
+        private Dictionary<string, Dictionary<string, object>> ExtractDnsCredentials(Dictionary<string, object>? metadata)
+        {
+            var result = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase);
+            if (metadata == null || metadata.Count == 0)
+            {
+                return result;
+            }
+
+            var provider = GetMetadataString(metadata, "dnsProvider");
+            if (string.IsNullOrWhiteSpace(provider) || !metadata.TryGetValue("dnsCredentials", out var raw) || raw == null)
+            {
+                return result;
+            }
+
+            if (raw is Dictionary<string, Dictionary<string, object>> nested)
+            {
+                foreach (var kvp in nested)
+                {
+                    result[kvp.Key] = kvp.Value ?? new Dictionary<string, object>();
+                }
+                return result;
+            }
+
+            if (raw is Dictionary<string, object> flat)
+            {
+                var fields = new Dictionary<string, object>();
+                foreach (var kvp in flat)
+                {
+                    fields[kvp.Key] = NormalizeMetadataValue(kvp.Value) ?? string.Empty;
+                }
+
+                if (fields.Count > 0)
+                {
+                    result[provider] = fields;
+                }
+            }
+
+            return result;
+        }
+
+        private static string? GetMetadataString(Dictionary<string, object>? metadata, string key)
+        {
+            if (metadata == null || !metadata.TryGetValue(key, out var value) || value == null)
+            {
+                return null;
+            }
+
+            return NormalizeMetadataValue(value)?.ToString();
+        }
+
+        private static object? NormalizeMetadataValue(object? value)
+        {
+            if (value is System.Text.Json.JsonElement element)
+            {
+                return element.ValueKind switch
+                {
+                    System.Text.Json.JsonValueKind.String => element.GetString(),
+                    System.Text.Json.JsonValueKind.Number => element.TryGetInt64(out var l) ? l : element.GetDouble(),
+                    System.Text.Json.JsonValueKind.True => true,
+                    System.Text.Json.JsonValueKind.False => false,
+                    System.Text.Json.JsonValueKind.Null => null,
+                    _ => element.ToString()
+                };
+            }
+
+            return value;
+        }
+
+        private static string MapKeyType(string? keyAlgorithm, int keySize)
+        {
+            var algorithm = keyAlgorithm ?? string.Empty;
+
+            if (algorithm.Contains("ECDSA", StringComparison.OrdinalIgnoreCase) ||
+                algorithm.Contains("EC", StringComparison.OrdinalIgnoreCase))
+            {
+                return keySize >= 384 ? "ECDSA384" : "ECDSA256";
+            }
+
+            if (keySize >= 4096)
+            {
+                return "RSA4096";
+            }
+
+            return "RSA2048";
+        }
+
+        /// <summary>
+        /// 将续期配置持久化到证书记录
+        /// </summary>
+        private async Task PersistRenewalConfigurationAsync(string certificateId, AutoRenewalConfiguration configuration)
+        {
+            try
+            {
+                await Task.CompletedTask;
+
+                using var scope = _scopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<TinyDbContext>();
+                var certificates = dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
+
+                var record = FindCertificateRecord(certificates.FindAll(), certificateId);
+                if (record == null)
+                {
+                    _logger.LogWarning("持久化续期配置失败：未找到证书记录 {CertificateId}", certificateId);
+                    return;
+                }
+
+                record.AutoRenewalEnabled = configuration.AutoRenewalEnabled;
+                record.AutoRenewalConfiguration = configuration;
+                record.NextRenewalAttempt = configuration.NextRenewalAttempt;
+                record.UpdatedAt = DateTime.UtcNow;
+                certificates.Update(record);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "持久化续期配置失败: {CertificateId}", certificateId);
             }
         }
 

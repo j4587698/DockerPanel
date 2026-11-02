@@ -182,6 +182,11 @@ namespace DockerPanel.API.Services.Acme
         public DateTime? CompletedAt { get; set; }
         public string CertificateData { get; set; } = string.Empty;
         public string? PrivateKeyData { get; set; }
+        public string? CertificateChain { get; set; }
+        public string? SerialNumber { get; set; }
+        public string? Issuer { get; set; }
+        public DateTime IssuedAt { get; set; }
+        public DateTime ExpiresAt { get; set; }
         public List<string> ValidationSteps { get; set; } = new();
         public List<string> Errors { get; set; } = new();
         public List<string> Warnings { get; set; } = new();

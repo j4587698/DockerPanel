@@ -14,7 +14,12 @@ namespace DockerPanel.API.Models.Acme
         public string Status { get; set; } = "Pending"; // Pending, Processing, Completed, Failed
         
         public int RetryCount { get; set; } = 0;
-        
+
+        /// <summary>
+        /// 下次允许执行的时间（用于失败退避，为空表示立即可执行）
+        /// </summary>
+        public DateTime? NextAttemptAt { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

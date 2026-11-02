@@ -16,6 +16,7 @@ public class CreateContainerRequest
     public List<VolumeMapping>? Volumes { get; set; }
     public List<DeviceMapping>? Devices { get; set; }
     public List<TmpfsMount>? Tmpfs { get; set; }
+    public List<UlimitConfig>? Ulimits { get; set; }
     public Dictionary<string, string>? Environment { get; set; }
     public Dictionary<string, string>? Labels { get; set; }
     public bool AutoRemove { get; set; } = false;
@@ -85,6 +86,26 @@ public class DeviceMapping
 {
     public string HostPath { get; set; } = string.Empty;
     public string ContainerPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// cgroup 权限（r/w/m 的组合，默认 rwm）。重建容器时必须原样带回，否则设备访问权限会被放宽。
+    /// </summary>
+    public string? Permissions { get; set; }
+}
+
+/// <summary>
+/// ulimit 配置
+/// </summary>
+public class UlimitConfig
+{
+    /// <summary>
+    /// 限制类型，如 nofile、nproc、memlock
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    public long Soft { get; set; }
+
+    public long Hard { get; set; }
 }
 
 /// <summary>
@@ -132,6 +153,22 @@ public class ContainerNetworkConfig
     public List<string>? Aliases { get; set; }
     public string? IpAddress { get; set; }
     public List<string>? AdditionalNetworks { get; set; }
+
+    /// <summary>
+    /// 额外网络的完整端点配置（含别名与静态 IP）。
+    /// 与 AdditionalNetworks 并存：后者只有网络名，用于兼容既有前端请求。
+    /// </summary>
+    public List<NetworkEndpointConfig>? AdditionalEndpoints { get; set; }
+}
+
+/// <summary>
+/// 容器要接入的单个网络端点配置
+/// </summary>
+public class NetworkEndpointConfig
+{
+    public string NetworkName { get; set; } = string.Empty;
+    public List<string>? Aliases { get; set; }
+    public string? IpAddress { get; set; }
 }
 
 /// <summary>

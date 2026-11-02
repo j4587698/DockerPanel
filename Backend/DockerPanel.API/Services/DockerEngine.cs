@@ -424,7 +424,22 @@ public class DockerEngine : IContainerEngine, IDisposable
                 ShmSize = hostCfg?.ShmSize,
                 Init = hostCfg?.Init ?? false,
                 Runtime = hostCfg?.Runtime,
-                PidMode = hostCfg?.PidMode
+                PidMode = hostCfg?.PidMode,
+                Devices = hostCfg?.Devices?.Select(d => new Models.DeviceMapping
+                {
+                    HostPath = d.PathOnHost,
+                    ContainerPath = d.PathInContainer,
+                    Permissions = d.CgroupPermissions
+                }).ToList(),
+                Tmpfs = hostCfg?.Tmpfs != null
+                    ? new Dictionary<string, string>(hostCfg.Tmpfs)
+                    : null,
+                Ulimits = hostCfg?.Ulimits?.Select(u => new Models.UlimitConfig
+                {
+                    Name = u.Name,
+                    Soft = u.Soft,
+                    Hard = u.Hard
+                }).ToList()
             };
 
             // 解析资源限制。只有真正设过限制时才生成对象，
@@ -601,7 +616,8 @@ public class DockerEngine : IContainerEngine, IDisposable
                 {
                     PathOnHost = device.HostPath,
                     PathInContainer = device.ContainerPath,
-                    CgroupPermissions = "rwm"
+                    // 保留原权限，缺省才回落到 rwm。重建时若一律写 rwm 等于悄悄放宽设备访问
+                    CgroupPermissions = string.IsNullOrWhiteSpace(device.Permissions) ? "rwm" : device.Permissions
                 });
             }
         }
@@ -759,7 +775,15 @@ public class DockerEngine : IContainerEngine, IDisposable
                 CPUPeriod = !string.IsNullOrEmpty(request.Resources?.CpuPeriod) ? long.Parse(request.Resources.CpuPeriod) : 0,
                 CPUShares = !string.IsNullOrEmpty(request.Resources?.CpuShares) ? long.Parse(request.Resources.CpuShares) : 0,
                 CpusetCpus = request.Resources?.CpusetCpus!,
-                PidsLimit = request.Resources?.PidsLimit ?? 0
+                PidsLimit = request.Resources?.PidsLimit ?? 0,
+                Ulimits = request.Ulimits?.Count > 0
+                    ? request.Ulimits.Select(u => new Docker.DotNet.Models.Ulimit
+                    {
+                        Name = u.Name,
+                        Soft = u.Soft,
+                        Hard = u.Hard
+                    }).ToList()
+                    : null!
             },
             WorkingDir = request.WorkingDir!,
             Labels = request.Labels!
@@ -806,24 +830,52 @@ public class DockerEngine : IContainerEngine, IDisposable
         var res = await client.Containers.CreateContainerAsync(parameters);
         _logger.LogInformation("容器创建成功: {Id}", res.ID);
 
-        // 连接到额外的网络
-        if (request.Network?.AdditionalNetworks != null && request.Network.AdditionalNetworks.Count > 0)
+        // 连接到额外的网络。
+        // AdditionalEndpoints 带别名与静态 IP，优先使用；AdditionalNetworks 只有网络名，用于兼容既有前端请求。
+        var extraEndpoints = new List<Models.NetworkEndpointConfig>();
+        if (request.Network?.AdditionalEndpoints != null)
         {
-            foreach (var additionalNetId in request.Network.AdditionalNetworks)
+            extraEndpoints.AddRange(request.Network.AdditionalEndpoints
+                .Where(e => !string.IsNullOrWhiteSpace(e.NetworkName)));
+        }
+
+        if (request.Network?.AdditionalNetworks != null)
+        {
+            foreach (var networkName in request.Network.AdditionalNetworks.Where(n => !string.IsNullOrWhiteSpace(n)))
             {
-                try
+                if (extraEndpoints.All(e => !string.Equals(e.NetworkName, networkName, StringComparison.OrdinalIgnoreCase)))
                 {
-                    var connectParams = new NetworkConnectParameters
+                    extraEndpoints.Add(new Models.NetworkEndpointConfig { NetworkName = networkName });
+                }
+            }
+        }
+
+        foreach (var endpoint in extraEndpoints)
+        {
+            try
+            {
+                var connectParams = new NetworkConnectParameters
+                {
+                    Container = res.ID
+                };
+
+                if (endpoint.Aliases?.Count > 0 || !string.IsNullOrWhiteSpace(endpoint.IpAddress))
+                {
+                    connectParams.EndpointConfig = new EndpointSettings
                     {
-                        Container = res.ID
+                        Aliases = endpoint.Aliases ?? new List<string>(),
+                        IPAMConfig = !string.IsNullOrWhiteSpace(endpoint.IpAddress)
+                            ? new EndpointIPAMConfig { IPv4Address = endpoint.IpAddress }
+                            : null
                     };
-                    await client.Networks.ConnectNetworkAsync(additionalNetId, connectParams);
-                    _logger.LogInformation("容器 {ContainerId} 已连接到额外网络 {NetworkId}", res.ID, additionalNetId);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "无法将容器 {ContainerId} 连接到网络 {NetworkId}", res.ID, additionalNetId);
-                }
+
+                await client.Networks.ConnectNetworkAsync(endpoint.NetworkName, connectParams);
+                _logger.LogInformation("容器 {ContainerId} 已连接到额外网络 {Network}", res.ID, endpoint.NetworkName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "无法将容器 {ContainerId} 连接到网络 {Network}", res.ID, endpoint.NetworkName);
             }
         }
 

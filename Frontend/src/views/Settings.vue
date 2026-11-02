@@ -670,7 +670,9 @@ const handleResetSettings = async () => {
 }
 
 // --- Self Update States & Methods ---
-const currentVersion = ref('0.9.7')
+// 版本号以后端 /system/info 返回的 currentVersion 为准，这里不写死默认值，
+// 否则升级后首屏会先闪一下旧版本号
+const currentVersion = ref('')
 const checkingUpdate = ref(false)
 const updateChecked = ref(false)
 const updateCheckResult = ref<SelfUpdateCheckResult | null>(null)

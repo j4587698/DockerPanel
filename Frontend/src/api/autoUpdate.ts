@@ -64,6 +64,8 @@ export interface ImageUpdateCheckResult {
 export interface UpdateResult {
   success: boolean
   containerId: string
+  /** 重建后的新容器 ID（升级会重建容器，ID 会变化） */
+  newContainerId?: string | null
   oldDigest: string | null
   newDigest: string | null
   errorMessage: string | null

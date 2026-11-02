@@ -240,6 +240,11 @@ interface Props {
 
 const props = defineProps<Props>()
 
+// 升级会重建容器并生成新 ID，通知父组件切换到新容器
+const emit = defineEmits<{
+  (e: 'container-updated', newContainerId: string): void
+}>()
+
 const config = ref<ContainerAutoUpdateConfig | null>(null)
 const checking = ref(false)
 const updating = ref(false)
@@ -358,10 +363,18 @@ const handleUpdate = async () => {
     
     if (result.success) {
       ElMessage.success(t('container.containerUpdated'))
+
+      // 升级会重建容器并生成新 ID，必须让父组件切到新容器，
+      // 否则页面会继续拿着已删除的旧 ID 操作（日志/终端/启停全部失败）
+      const newContainerId = result.newContainerId as string | undefined
+      if (newContainerId && newContainerId !== props.containerId) {
+        emit('container-updated', newContainerId)
+        return
+      }
     } else {
       ElMessage.error(result.errorMessage || t('common.error'))
     }
-    
+
     await loadConfig()
   } catch (error: any) {
     ElMessage.error(error.message || t('container.autoUpdateStatus.updateFailed'))

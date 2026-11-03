@@ -18,7 +18,30 @@ namespace DockerPanel.API.Services;
 public interface ISelfUpdateService
 {
     Task<SelfUpdateCheckResult> CheckUpdateAsync(bool forceRefresh = false, CancellationToken ct = default);
-    Task<SelfUpgradeResponse> ExecuteSelfUpgradeAsync(SelfUpgradeRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// 升级前置校验：确认 Docker 可用、能定位自身容器、算好目标镜像与重启参数。
+    /// 全部是秒级操作，失败可以直接反馈给用户，不会留下半完成状态。
+    /// </summary>
+    Task<SelfUpgradePlan> PrepareSelfUpgradeAsync(SelfUpgradeRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// 执行升级的耗时部分：拉镜像、启动 helper 容器。
+    /// 由 <see cref="ISelfUpgradeJobManager"/> 在后台调用，令牌与 HTTP 请求无关。
+    /// </summary>
+    Task RunSelfUpgradeAsync(SelfUpgradePlan plan, ISelfUpgradeJobManager job, CancellationToken ct = default);
+}
+
+/// <summary>
+/// 升级计划：前置校验的产物，交给后台任务执行。
+/// </summary>
+public sealed class SelfUpgradePlan
+{
+    public string TargetImage { get; init; } = string.Empty;
+    public string CurrentVersion { get; init; } = string.Empty;
+    public string SelfContainerId { get; init; } = string.Empty;
+    public string ContainerName { get; init; } = string.Empty;
+    public string RunArguments { get; init; } = string.Empty;
 }
 
 public class SelfUpdateCheckResult
@@ -39,15 +62,6 @@ public class SelfUpgradeRequest
 {
     public string? TargetImage { get; set; }
     public string? ConnectionId { get; set; }
-}
-
-public class SelfUpgradeResponse
-{
-    public bool Success { get; set; }
-    public string Message { get; set; } = string.Empty;
-    public string CurrentVersion { get; set; } = string.Empty;
-    public string TargetImage { get; set; } = string.Empty;
-    public string? OldContainerId { get; set; }
 }
 
 public class SelfUpdateService : ISelfUpdateService
@@ -129,9 +143,9 @@ public class SelfUpdateService : ISelfUpdateService
         return result;
     }
 
-    public async Task<SelfUpgradeResponse> ExecuteSelfUpgradeAsync(SelfUpgradeRequest request, CancellationToken ct = default)
+    public async Task<SelfUpgradePlan> PrepareSelfUpgradeAsync(SelfUpgradeRequest request, CancellationToken ct = default)
     {
-        _logger.LogInformation("开始执行 DockerPanel 自身升级流程 (基于镜像 Registry/Digest 机制)...");
+        _logger.LogInformation("开始准备 DockerPanel 自身升级流程 (基于镜像 Registry/Digest 机制)...");
 
         if (!await _dockerEngine.IsAvailableAsync())
         {
@@ -153,23 +167,51 @@ public class SelfUpdateService : ISelfUpdateService
             ? request.TargetImage.Trim()
             : (!string.IsNullOrWhiteSpace(selfContainer.Image) ? selfContainer.Image : "j4587698/dockerpanel:latest");
 
+        var containerName = inspect.Name?.TrimStart('/') ?? "dockerpanel";
+        var runArgs = BuildDockerRunArguments(inspect, targetImage, containerName);
+
         _logger.LogInformation("自身升级参数: 当前容器={Id}({Name}), 目标镜像={TargetImage}",
             selfContainer.ID, inspect.Name, targetImage);
 
+        return new SelfUpgradePlan
+        {
+            TargetImage = targetImage,
+            CurrentVersion = currentVersion,
+            SelfContainerId = selfContainer.ID,
+            ContainerName = containerName,
+            RunArguments = runArgs
+        };
+    }
+
+    public async Task RunSelfUpgradeAsync(SelfUpgradePlan plan, ISelfUpgradeJobManager job, CancellationToken ct = default)
+    {
+        var targetImage = plan.TargetImage;
+        var client = await _dockerEngine.GetClientAsync();
+
         // 1. 预拉取目标镜像（实时广播进度）
+        // 注意：这里必须区分「取消」与「失败」—— 取消是超时策略触发，直接透传让上层报告超时，
+        // 不能包装成拉取失败，否则用户会以为镜像或网络有问题。
         var pullId = "self-upgrade";
         var progressBroadcaster = DockerPanelHub.CreatePullProgressBroadcaster(_hubContext, pullId, targetImage);
+        job.Update(SelfUpgradePhase.Pulling, "正在预拉取最新版本镜像...", 5);
+        await DockerPanelHub.BroadcastImagePullProgress(_hubContext, pullId, targetImage, "准备中", 5, "正在预拉取最新版本镜像...");
+
         try
         {
-            await DockerPanelHub.BroadcastImagePullProgress(_hubContext, pullId, targetImage, "准备中", 5, "正在预拉取最新版本镜像...");
             await PullImageAsync(client, targetImage, progressBroadcaster, ct);
-            await DockerPanelHub.BroadcastImagePullProgress(_hubContext, pullId, targetImage, "完成", 100, "镜像拉取完成");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "预拉取新镜像失败: {Image}", targetImage);
-            throw new InvalidOperationException($"拉取新镜像 {targetImage} 失败: {ex.Message}");
+            throw new InvalidOperationException($"拉取新镜像 {targetImage} 失败: {ex.Message}", ex);
         }
+
+        await DockerPanelHub.BroadcastImagePullProgress(_hubContext, pullId, targetImage, "完成", 100, "镜像拉取完成");
+        job.Update(SelfUpgradePhase.Pulling, "镜像拉取完成，正在准备升级环境...", 85);
 
         // 2. 确保 helper 容器镜像 docker:cli 可用
         var helperImage = "docker:cli";
@@ -177,20 +219,23 @@ public class SelfUpdateService : ISelfUpdateService
         {
             await PullImageAsync(client, helperImage, null, ct);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "拉取 helper 镜像 {Image} 失败，尝试继续", helperImage);
         }
 
-        // 3. 构建容器运行命令参数
-        var containerName = inspect.Name?.TrimStart('/') ?? "dockerpanel";
-        var runArgs = BuildDockerRunArguments(inspect, targetImage, containerName);
-
-        // 4. 组装 Helper 脚本（延迟 2 秒让当前 HTTP 响应完整返回）
-        var helperScript = $"sleep 2 && docker stop {selfContainer.ID} && docker rm {selfContainer.ID} && docker run -d --name {containerName} {runArgs}";
+        // 3. 组装 Helper 脚本
+        // 接口已改为立即返回，前端拿到响应后才开始轮询状态；这里的延迟只为让
+        // 「restarting」状态有时间被前端读到，不需要再等 HTTP 响应返回。
+        var helperScript = $"sleep 2 && docker stop {plan.SelfContainerId} && docker rm {plan.SelfContainerId} && docker run -d --name {plan.ContainerName} {plan.RunArguments}";
         _logger.LogInformation("生成的 Helper 升级命令: {Script}", helperScript);
 
-        // 5. 启动 Helper 容器（挂载 docker.sock）
+        // 4. 启动 Helper 容器（挂载 docker.sock）
+        job.Update(SelfUpgradePhase.Pulling, "正在启动升级容器...", 95);
         var helperContainer = await client.Containers.CreateContainerAsync(new CreateContainerParameters
         {
             Image = helperImage,
@@ -206,14 +251,7 @@ public class SelfUpdateService : ISelfUpdateService
         await client.Containers.StartContainerAsync(helperContainer.ID, new ContainerStartParameters(), ct);
         _logger.LogInformation("Helper 升级容器已启动: {Id}", helperContainer.ID);
 
-        return new SelfUpgradeResponse
-        {
-            Success = true,
-            Message = "升级指令已下发，面板服务正在进行重启交接，请稍候约 5~10 秒刷新页面...",
-            CurrentVersion = currentVersion,
-            TargetImage = targetImage,
-            OldContainerId = selfContainer.ID
-        };
+        job.Update(SelfUpgradePhase.Restarting, "升级指令已下发，面板服务正在重启...", 100);
     }
 
     private async Task<ContainerListResponse?> FindSelfContainerAsync(CancellationToken ct)

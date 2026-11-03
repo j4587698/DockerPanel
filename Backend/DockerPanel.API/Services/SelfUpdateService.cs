@@ -162,10 +162,13 @@ public class SelfUpdateService : ISelfUpdateService
         var inspect = await client.Containers.InspectContainerAsync(selfContainer.ID, ct);
         var currentVersion = GetCurrentApplicationVersion();
 
-        // 目标镜像默认使用当前容器镜像名（如 j4587698/dockerpanel:latest 或私有仓库镜像名）
-        var targetImage = !string.IsNullOrWhiteSpace(request.TargetImage)
-            ? request.TargetImage.Trim()
-            : (!string.IsNullOrWhiteSpace(selfContainer.Image) ? selfContainer.Image : "j4587698/dockerpanel:latest");
+        // 目标镜像优先级：显式传入 > inspect 的 Config.Image（权威）> 列表的 Image > 默认值。
+        // 容器可能以镜像 ID 或 digest 创建，此时这些字段都不是 repo:tag 形式，
+        // 必须先解析成可拉取的名字，否则会去 pull 一个叫 sha256 的仓库。
+        var targetImage = await ResolveTargetImageAsync(
+            client,
+            new[] { request.TargetImage, inspect.Config?.Image, selfContainer.Image },
+            ct);
 
         var containerName = inspect.Name?.TrimStart('/') ?? "dockerpanel";
         var runArgs = BuildDockerRunArguments(inspect, targetImage, containerName);
@@ -313,15 +316,46 @@ public class SelfUpdateService : ISelfUpdateService
         }) : new Progress<JSONMessage>(_ => { }), ct);
     }
 
+    /// <summary>
+    /// 从若干候选值中解析出真正可以 pull 的镜像名。
+    /// 容器可能以镜像 ID 或 digest 启动，这些值直接拿去 pull 会得到
+    /// 「pull access denied for sha256」这类错误。
+    /// </summary>
+    private async Task<string> ResolveTargetImageAsync(
+        DockerClient client,
+        IEnumerable<string?> candidates,
+        CancellationToken ct)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate)) continue;
+
+            var resolved = await ImageReferenceResolver.ResolvePullableAsync(client, candidate, ct);
+            if (!string.IsNullOrWhiteSpace(resolved))
+            {
+                if (!string.Equals(resolved, candidate.Trim(), StringComparison.Ordinal))
+                {
+                    _logger.LogInformation("镜像引用 {Original} 不是可拉取形式，已解析为 {Resolved}", candidate, resolved);
+                }
+                return resolved;
+            }
+
+            _logger.LogWarning("镜像引用 {Reference} 无法解析为可拉取的名字，尝试下一个来源", candidate);
+        }
+
+        throw new InvalidOperationException(
+            "无法确定可拉取的镜像名：容器似乎是用镜像 ID 启动的，且本地已没有指向该镜像的 tag。" +
+            "请在宿主机用 repo:tag 形式重新创建容器（例如 docker run --name dockerpanel j4587698/dockerpanel:latest），" +
+            "或在升级时显式指定目标镜像。");
+    }
+
     private static (string Repository, string Tag) ParseImageName(string fullImage)
     {
         if (string.IsNullOrWhiteSpace(fullImage)) return ("j4587698/dockerpanel", "latest");
-        var colon = fullImage.LastIndexOf(':');
-        if (colon > 0 && !fullImage.Substring(colon).Contains('/'))
-        {
-            return (fullImage.Substring(0, colon), fullImage.Substring(colon + 1));
-        }
-        return (fullImage, "latest");
+
+        var (repository, tag) = ImageReferenceResolver.Split(fullImage);
+        // digest 引用在上游已转成 repo:latest，这里的兜底只是防止空 tag 传到 Docker
+        return (repository, string.IsNullOrEmpty(tag) ? "latest" : tag);
     }
 
     private static string BuildDockerRunArguments(ContainerInspectResponse inspect, string targetImage, string containerName)

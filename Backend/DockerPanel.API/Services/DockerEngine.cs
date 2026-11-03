@@ -1170,14 +1170,10 @@ public class DockerEngine : IContainerEngine, IDisposable
             return (name, tag);
         }
 
-        var slashIndex = name.LastIndexOf('/');
-        var colonIndex = name.LastIndexOf(':');
-        if (colonIndex > slashIndex)
-        {
-            return (name[..colonIndex], name[(colonIndex + 1)..]);
-        }
-
-        return (name, "latest");
+        // 统一交给 ImageReferenceResolver：正确处理 registry:port 与 digest 引用，
+        // 避免把 sha256:<摘要> 切成 name=sha256
+        var (repository, parsedTag) = ImageReferenceResolver.Split(name);
+        return (repository, string.IsNullOrEmpty(parsedTag) ? "latest" : parsedTag);
     }
 
     /// <summary>

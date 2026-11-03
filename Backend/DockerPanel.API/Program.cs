@@ -380,6 +380,8 @@ builder.Services.AddScoped<DomainMappingService>();
 // 注册自动升级服务
 builder.Services.AddScoped<IAutoUpdateService, AutoUpdateService>();
 builder.Services.AddScoped<ISelfUpdateService, SelfUpdateService>();
+// 单例：升级任务要脱离 HTTP 请求生命周期，状态供前端轮询
+builder.Services.AddSingleton<ISelfUpgradeJobManager, SelfUpgradeJobManager>();
 
 // 健康检查已在 AddDockerPanelHealthChecks 扩展方法中注册，此处无需重复注册
 

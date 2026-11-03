@@ -439,7 +439,7 @@ import { useAppStore } from '@/stores/app'
 import { setLocale, getLocale } from '@/i18n'
 import { useSettingsStore } from '@/stores/settings'
 import { settingsApi } from '@/api/settings'
-import { systemApi, type SelfUpdateCheckResult } from '@/api/system'
+import { systemApi, type SelfUpdateCheckResult, type SelfUpgradeJobStatus } from '@/api/system'
 import { useImagePullProgress } from '@/composables/useImagePullProgress'
 import { APP_NAME } from '@/utils/branding'
 import { formatLocalizedDate } from '@/utils/date'
@@ -765,20 +765,148 @@ const startSelfUpgrade = async () => {
   pullProgress.value = 0
   pullIndeterminate.value = true
   updateTracking.clear()
+  // 先订阅 SignalR 再发请求，避免错过最初的进度帧
   updateTracking.start()
 
   try {
-    await systemApi.executeSelfUpgrade({
+    const res = await systemApi.executeSelfUpgrade({
       targetImage: updateCheckResult.value?.imageName
     })
-    updateTracking.stop()
-    await pollHealthAndReload()
+    const status = ((res as any)?.data || res) as SelfUpgradeJobStatus | undefined
+    const next = applyUpgradeStatus(status)
+    if (next === 'health') {
+      updateTracking.stop()
+      await pollHealthAndReload()
+    } else if (next === 'poll') {
+      await pollUpgradeStatus()
+    }
   } catch (err: any) {
     updateTracking.stop()
     upgradePhase.value = 'failed'
     upgradeStepTitle.value = t('settings.upgradeFailed')
     upgradeStepDetail.value = err?.message || err?.error || t('common.unknown')
     ElMessage.error(upgradeStepDetail.value)
+  }
+}
+
+/**
+ * 把后端任务状态映射到弹窗 UI。
+ * 返回值表示调用方下一步该做什么：
+ * - poll：继续轮询状态
+ * - health：容器已在重启，转入健康检查轮询
+ * - failed / idle：结束
+ */
+const applyUpgradeStatus = (status?: SelfUpgradeJobStatus | null): 'poll' | 'health' | 'failed' | 'idle' => {
+  if (!status) return 'poll'
+
+  if (status.phase === 'failed') {
+    upgradePhase.value = 'failed'
+    upgradeStepTitle.value = t('settings.upgradeFailed')
+    upgradeStepDetail.value = status.error || status.message || t('common.unknown')
+    ElMessage.error(upgradeStepDetail.value)
+    return 'failed'
+  }
+
+  if (status.phase === 'restarting') {
+    upgradePhase.value = 'restarting'
+    upgradeStepTitle.value = t('settings.upgradeRestarting')
+    upgradeStepDetail.value = status.message || t('settings.upgradeWaitingHealthy')
+    return 'health'
+  }
+
+  if (status.phase === 'pulling') {
+    upgradePhase.value = 'pulling'
+    upgradeStepTitle.value = t('settings.upgradePulling')
+    if (status.message) {
+      upgradeStepDetail.value = status.message
+    }
+    // SignalR 的层进度比状态轮询更细，取两者较大值，避免进度条回退
+    if (status.progress > 0) {
+      pullProgress.value = Math.max(pullProgress.value, status.progress)
+      pullIndeterminate.value = false
+    }
+    return 'poll'
+  }
+
+  return 'idle'
+}
+
+/**
+ * 轮询后台升级任务状态。
+ * 请求本身失败通常意味着容器已经进入重启，直接转健康检查轮询。
+ */
+const pollUpgradeStatus = async () => {
+  const intervalMs = 2000
+  // 后端任务自身有 30 分钟超时，这里略放宽，让后端先报告超时原因
+  const maxAttempts = 960
+
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, intervalMs))
+
+    let status: SelfUpgradeJobStatus | undefined
+    try {
+      const res = await systemApi.getSelfUpgradeStatus()
+      status = ((res as any)?.data || res) as SelfUpgradeJobStatus
+    } catch {
+      // 状态接口不可达：容器多半已在重启，交给健康检查判定成败
+      updateTracking.stop()
+      await pollHealthAndReload()
+      return
+    }
+
+    const next = applyUpgradeStatus(status)
+    if (next === 'health') {
+      updateTracking.stop()
+      await pollHealthAndReload()
+      return
+    }
+    if (next === 'failed' || next === 'idle') {
+      updateTracking.stop()
+      return
+    }
+  }
+
+  updateTracking.stop()
+  upgradePhase.value = 'failed'
+  upgradeStepTitle.value = t('settings.upgradeFailed')
+  upgradeStepDetail.value = '升级任务长时间无响应，请在宿主机检查容器运行状态。'
+}
+
+/**
+ * 页面加载时恢复升级状态。
+ * 升级过程可能持续数分钟，用户刷新页面后不应丢失进度或失败原因。
+ */
+const restoreUpgradeState = async () => {
+  let status: SelfUpgradeJobStatus | undefined
+  try {
+    const res = await systemApi.getSelfUpgradeStatus()
+    status = ((res as any)?.data || res) as SelfUpgradeJobStatus
+  } catch {
+    return
+  }
+  if (!status) return
+
+  if (status.isRunning) {
+    upgradeDialogVisible.value = true
+    pullProgress.value = status.progress || 0
+    pullIndeterminate.value = !status.progress
+    updateTracking.start()
+    const next = applyUpgradeStatus(status)
+    if (next === 'health') {
+      updateTracking.stop()
+      await pollHealthAndReload()
+    } else if (next === 'poll') {
+      await pollUpgradeStatus()
+    }
+    return
+  }
+
+  // 上次升级失败且容器仍在运行：把真实原因展示出来，而不是静默丢弃
+  if (status.phase === 'failed' && status.error) {
+    upgradeDialogVisible.value = true
+    upgradePhase.value = 'failed'
+    upgradeStepTitle.value = t('settings.upgradeFailed')
+    upgradeStepDetail.value = status.error
   }
 }
 
@@ -790,7 +918,8 @@ const pollHealthAndReload = async () => {
   // 等待 3 秒让容器完成重启交接
   await new Promise(r => setTimeout(r, 3000))
 
-  const maxAttempts = 30
+  // 重启后健康检查最多等 2 分钟：新镜像首次启动可能比平时慢
+  const maxAttempts = 60
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 2000))
     try {
@@ -819,6 +948,8 @@ const pollHealthAndReload = async () => {
 onMounted(() => {
   void loadSettings()
   void fetchUpdateCheck(false)
+  // 升级可能持续数分钟，刷新页面后要能接上进度或看到失败原因
+  void restoreUpgradeState()
 })
 </script>
 

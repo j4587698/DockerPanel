@@ -72,8 +72,15 @@ export const systemApi = {
   },
 
   // 执行 DockerPanel 自身升级
+  // 接口只做秒级前置校验，通过后立即返回 202 并在后台拉镜像 + 重建容器，
+  // 前端需配合 getSelfUpgradeStatus 轮询跟踪进度
   executeSelfUpgrade: (data?: SelfUpgradeRequest) => {
-    return api.post<SelfUpgradeResponse>("system/update/upgrade", data || {})
+    return api.post<SelfUpgradeJobStatus>("system/update/upgrade", data || {})
+  },
+
+  // 查询自身升级任务状态
+  getSelfUpgradeStatus: () => {
+    return api.get<SelfUpgradeJobStatus>("system/update/upgrade/status")
   }
 }
 
@@ -95,12 +102,22 @@ export interface SelfUpgradeRequest {
   connectionId?: string
 }
 
-export interface SelfUpgradeResponse {
-  success: boolean
+/** 自升级任务阶段 */
+export type SelfUpgradePhase = 'idle' | 'pulling' | 'restarting' | 'failed'
+
+export interface SelfUpgradeJobStatus {
+  jobId: string
+  phase: SelfUpgradePhase
   message: string
-  currentVersion: string
-  targetImage: string
+  progress: number
+  isRunning: boolean
+  targetImage?: string
+  currentVersion?: string
   oldContainerId?: string
+  error?: string
+  startedAt?: string
+  finishedAt?: string
+  updatedAt?: string
 }
 
 export default systemApi

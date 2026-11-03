@@ -98,7 +98,20 @@ public class ContainerService : IContainerService
             throw new InvalidOperationException("容器未找到");
         }
 
+        // 镜像引用可能是 sha256:<摘要>（容器以镜像 ID 启动）或 repo@sha256:...（以 digest 启动）。
+        // 这两种形式继续用于 docker run 会把「ID 启动」这个状态一代代传下去，且后续 pull 无从下手。
+        // 能解析出 repo:tag 就换掉，解析不出则保持原值（Docker 仍可重建，只是无法 pull 更新）。
         var effectiveImage = overrideImage ?? container.Image;
+        if (!string.IsNullOrEmpty(effectiveImage) &&
+            (ImageReferenceResolver.IsBareImageId(effectiveImage) || ImageReferenceResolver.IsDigestReference(effectiveImage)))
+        {
+            var resolvedImage = await ResolvePullableImageNameAsync(effectiveImage);
+            if (!string.IsNullOrWhiteSpace(resolvedImage))
+            {
+                _logger.LogInformation("容器 {Id} 的镜像引用 {Original} 已解析为 {Resolved}", id, effectiveImage, resolvedImage);
+                effectiveImage = resolvedImage;
+            }
+        }
 
         // Docker 在未显式指定 --hostname 时，会把「容器短 ID」写进 Config.Hostname。
         // 重建容器如果原样把它复制给新容器，新容器就会永远背着上一代容器的短 ID 当 hostname，
@@ -267,12 +280,8 @@ public class ContainerService : IContainerService
         // 拉取最新镜像
         if (pullLatest && !string.IsNullOrEmpty(container.Image))
         {
-            var imageName = container.Image!;
-            var colonIdx = imageName.LastIndexOf(':');
-            var slashIdx = imageName.LastIndexOf('/');
-            var (pullName, pullTag) = colonIdx > slashIdx
-                ? (imageName[..colonIdx], imageName[(colonIdx + 1)..])
-                : (imageName, "latest");
+            // 拉取失败会在此之前中断，容器尚未删除，不会造成不可恢复的状态
+            var (pullName, pullTag) = ImageReferenceResolver.Split(effectiveImage ?? container.Image);
             await PullImageAsync(pullName, pullTag, progress: progress);
         }
 
@@ -354,6 +363,18 @@ public class ContainerService : IContainerService
 
         return newContainer;
     }
+
+    /// <summary>
+    /// 把容器上的镜像引用解析成可拉取的 <c>repo:tag</c>。
+    /// 镜像以 ID 启动时 <c>Image</c> 字段是 <c>sha256:...</c>，以 digest 启动时是
+    /// <c>repo@sha256:...</c>，直接切分会拼出「sha256」这种不存在的仓库。
+    /// </summary>
+    private Task<string?> ResolvePullableImageNameAsync(string? reference)
+        => ImageReferenceResolver.ResolvePullableAsync(reference, async imageId =>
+        {
+            var image = await _engine.GetImageAsync(imageId);
+            return image?.RepoTags;
+        });
 
     /// <summary>
     /// 过滤网络别名：去掉 Docker 自动生成的短 ID 与容器名，只保留用户自定义的别名。

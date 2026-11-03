@@ -477,10 +477,17 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             await PushPullProgressAsync(pullId, container.Image ?? "", "准备中", 5, "正在拉取最新镜像...");
 
             // 拉取新镜像
-            var imageName = container.Image ?? string.Empty;
-            var imageParts = imageName.Split(':');
-            var name = imageParts[0];
-            var tag = imageParts.Length > 1 ? imageParts[1] : "latest";
+            // container.Image 不保证是 repo:tag —— 容器若以镜像 ID 或 digest 创建，
+            // 这里拿到的是 sha256:...，直接切分会拼出「sha256」这个不存在的仓库。
+            var imageName = await ResolvePullableImageNameAsync(container.Image);
+            if (string.IsNullOrWhiteSpace(imageName))
+            {
+                // 抛出去交给统一 catch：失败状态、进度广播、历史记录都能一并落到配置上
+                throw new InvalidOperationException(
+                    "无法确定可拉取的镜像名：容器可能是用镜像 ID 启动的，且本地已没有对应 tag，请改用 repo:tag 形式重新创建容器");
+            }
+
+            var (name, tag) = ImageReferenceResolver.Split(imageName);
 
             var pullProgress = DockerPanelHub.CreatePullProgressBroadcaster(_hubContext, pullId, imageName);
             await _containerEngine.PullImageAsync(name, tag, pullProgress);
@@ -576,6 +583,18 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
     {
         return _db.AutoUpdateConfigs.Find(c => c.HasUpdateAvailable).ToList();
     }
+
+    /// <summary>
+    /// 把容器上的镜像引用解析成可拉取的 <c>repo:tag</c>。
+    /// 容器以镜像 ID 启动时 <c>Image</c> 字段是 <c>sha256:...</c>，以 digest 启动时是
+    /// <c>repo@sha256:...</c>，这两种都不能直接拿去 pull。
+    /// </summary>
+    private Task<string?> ResolvePullableImageNameAsync(string? reference)
+        => ImageReferenceResolver.ResolvePullableAsync(reference, async imageId =>
+        {
+            var image = await _containerEngine.GetImageAsync(imageId);
+            return image?.RepoTags;
+        });
 
     public async Task<GlobalAutoUpdateSettings> GetGlobalSettingsAsync()
     {
@@ -1076,9 +1095,15 @@ public class AutoUpdateService : IAutoUpdateService, IDisposable
             var config = await GetConfigAsync(containerId);
             
             // 解析镜像名称
-            var imageName = container.Image ?? string.Empty;
-            var imageParts = imageName.Split(':');
-            var name = imageParts[0];
+            // 同样不能用 Split(':')：镜像以 ID 启动时拿到的是 sha256:...，
+            // 会切出 name=sha256 这种不存在的仓库。
+            var imageName = await ResolvePullableImageNameAsync(container.Image);
+            if (string.IsNullOrWhiteSpace(imageName))
+            {
+                result.ErrorMessage = "无法确定可拉取的镜像名：容器可能是用镜像 ID 启动的，且本地已没有对应 tag";
+                return result;
+            }
+            var (name, _) = ImageReferenceResolver.Split(imageName);
             
             var pullId = $"rollback-{containerId}";
 

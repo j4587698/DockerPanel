@@ -11,7 +11,7 @@ COPY Frontend/ ./
 RUN npm run build
 
 # 后端发布阶段（Native AOT，alpine SDK 原生 musl 环境，无需交叉工具链）
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS backend-build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0-alpine AS backend-build
 ARG TARGETARCH
 
 # AOT 编译工具链（clang 编译器 + zlib 链接库 + llvm-objcopy 符号剥离 + build-base(gcc/bfd 链接器)）

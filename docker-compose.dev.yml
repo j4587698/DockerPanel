@@ -1,7 +1,7 @@
 services:
   # 后端API服务
   backend:
-    image: mcr.microsoft.com/dotnet/sdk:10.0
+    image: mcr.microsoft.com/dotnet/sdk:11.0
     container_name: dockerpanel-backend-dev
     working_dir: /app
     ports:

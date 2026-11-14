@@ -1,19 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <!-- Satori GC（实验性 GC，在 Native AOT / self-contained 发布时替代默认 GC）。
-       版本必须写精确值，不能写成 10.*：
+       版本必须写精确值，不能写成 11.*：
          1) MSBuild 的 NuGetSdkResolver 不接受浮点版本，浮点会直接报 MSB4236 解析失败；
-         2) 该包所有版本都是预发布（-satori.<build>.1），10.* 匹配不到稳定版；
+         2) 该包所有版本都是预发布（-satori.<build>.1），11.* 匹配不到稳定版；
          3) SDK 的 Sdk.props 会把自身版本写死给配套的 AotSdk/AotTools 运行时包，
             两者必须严格一致，浮动会拆散这个绑定。
-       升级时改这一处即可；11.x 对应 .NET 11，本项目是 net10.0 所以用 10.x。 -->
-  <Sdk Name="PublishWithSatoriGC" Version="10.0.13-satori.39356568198.1" />
+       升级时改这一处即可；11.x 对应 .NET 11，本项目是 net11.0 所以用 11.x。 -->
+  <Sdk Name="PublishWithSatoriGC" Version="11.0.0-satori.42242472725.2" />
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.10.5</Version>
+    <Version>0.11.0</Version>
     <InformationalVersion>$(Version)</InformationalVersion>
     <!-- 本地化由自研 JSON 语言包实现，不依赖 ICU；可为镜像省去 icu-libs(约 30MB) -->
     <InvariantGlobalization>true</InvariantGlobalization>
@@ -42,25 +42,24 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AcmeForge" Version="0.1.1" />
+    <PackageReference Include="AcmeForge" Version="0.1.2" />
     <PackageReference Include="DnsClient" Version="1.8.0" />
     <PackageReference Include="Docker.DotNet.Enhanced" Version="4.3.3" />
     <!-- 注意：不要降级到 0.6.2 及以下，该版本嵌套对象内的 DateTime? 无法反序列化，
          会导致包含该字段的整张表 FindAll() 抛 NotSupportedException（见 TinyDbAotCompatibilityTests） -->
-    <PackageReference Include="TinyDb" Version="0.6.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <PackageReference Include="TinyDb" Version="0.6.5" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="SSH.NET" Version="2026.0.0" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.16.20" />
-    <!-- 固定到已修复 CVE-2026-49451 的版本（<2.7.5 存在循环引用栈溢出漏洞）；
-         AspNetCore.OpenApi 依赖约束为 >=2.7.5 && <3.0.0，3.x 暂不可用 -->
-    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
-    <PackageReference Include="Compose.NET" Version="0.2.0" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.21.0" />
+    <!-- AspNetCore.OpenApi 11.0.0 依赖 Microsoft.OpenApi [3.11.0, 4.0.0)；
+         3.x 修复了 CVE-2026-49451（<2.7.5 存在循环引用栈溢出漏洞） -->
+    <PackageReference Include="Microsoft.OpenApi" Version="3.11.0" />
+    <PackageReference Include="Compose.NET" Version="0.2.1" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
-    <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
   </ItemGroup>
 
 </Project>

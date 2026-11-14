@@ -213,13 +213,13 @@ public class SelfUpdateService : ISelfUpdateService
             throw new InvalidOperationException($"拉取新镜像 {targetImage} 失败: {ex.Message}", ex);
         }
 
-        await DockerPanelHub.BroadcastImagePullProgress(_hubContext, pullId, targetImage, "完成", 100, "镜像拉取完成");
         job.Update(SelfUpgradePhase.Pulling, "镜像拉取完成，正在准备升级环境...", 85);
 
         // 2. 确保 helper 容器镜像 docker:cli 可用
         var helperImage = "docker:cli";
         try
         {
+            await DockerPanelHub.BroadcastImagePullProgress(_hubContext, pullId, targetImage, "准备中", 95, "正在就绪更新辅助工具 (docker:cli)...");
             await PullImageAsync(client, helperImage, null, ct);
         }
         catch (OperationCanceledException)
@@ -230,6 +230,10 @@ public class SelfUpdateService : ISelfUpdateService
         {
             _logger.LogWarning(ex, "拉取 helper 镜像 {Image} 失败，尝试继续", helperImage);
         }
+
+        // 所有镜像就绪后才广播「完成」：前端 useImagePullProgress 收到「完成」会立刻退订，
+        // 若在 helper 镜像之前广播，这段等待既没有进度可看，进度条也会一直停在 100%。
+        await DockerPanelHub.BroadcastImagePullProgress(_hubContext, pullId, targetImage, "完成", 100, "镜像拉取完成");
 
         // 3. 组装 Helper 脚本
         // 接口已改为立即返回，前端拿到响应后才开始轮询状态；这里的延迟只为让

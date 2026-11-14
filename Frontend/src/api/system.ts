@@ -68,7 +68,11 @@ export const systemApi = {
 
   // 检查 DockerPanel 自身更新
   checkSelfUpdate: (force?: boolean) => {
-    return api.get<SelfUpdateCheckResult>("system/update/check", { params: { force } })
+    // 远程 Registry 查询（digest 比对）可能较慢，默认 30s 不够
+    return api.get<SelfUpdateCheckResult>("system/update/check", {
+      params: { force },
+      timeout: 60000
+    })
   },
 
   // 执行 DockerPanel 自身升级

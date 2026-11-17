@@ -1187,11 +1187,18 @@ const populateFormFromContainer = (container: any) => {
   
   // 卷挂载
   if (container.mounts && container.mounts.length > 0) {
-    formArrays.volumes = container.mounts.map((m: any) => ({
-      hostPath: m.source || '',
-      containerPath: m.destination || '',
-      readOnly: !m.rw
-    }))
+    formArrays.volumes = container.mounts
+      .filter((m: any) => m.type !== 'tmpfs' && m.type !== 'npipe')
+      .map((m: any) => {
+        const isVolume = m.type === 'volume'
+        return {
+          type: isVolume ? 'volume' : 'bind',
+          hostPath: isVolume ? '' : (m.source || ''),
+          volumeName: isVolume ? (m.name || m.source || '') : '',
+          containerPath: m.destination || '',
+          readOnly: !m.rw
+        }
+      })
   }
   
   // 网络模式
@@ -1502,7 +1509,7 @@ const handleSaveAsTemplate = async () => {
         protocol: p.protocol || 'tcp'
       })) : undefined,
       volumes: formArrays.volumes.length > 0 ? formArrays.volumes.map(v => ({
-        hostPath: v.hostPath || undefined,
+        hostPath: v.type === 'volume' ? v.volumeName : (v.hostPath || undefined),
         containerPath: v.containerPath,
         readOnly: v.readOnly || false
       })) : undefined,
@@ -1896,11 +1903,18 @@ const handleTemplateSelect = (tpl: any) => {
   
   // 卷映射
   if (tpl.volumes && tpl.volumes.length > 0) {
-    formArrays.volumes = tpl.volumes.map((v: any) => ({
-      hostPath: v.hostPath || '',
-      containerPath: v.containerPath,
-      readOnly: v.readOnly || false
-    }))
+    formArrays.volumes = tpl.volumes.map((v: any) => {
+      // 模板中卷挂载以卷名形式存放在 hostPath（不含路径分隔符时按命名卷处理）
+      const p = v.hostPath || ''
+      const isVolume = p !== '' && !p.startsWith('/') && !/^[a-zA-Z]:[\\/]/.test(p)
+      return {
+        type: isVolume ? 'volume' : 'bind',
+        hostPath: isVolume ? '' : p,
+        volumeName: isVolume ? p : '',
+        containerPath: v.containerPath,
+        readOnly: v.readOnly || false
+      }
+    })
   }
   
   // 环境变量

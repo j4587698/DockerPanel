@@ -288,8 +288,9 @@ public interface IContainerService
         /// <param name="autoStart">是否自动启动新容器</param>
         /// <param name="overrideImage">覆盖使用的镜像（如回滚到指定标签）</param>
         /// <param name="progress">拉取进度回调</param>
+        /// <param name="configOverride">编辑重建时用户修改后的完整创建配置；为空时沿用原容器配置推导</param>
         /// <returns>新容器信息</returns>
-        Task<ContainerInfo> RecreateContainerAsync(string id, bool pullLatest = false, bool autoStart = true, string? overrideImage = null, IProgress<ImagePullProgress>? progress = null);
+        Task<ContainerInfo> RecreateContainerAsync(string id, bool pullLatest = false, bool autoStart = true, string? overrideImage = null, IProgress<ImagePullProgress>? progress = null, CreateContainerRequest? configOverride = null);
     }
     
     /// <summary>

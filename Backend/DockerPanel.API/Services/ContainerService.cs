@@ -90,7 +90,7 @@ public class ContainerService : IContainerService
         await _engine.PullImageAsync(name, tag, progress, registryId, nodeId);
     }
 
-    public async Task<ContainerInfo> RecreateContainerAsync(string id, bool pullLatest = false, bool autoStart = true, string? overrideImage = null, IProgress<ImagePullProgress>? progress = null)
+    public async Task<ContainerInfo> RecreateContainerAsync(string id, bool pullLatest = false, bool autoStart = true, string? overrideImage = null, IProgress<ImagePullProgress>? progress = null, CreateContainerRequest? configOverride = null)
     {
         var container = await GetContainerAsync(id);
         if (container == null)
@@ -275,6 +275,20 @@ public class ContainerService : IContainerService
                 Retries = container.Health.Retries,
                 StartPeriod = (int)container.Health.StartPeriod
             };
+        }
+
+        // 编辑容器场景：前端传入用户修改后的完整创建配置时优先使用，
+        // 否则沿用上面从原容器推导的配置（镜像更新等纯重建场景）。
+        if (configOverride != null)
+        {
+            createRequest = configOverride;
+
+            // 防止把上一代容器自动生成的短 ID hostname 继续传下去（与推导路径同一规则）
+            if (!string.IsNullOrEmpty(createRequest.Hostname) &&
+                System.Text.RegularExpressions.Regex.IsMatch(createRequest.Hostname, "^[0-9a-f]{12}$"))
+            {
+                createRequest.Hostname = null;
+            }
         }
 
         // 拉取最新镜像

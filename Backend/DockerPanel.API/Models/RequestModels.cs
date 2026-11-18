@@ -480,6 +480,11 @@ public class RecreateContainerRequest
     /// 是否保留数据卷
     /// </summary>
     public bool KeepVolumes { get; set; } = true;
+
+    /// <summary>
+    /// 编辑重建时的完整创建配置；为空时沿用从原容器推导的配置
+    /// </summary>
+    public CreateContainerRequest? Config { get; set; }
 }
 
 /// <summary>

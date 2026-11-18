@@ -354,7 +354,8 @@ namespace DockerPanel.API.Endpoints
                     id,
                     pullLatest: request.PullLatest,
                     autoStart: request.AutoStart,
-                    progress: pullProgress);
+                    progress: pullProgress,
+                    configOverride: request.Config);
 
                 if (request.PullLatest && !string.IsNullOrEmpty(imageName))
                 {

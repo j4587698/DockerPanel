@@ -1433,22 +1433,18 @@ const handleSubmit = async () => {
       }, {})
     }
 
-    // 编辑模式：先删除旧容器，再创建新容器
+    // 编辑模式：走后端重建接口（删除旧容器并按配置重建）。
+    // 不能前端先删后建：removeContainer 会级联删除域名映射(反代)，
+    // 后端重建接口会把映射原地保留，新容器创建后自动改绑 ContainerId。
     if (editMode.value && editContainerId.value) {
       const wasRunning = props.editContainer?.state === 'running'
-      
-      // 删除旧容器
-      await containerApi.removeContainer(editContainerId.value, true)
-      
-      // 创建新容器
-      const createRes = await containerApi.createContainer(request as any)
-      const newContainerId = typeof createRes === 'string' ? createRes : (createRes as any)?.data || (createRes as any)?.id
-      
-      // 如果原来在运行，启动新容器
-      if (wasRunning && newContainerId) {
-        await containerApi.startContainer(newContainerId)
-      }
-      
+
+      const recreateRes = await containerApi.recreateContainer(editContainerId.value, {
+        autoStart: wasRunning,
+        config: request as any
+      }) as any
+      const newContainerId = recreateRes?.newId || recreateRes?.data?.newId
+
       ElMessage.success('容器已更新')
       emit('success', newContainerId)
     } else {

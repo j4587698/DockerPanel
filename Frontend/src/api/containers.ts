@@ -223,7 +223,7 @@ export const containerApi = {
     api.get(`/containers/${id}/export`, { responseType: 'blob' }),
 
   // 重建容器
-  recreateContainer: (id: string, options?: { pullLatest?: boolean; autoStart?: boolean }) =>
+  recreateContainer: (id: string, options?: { pullLatest?: boolean; autoStart?: boolean; config?: ContainerCreateRequest }) =>
     api.post<{ message: string; oldId: string; newId: string; name: string }>(`/containers/${id}/recreate`, options, { timeout: 0 }),
   
   // 批量操作容器

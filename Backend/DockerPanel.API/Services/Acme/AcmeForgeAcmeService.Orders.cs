@@ -261,6 +261,11 @@ namespace DockerPanel.API.Services.Acme
                 if (acme == null)
                 {
                     _logger.LogError("无法获取ACME客户端进行自动验证: OrderId={OrderId}", order.Id);
+                    order.Error = "无法获取ACME客户端，请检查ACME账户配置";
+                    if (!string.IsNullOrEmpty(progressId))
+                    {
+                        await _progressService.AddErrorAsync(progressId, order.Error);
+                    }
                     // 清理可能残留的挑战证书，防止 SNI 一直返回挑战证书
                     _tlsAlpnChallengeService.CleanupAll();
                     return false;
@@ -269,7 +274,12 @@ namespace DockerPanel.API.Services.Acme
                 var accountKey = await ResolveAccountKeyAsync(order.AccountId);
                 if (accountKey == null)
                 {
-                    _logger.LogError("无法解析账户密钥进行自动验证: OrderId={OrderId}", order.Id);
+                    _logger.LogError("无法解析账户密钥进行自动验证: OrderId={OrderId}, AccountId={AccountId}", order.Id, order.AccountId);
+                    order.Error = $"无法解析ACME账户密钥（账户: {order.AccountId}），请在ACME设置中重新保存账户";
+                    if (!string.IsNullOrEmpty(progressId))
+                    {
+                        await _progressService.AddErrorAsync(progressId, order.Error);
+                    }
                     // 清理可能残留的挑战证书，防止 SNI 一直返回挑战证书
                     _tlsAlpnChallengeService.CleanupAll();
                     return false;
@@ -284,6 +294,11 @@ namespace DockerPanel.API.Services.Acme
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "无法获取订单资源进行自动验证: OrderId={OrderId}", order.Id);
+                    order.Error = $"获取ACME订单信息失败: {ex.Message}";
+                    if (!string.IsNullOrEmpty(progressId))
+                    {
+                        await _progressService.AddErrorAsync(progressId, order.Error);
+                    }
                     // 清理可能残留的挑战证书，防止 SNI 一直返回挑战证书
                     _tlsAlpnChallengeService.CleanupAll();
                     return false;
@@ -331,6 +346,11 @@ namespace DockerPanel.API.Services.Acme
                     if (provider == null)
                     {
                         _logger.LogError("未找到DNS提供商: {DnsProvider}", dnsProvider);
+                        order.Error = $"未找到DNS提供商: {dnsProvider}，请检查DNS提供商配置";
+                        if (!string.IsNullOrEmpty(progressId))
+                        {
+                            await _progressService.AddErrorAsync(progressId, order.Error);
+                        }
                         return false;
                     }
 
@@ -349,6 +369,11 @@ namespace DockerPanel.API.Services.Acme
                         if (!createResult.Success)
                         {
                             _logger.LogError("创建DNS TXT记录失败: {Domain}, {Message}", domain, createResult.Message);
+                            order.Error = $"创建DNS TXT记录失败: {domain}: {createResult.Message}";
+                            if (!string.IsNullOrEmpty(progressId))
+                            {
+                                await _progressService.AddErrorAsync(progressId, order.Error);
+                            }
                             allValidated = false;
                         }
                         else
@@ -405,6 +430,11 @@ namespace DockerPanel.API.Services.Acme
                         {
                             var availableTypes = string.Join(", ", challenges.Select(c => c.Type));
                             _logger.LogWarning("未找到DNS-01挑战: {Domain}，可用挑战类型: {AvailableTypes}", domain, availableTypes);
+                            order.Error = $"DNS-01验证不可用: {domain}（可用挑战类型: {availableTypes}）";
+                            if (!string.IsNullOrEmpty(progressId))
+                            {
+                                await _progressService.AddErrorAsync(progressId, order.Error);
+                            }
                             allValidated = false;
                             continue;
                         }
@@ -424,6 +454,11 @@ namespace DockerPanel.API.Services.Acme
                         else
                         {
                             _logger.LogError("DNS-01挑战验证失败或超时: Domain={Domain}, Status={Status}", domain, finalStatus);
+                            order.Error = $"DNS-01挑战验证失败或超时: {domain}（状态: {finalStatus ?? "无"}）";
+                            if (!string.IsNullOrEmpty(progressId))
+                            {
+                                await _progressService.AddErrorAsync(progressId, order.Error);
+                            }
                             allValidated = false;
                         }
                     }
@@ -518,6 +553,11 @@ namespace DockerPanel.API.Services.Acme
                 else
                 {
                     _logger.LogError("不支持的挑战类型: {ChallengeType}", challengeType);
+                    order.Error = $"不支持的挑战类型: {challengeType}";
+                    if (!string.IsNullOrEmpty(progressId))
+                    {
+                        await _progressService.AddErrorAsync(progressId, order.Error);
+                    }
                     return false;
                 }
 
@@ -544,6 +584,8 @@ namespace DockerPanel.API.Services.Acme
             catch (Exception ex)
             {
                 _logger.LogError(ex, "自动验证过程中发生异常: OrderId={OrderId}", order.Id);
+
+                order.Error = $"自动验证异常: {ex.Message}";
 
                 if (!string.IsNullOrEmpty(progressId))
                 {
@@ -672,6 +714,10 @@ namespace DockerPanel.API.Services.Acme
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "通知Let's Encrypt验证HTTP-01挑战失败");
+                    if (!string.IsNullOrEmpty(progressId))
+                    {
+                        await _progressService.AddErrorAsync(progressId, $"通知Let's Encrypt验证HTTP-01挑战失败: {ex.Message}");
+                    }
                     return false;
                 }
             }
@@ -817,6 +863,10 @@ namespace DockerPanel.API.Services.Acme
                 {
                     _logger.LogError(ex, "通知Let's Encrypt验证TLS-ALPN-01挑战失败");
                     _tlsAlpnChallengeService.CleanupChallenge(domain);
+                    if (!string.IsNullOrEmpty(progressId))
+                    {
+                        await _progressService.AddErrorAsync(progressId, $"通知Let's Encrypt验证TLS-ALPN-01挑战失败: {ex.Message}");
+                    }
                     return false;
                 }
             }

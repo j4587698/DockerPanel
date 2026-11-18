@@ -75,11 +75,15 @@ namespace DockerPanel.API.Services.Acme
                     _logger.LogError("自动验证失败，订单标记为失败状态: OrderId={OrderId}", order.Id);
 
                     order.Status = "failed";
-                    order.Error = "自动验证失败：无法完成域名验证。请检查网络连接、防火墙设置或DNS配置。";
+                    // PerformAutoValidationAsync 在各失败分支会写入具体原因，这里仅在缺失时回退到通用文案
+                    if (string.IsNullOrWhiteSpace(order.Error))
+                    {
+                        order.Error = "自动验证失败：无法完成域名验证。请检查网络连接、防火墙设置或DNS配置。";
+                    }
 
                     if (!string.IsNullOrEmpty(payload.ProgressId))
                     {
-                        await _progressService.AddErrorAsync(payload.ProgressId, "自动验证失败，请检查配置后重试。");
+                        await _progressService.AddErrorAsync(payload.ProgressId, $"自动验证失败，请检查配置后重试。（原因: {order.Error}）");
                         await _progressService.MarkAsFailedAsync(payload.ProgressId, "验证失败");
                     }
                 }

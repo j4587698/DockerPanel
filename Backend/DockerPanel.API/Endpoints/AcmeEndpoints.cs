@@ -494,6 +494,11 @@ namespace DockerPanel.API.Endpoints
                     completedCertificates = completedCertificates.Where(c => c.AccountId == accountId).ToList();
                 }
 
+                // Superseded 的证书记录已被同域名的新证书覆盖，不再出现在列表中
+                completedCertificates = completedCertificates
+                    .Where(c => !string.Equals(c.Status, "Superseded", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
                 var finalCertificates = completedCertificates.Select(cert => {
                     var account = accountDict.TryGetValue(cert.AccountId, out var acc2) ? acc2 : null;
 

@@ -1125,9 +1125,77 @@ namespace DockerPanel.API.Services.Acme
                                 UpdatedAt = DateTime.UtcNow
                             };
 
-                            certificatesCollection.Insert(certificateRecord);
-                            _logger.LogInformation("证书已保存到数据库: OrderId={OrderId}, CertificateId={CertificateId}, KeyAlgorithm={KeyAlgorithm}, KeySize={KeySize}, ExpiresAt={ExpiresAt}, AutoRenew={AutoRenew}",
-                                order.Id, certificateRecord.Id, keyAlgorithm, keySize, cert.NotAfter, autoRenew);
+                            // 幂等保护：同一订单重复 finalize（后台任务重试）或同一张证书（同指纹）
+                            // 已保存过时原地更新，避免同域名出现多条"有效"记录
+                            var existingRecord =
+                                certificatesCollection.Find(c => c.OrderId == order.Id).FirstOrDefault()
+                                ?? certificatesCollection.Find(c => c.Fingerprint == certificateRecord.Fingerprint && c.Status != "Revoked").FirstOrDefault();
+
+                            if (existingRecord != null)
+                            {
+                                certificateRecord.Id = existingRecord.Id;
+                                certificateRecord.CreatedAt = existingRecord.CreatedAt;
+                                certificatesCollection.Update(certificateRecord);
+                                _logger.LogInformation("证书记录已存在（订单重试/同指纹），原地更新: OrderId={OrderId}, CertificateId={CertificateId}, ExpiresAt={ExpiresAt}",
+                                    order.Id, certificateRecord.Id, cert.NotAfter);
+                            }
+                            else
+                            {
+                                certificatesCollection.Insert(certificateRecord);
+
+                                // 覆盖同域名集合的旧 Active 记录：标记 Superseded 并把绑定的域名映射改绑到新证书，
+                                // 否则反复申请会让同域名"有效"记录不断堆积
+                                try
+                                {
+                                    var domainKey = new HashSet<string>(
+                                        order.Domains.Select(d => d.Trim()),
+                                        StringComparer.OrdinalIgnoreCase);
+                                    var domainMappingsCollection = _dbContext.GetCollection<DomainMapping>("domain_mappings");
+                                    var supersededIds = new List<string>();
+
+                                    foreach (var otherRecord in certificatesCollection.Find(c => c.Status == "Active").ToList())
+                                    {
+                                        if (string.Equals(otherRecord.Id, certificateRecord.Id, StringComparison.Ordinal) ||
+                                            otherRecord.Domains == null || otherRecord.Domains.Count != domainKey.Count ||
+                                            !otherRecord.Domains.All(d => domainKey.Contains(d.Trim())))
+                                        {
+                                            continue;
+                                        }
+
+                                        otherRecord.Status = "Superseded";
+                                        otherRecord.UpdatedAt = DateTime.UtcNow;
+                                        otherRecord.Metadata ??= new Dictionary<string, object>();
+                                        otherRecord.Metadata["supersededBy"] = certificateRecord.Id;
+                                        certificatesCollection.Update(otherRecord);
+                                        supersededIds.Add(otherRecord.Id);
+                                    }
+
+                                    foreach (var oldId in supersededIds)
+                                    {
+                                        foreach (var boundMapping in domainMappingsCollection.Find(m => m.CertificateId == oldId).ToList())
+                                        {
+                                            boundMapping.CertificateId = certificateRecord.Id;
+                                            boundMapping.UpdatedAt = DateTime.UtcNow;
+                                            domainMappingsCollection.Update(boundMapping);
+                                            _logger.LogInformation("域名映射已改绑到新证书: Domain={Domain}, OldCertificateId={OldId}, NewCertificateId={NewId}",
+                                                boundMapping.Domain, oldId, certificateRecord.Id);
+                                        }
+                                    }
+
+                                    if (supersededIds.Count > 0)
+                                    {
+                                        _logger.LogInformation("已覆盖 {Count} 条同域名的旧证书记录: Domains={Domains}",
+                                            supersededIds.Count, string.Join(",", order.Domains));
+                                    }
+                                }
+                                catch (Exception supersedeEx)
+                                {
+                                    _logger.LogWarning(supersedeEx, "覆盖同域名旧证书记录失败（不影响新证书保存）: OrderId={OrderId}", order.Id);
+                                }
+
+                                _logger.LogInformation("证书已保存到数据库: OrderId={OrderId}, CertificateId={CertificateId}, KeyAlgorithm={KeyAlgorithm}, KeySize={KeySize}, ExpiresAt={ExpiresAt}, AutoRenew={AutoRenew}",
+                                    order.Id, certificateRecord.Id, keyAlgorithm, keySize, cert.NotAfter, autoRenew);
+                            }
                         }
 
                         // 自动回填更新 DomainMapping 中的 CertificateId

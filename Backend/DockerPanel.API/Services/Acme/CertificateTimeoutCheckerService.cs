@@ -10,6 +10,7 @@ using TinyDb;
 using TinyDb.Bson;
 using TinyDb.Core;
 using TinyDb.Collections;
+using DockerPanel.API.Models;
 using DockerPanel.API.Models.Acme;
 
 namespace DockerPanel.API.Services
@@ -106,6 +107,48 @@ namespace DockerPanel.API.Services
                         _logger.LogWarning("证书订单已标记为超时失败: {OrderId}, 域名: {Domains}, 创建时间: {CreatedAt}",
                             order.Id, string.Join(", ", order.Domains ?? new List<string>()), order.CreatedAt);
                     }
+                }
+
+                // 同域名集合的重复 Active 证书记录去重：保留最新一条，旧的标记 Superseded 并改绑域名映射。
+                // 历史上 FinalizeCertificateAsync 无幂等保护 + 续期入参歧义，造成同域名多条"有效"记录堆积
+                try
+                {
+                    var certificatesCollection = _db.GetCollection<CertificateRecord>(DbCollections.Certificates);
+                    var domainMappingsCollection = _db.GetCollection<DomainMapping>("domain_mappings");
+                    var activeCerts = certificatesCollection.Find(c => c.Status == "Active").ToList();
+
+                    var duplicateGroups = activeCerts
+                        .Where(c => c.Domains != null && c.Domains.Count > 0)
+                        .GroupBy(c => string.Join("|", c.Domains.Select(d => d.Trim()).OrderBy(d => d, StringComparer.OrdinalIgnoreCase)))
+                        .Where(g => g.Count() > 1);
+
+                    foreach (var group in duplicateGroups)
+                    {
+                        var keep = group.OrderByDescending(c => c.CreatedAt).First();
+
+                        foreach (var stale in group.Where(c => !string.Equals(c.Id, keep.Id, StringComparison.Ordinal)))
+                        {
+                            stale.Status = "Superseded";
+                            stale.UpdatedAt = DateTime.UtcNow;
+                            stale.Metadata ??= new Dictionary<string, object>();
+                            stale.Metadata["supersededBy"] = keep.Id;
+                            certificatesCollection.Update(stale);
+
+                            foreach (var boundMapping in domainMappingsCollection.Find(m => m.CertificateId == stale.Id).ToList())
+                            {
+                                boundMapping.CertificateId = keep.Id;
+                                boundMapping.UpdatedAt = DateTime.UtcNow;
+                                domainMappingsCollection.Update(boundMapping);
+                            }
+
+                            _logger.LogInformation("重复证书记录已去重: Domain={Domain}, 保留={KeepId}, 覆盖={StaleId}",
+                                keep.Name, keep.Id, stale.Id);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "重复证书记录去重失败");
                 }
 
                 // 清理超过保留期的失败订单（未被任何证书记录引用），避免失败记录无限堆积

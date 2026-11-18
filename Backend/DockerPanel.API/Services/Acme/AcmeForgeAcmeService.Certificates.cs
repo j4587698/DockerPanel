@@ -174,6 +174,22 @@ namespace DockerPanel.API.Services.Acme
                 _logger.LogInformation("找到原证书: Domains={Domains}, ChallengeType={ChallengeType}",
                     string.Join(",", existingOrder.Domains), existingOrder.Metadata?.GetValueOrDefault("challengeType"));
 
+                // originalCertificateId 必须是 certificates 表的主键。
+                // 入参可能是订单 ID（前端/批量接口可能传订单 ID），这里统一解析成证书记录 ID，
+                // 否则 FinalizeCertificateAsync 的续期分支找不到原记录，会另建新记录造成同域名重复
+                string originalCertificateId = certificateId;
+                var certificatesForId = _dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
+                if (certificatesForId.FindById(certificateId) == null)
+                {
+                    var certByOrder = certificatesForId.Find(c => c.OrderId == certificateId).FirstOrDefault();
+                    if (certByOrder != null)
+                    {
+                        originalCertificateId = certByOrder.Id;
+                        _logger.LogInformation("续期入参为订单 ID，已解析为证书记录 ID: OrderId={OrderId}, CertificateId={CertificateId}",
+                            certificateId, originalCertificateId);
+                    }
+                }
+
                 // 创建续期请求，标记为续期以更新原证书
                 var renewalRequest = new AcmeCertificateRequest
                 {
@@ -183,7 +199,7 @@ namespace DockerPanel.API.Services.Acme
                     Metadata = new Dictionary<string, object>(existingOrder.Metadata ?? new Dictionary<string, object>())
                     {
                         ["isRenewal"] = true,
-                        ["originalCertificateId"] = certificateId,  // 使用原证书ID
+                        ["originalCertificateId"] = originalCertificateId,  // 使用原证书ID
                         ["renewedAt"] = DateTime.UtcNow
                     }
                 };
@@ -295,6 +311,21 @@ namespace DockerPanel.API.Services.Acme
 
                 _logger.LogInformation("证书重试成功: NewOrderId={NewId}, OriginalOrderId={OriginalId}",
                     retryOrder.Id, certificateId);
+
+                // 新订单已创建，删除旧失败订单，避免失败记录持续堆积
+                if (!string.Equals(certificateId, retryOrder.Id, StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        ordersCollection.Delete(certificateId);
+                        _logger.LogInformation("旧失败订单已删除: OldOrderId={OldOrderId}, NewOrderId={NewOrderId}",
+                            certificateId, retryOrder.Id);
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        _logger.LogWarning(cleanupEx, "删除旧失败订单失败: OldOrderId={OldOrderId}", certificateId);
+                    }
+                }
 
                 return retryOrder;
             }

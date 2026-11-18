@@ -54,11 +54,14 @@ namespace DockerPanel.API.Services.Acme
             }
 
             var threshold = DateTime.UtcNow.AddDays(daysBeforeExpiry);
+            // 过期超过 30 天的证书不再尝试续期：ACME 服务端必然拒绝，反复提交只会堆积失败订单
+            var tooOldCutoff = DateTime.UtcNow.AddDays(-30);
             var certificatesCollection = _dbContext.GetCollection<CertificateRecord>(DbCollections.Certificates);
             var candidates = certificatesCollection.Find(c =>
                     c.AutoRenewalEnabled &&
                     !string.Equals(c.Status, "revoked", StringComparison.OrdinalIgnoreCase) &&
-                    c.ExpiresAt <= threshold)
+                    c.ExpiresAt <= threshold &&
+                    c.ExpiresAt >= tooOldCutoff)
                 .ToList();
 
             var renewedCount = 0;

@@ -193,6 +193,36 @@ namespace DockerPanel.API.Services.Acme
                 try
                 {
                     var ordersCollection = _dbContext.GetCollection<AcmeCertificateOrder>(DbCollections.AcmeOrders);
+
+                    // 清理同账户、同域名集合的历史失败订单，避免反复申请/重试时失败记录无限堆积
+                    try
+                    {
+                        var domainSet = new HashSet<string>(
+                            request.Domains.Select(d => d.Trim()),
+                            StringComparer.OrdinalIgnoreCase);
+                        var staleFailed = ordersCollection.Find(o =>
+                            o.Status == "failed" &&
+                            o.AccountId == request.AccountId &&
+                            o.Domains != null &&
+                            o.Domains.Count == domainSet.Count &&
+                            o.Domains.All(d => domainSet.Contains(d.Trim()))
+                        ).ToList();
+
+                        foreach (var staleOrder in staleFailed)
+                        {
+                            ordersCollection.Delete(staleOrder.Id);
+                        }
+                        if (staleFailed.Count > 0)
+                        {
+                            _logger.LogInformation("已清理 {Count} 条同域名同账户的历史失败订单: Domains={Domains}",
+                                staleFailed.Count, string.Join(",", request.Domains));
+                        }
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        _logger.LogWarning(cleanupEx, "清理历史失败订单失败，继续创建新订单");
+                    }
+
                     _dbContext.BeginTrans();
                     ordersCollection.Insert(order);
                     _dbContext.Commit();

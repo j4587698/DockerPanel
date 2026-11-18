@@ -1876,6 +1876,7 @@ export interface DockerStats {
     os: string
     arch: string
     kernelVersion: string
+    ncpu?: number
   }
   containers: {
     running: number
@@ -1887,7 +1888,8 @@ export interface DockerStats {
     totalSize: number
     totalSizeFormatted: string
   }
-  resources: {
+  // includeStats=false 时后端不采集容器资源聚合，这两个字段为 undefined
+  resources?: {
     cpuUsagePercent: number
     memoryUsed: number
     memoryLimit: number
@@ -1895,11 +1897,95 @@ export interface DockerStats {
     memoryUsedFormatted: string
     memoryLimitFormatted: string
   }
-  network: {
+  network?: {
     rxBytesPerSec: number
     txBytesPerSec: number
     rxSpeedFormatted: string
     txSpeedFormatted: string
   }
   timestamp: string
+}
+
+// ==================== 宿主机实时指标 ====================
+// 来源：GET /api/system/host-metrics 或 SignalR HostStatsUpdated。
+// available=false 表示未挂载 /host/proc，前端应显示启用提示而不是伪造数据。
+
+export interface HostMetricsSnapshot {
+  available: boolean
+  unavailableReason?: string | null
+  containerized: boolean
+  hostName?: string | null
+  osName?: string | null
+  osVersion?: string | null
+  kernelVersion?: string | null
+  uptimeSeconds: number
+  cpu: HostCpuMetrics
+  memory: HostMemoryMetrics
+  load: HostLoadMetrics
+  disk: HostDiskMetrics
+  network: HostNetworkMetrics
+  fileSystemAvailable: boolean
+  fileSystemUnavailableReason?: string | null
+  fileSystems: HostFileSystemMetrics[]
+  timestamp: string
+}
+
+export interface HostCpuMetrics {
+  usagePercent: number
+  coreCount: number
+  userPercent: number
+  systemPercent: number
+  iowaitPercent: number
+}
+
+export interface HostMemoryMetrics {
+  totalBytes: number
+  usedBytes: number
+  availableBytes: number
+  swapTotalBytes: number
+  swapUsedBytes: number
+  usagePercent: number
+  usedFormatted: string
+  totalFormatted: string
+  availableFormatted: string
+}
+
+export interface HostLoadMetrics {
+  load1: number
+  load5: number
+  load15: number
+}
+
+export interface HostDiskMetrics {
+  available: boolean
+  unavailableReason?: string | null
+  readBytesPerSec: number
+  writeBytesPerSec: number
+  readSpeedFormatted: string
+  writeSpeedFormatted: string
+}
+
+export interface HostNetworkMetrics {
+  available: boolean
+  unavailableReason?: string | null
+  rxBytesPerSec: number
+  txBytesPerSec: number
+  rxSpeedFormatted: string
+  txSpeedFormatted: string
+  totalRxBytes: number
+  totalTxBytes: number
+  totalRxPackets: number
+  totalTxPackets: number
+}
+
+export interface HostFileSystemMetrics {
+  device: string
+  mountPoint: string
+  fileSystem: string
+  totalBytes: number
+  usedBytes: number
+  availableBytes: number
+  usagePercent: number
+  totalFormatted: string
+  usedFormatted: string
 }

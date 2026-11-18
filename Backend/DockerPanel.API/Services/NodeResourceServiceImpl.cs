@@ -2,9 +2,6 @@ using DockerPanel.API.Data;
 using DockerPanel.API.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
-using System.Net.NetworkInformation;
-using System.Text.Json;
 
 namespace DockerPanel.API.Services;
 
@@ -19,6 +16,7 @@ public class NodeResourceServiceImpl : INodeResourceService
     private readonly ISshService _sshService;
     private readonly IContainerEngine _dockerEngine;
     private readonly TinyDbContext _dbContext;
+    private readonly HostMetricsCollector _hostMetrics;
 
     public NodeResourceServiceImpl(
         ILogger<NodeResourceServiceImpl> logger,
@@ -26,7 +24,8 @@ public class NodeResourceServiceImpl : INodeResourceService
         INodeService nodeService,
         ISshService sshService,
         IContainerEngine dockerEngine,
-        TinyDbContext dbContext)
+        TinyDbContext dbContext,
+        HostMetricsCollector hostMetrics)
     {
         _logger = logger;
         _cache = cache;
@@ -34,6 +33,7 @@ public class NodeResourceServiceImpl : INodeResourceService
         _sshService = sshService;
         _dockerEngine = dockerEngine;
         _dbContext = dbContext;
+        _hostMetrics = hostMetrics;
     }
 
     public async Task<NodeResourceOverview?> GetNodeResourceOverviewAsync(string nodeId)
@@ -745,57 +745,30 @@ public class NodeResourceServiceImpl : INodeResourceService
     }
 
     /// <summary>
-    /// 收集本地节点资源使用情况（不使用 SSH）
+    /// 收集本地节点资源使用情况（不使用 SSH）。
+    /// 本地节点代表 DockerPanel 所在宿主机，因此优先使用 HostMetricsCollector
+    /// 读取 /host/proc、/host/sys。未启用主机监控时，不再用本进程 CPU、GC 内存
+    /// 或容器根文件系统冒充宿主机数据，而是返回 0 并给出明确的挂载提示。
     /// </summary>
     private async Task CollectLocalResourceUsageAsync(Node node, NodeResourceOverview overview)
     {
         try
         {
-            // 获取 CPU 使用率（使用 Process 类）
-            var cpuUsage = await GetCpuUsageAsync();
-
-            overview.CpuUsage = new ResourceUsage
+            var host = _hostMetrics.Collect();
+            if (host.Available)
             {
-                Used = Math.Round(cpuUsage, 2),
-                Total = 100,
-                Percentage = Math.Round(cpuUsage, 2),
-                Unit = "%",
-                Trend = CalculateTrend($"cpu_trend_{node.Id}", cpuUsage)
-            };
-
-            // 获取内存使用情况
-            var gcmem = GC.GetGCMemoryInfo();
-            var totalMemory = (long)(gcmem.TotalAvailableMemoryBytes / 1024 / 1024);
-            var usedMemory = (long)(gcmem.MemoryLoadBytes / 1024 / 1024);
-            var memoryPercentage = totalMemory > 0 ? (double)usedMemory / totalMemory * 100 : 0;
-
-            overview.MemoryUsage = new ResourceUsage
+                CollectLocalHostUsage(node, overview, host);
+            }
+            else
             {
-                Used = usedMemory,
-                Total = totalMemory,
-                Percentage = Math.Round(memoryPercentage, 2),
-                Unit = "MB",
-                Trend = CalculateTrend($"memory_trend_{node.Id}", memoryPercentage)
-            };
+                overview.CpuUsage = new ResourceUsage { Used = 0, Total = 100, Percentage = 0, Unit = "%" };
+                overview.MemoryUsage = new ResourceUsage { Used = 0, Total = 0, Percentage = 0, Unit = "MB" };
+                overview.DiskUsage = new ResourceUsage { Used = 0, Total = 0, Percentage = 0, Unit = "GB" };
+                overview.NetworkUsage = new NetworkUsage();
+                overview.Alerts.Add(host.UnavailableReason ?? "宿主机监控未启用");
+            }
 
-            // 获取磁盘使用情况：动态获取当前运行环境的根目录，避免在Linux(Docker)环境中找不到C盘报错
-            var rootPath = System.IO.Path.GetPathRoot(System.AppContext.BaseDirectory) ?? "/";
-            var drive = new System.IO.DriveInfo(rootPath);
-            var totalDisk = drive.TotalSize / 1024.0 / 1024 / 1024; // GB
-            var freeDisk = drive.AvailableFreeSpace / 1024.0 / 1024 / 1024; // GB
-            var usedDisk = totalDisk - freeDisk;
-            var diskPercentage = totalDisk > 0 ? usedDisk / totalDisk * 100 : 0;
-
-            overview.DiskUsage = new ResourceUsage
-            {
-                Used = Math.Round(usedDisk, 2),
-                Total = Math.Round(totalDisk, 2),
-                Percentage = Math.Round(diskPercentage, 2),
-                Unit = "GB",
-                Trend = CalculateTrend($"disk_trend_{node.Id}", diskPercentage)
-            };
-
-            // 获取容器统计信息
+            // 容器统计始终走 Docker API，与宿主机监控是否启用无关
             try
             {
                 var containers = await _dockerEngine.ListContainersAsync(true);
@@ -816,8 +789,6 @@ public class NodeResourceServiceImpl : INodeResourceService
                 _logger.LogDebug(ex, "获取本地容器信息失败: {NodeId}", node.Id);
                 overview.ContainerUsage = new ContainerUsage();
             }
-
-            overview.NetworkUsage = CollectLocalNetworkUsage();
         }
         catch (Exception ex)
         {
@@ -828,81 +799,71 @@ public class NodeResourceServiceImpl : INodeResourceService
     }
 
     /// <summary>
-    /// 获取 CPU 使用率
+    /// 将宿主机采集结果映射为节点资源概览。
     /// </summary>
-    private async Task<double> GetCpuUsageAsync()
+    private void CollectLocalHostUsage(Node node, NodeResourceOverview overview, HostMetricsSnapshot host)
     {
-        try
+        var cpuUsage = host.Cpu.UsagePercent;
+        overview.CpuUsage = new ResourceUsage
         {
-            // 使用 WMI 获取 CPU 使用率
-            var startCpuTime = Process.GetCurrentProcess().TotalProcessorTime;
-            var startRealTime = DateTime.UtcNow;
-            
-            await Task.Delay(500);
-            
-            var endCpuTime = Process.GetCurrentProcess().TotalProcessorTime;
-            var endRealTime = DateTime.UtcNow;
-            
-            var cpuUsedMs = (endCpuTime - startCpuTime).TotalMilliseconds;
-            var totalMsPassed = (endRealTime - startRealTime).TotalMilliseconds;
-            
-            // 系统 CPU 使用率估算（简化版本，基于进程的 CPU 时间）
-            var cpuUsage = Environment.ProcessorCount > 0 
-                ? Math.Min(100, (cpuUsedMs / totalMsPassed) * 100 / Environment.ProcessorCount)
-                : 0;
-            
-            // 获取系统整体 CPU 使用率
-            var systemCpuUsage = GetSystemCpuUsage();
-            return systemCpuUsage > 0 ? systemCpuUsage : cpuUsage;
-        }
-        catch
-        {
-            return 0;
-        }
-    }
+            Used = Math.Round(cpuUsage, 2),
+            Total = 100,
+            Percentage = Math.Round(cpuUsage, 2),
+            Unit = "%",
+            Trend = CalculateTrend($"cpu_trend_{node.Id}", cpuUsage)
+        };
 
-    /// <summary>
-    /// 获取系统 CPU 使用率（通过系统信息）
-    /// </summary>
-    private double GetSystemCpuUsage()
-    {
-        try
+        var totalMemoryMb = host.Memory.TotalBytes / 1024d / 1024d;
+        var usedMemoryMb = host.Memory.UsedBytes / 1024d / 1024d;
+        overview.MemoryUsage = new ResourceUsage
         {
-            // 使用操作系统提供的 API
-            var process = new Process
+            Used = Math.Round(usedMemoryMb, 2),
+            Total = Math.Round(totalMemoryMb, 2),
+            Percentage = Math.Round(host.Memory.UsagePercent, 2),
+            Unit = "MB",
+            Trend = CalculateTrend($"memory_trend_{node.Id}", host.Memory.UsagePercent)
+        };
+
+        // 根文件系统优先；没有 / 时取容量最大的挂载点
+        var rootFileSystem = host.FileSystems.FirstOrDefault(fs => fs.MountPoint == "/")
+            ?? host.FileSystems.OrderByDescending(fs => fs.TotalBytes).FirstOrDefault();
+
+        if (rootFileSystem != null)
+        {
+            var totalDiskGb = rootFileSystem.TotalBytes / 1024d / 1024d / 1024d;
+            var usedDiskGb = rootFileSystem.UsedBytes / 1024d / 1024d / 1024d;
+            overview.DiskUsage = new ResourceUsage
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "wmic",
-                    Arguments = "cpu get loadpercentage /value",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+                Used = Math.Round(usedDiskGb, 2),
+                Total = Math.Round(totalDiskGb, 2),
+                Percentage = Math.Round(rootFileSystem.UsagePercent, 2),
+                Unit = "GB",
+                Trend = CalculateTrend($"disk_trend_{node.Id}", rootFileSystem.UsagePercent)
             };
-            process.Start();
-            var output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-
-            // 解析输出: LoadPercentage=XX
-            var lines = output.Split('\n');
-            foreach (var line in lines)
-            {
-                if (line.StartsWith("LoadPercentage="))
-                {
-                    var value = line.Substring("LoadPercentage=".Length).Trim();
-                    if (double.TryParse(value, out var cpuUsage))
-                    {
-                        return cpuUsage;
-                    }
-                }
-            }
         }
-        catch
+        else
         {
-            // 忽略错误
+            overview.DiskUsage = new ResourceUsage { Used = 0, Total = 0, Percentage = 0, Unit = "GB" };
+            overview.Alerts.Add(host.FileSystemUnavailableReason ?? "未挂载 /host/root，无法获取宿主机磁盘容量");
         }
-        return 0;
+
+        overview.NetworkUsage = host.Network.Available
+            ? new NetworkUsage
+            {
+                PacketsIn = host.Network.TotalRxPackets,
+                PacketsOut = host.Network.TotalTxPackets,
+                BandwidthUsed = Math.Round((host.Network.TotalRxBytes + host.Network.TotalTxBytes) / 1024d, 2),
+                BandwidthTotal = 0,
+                ConnectionsCount = 0,
+                ErrorsIn = 0,
+                ErrorsOut = 0
+            }
+            : new NetworkUsage();
+
+        if (!host.Network.Available && !string.IsNullOrWhiteSpace(host.Network.UnavailableReason))
+        {
+            overview.Alerts.Add(host.Network.UnavailableReason!);
+        }
     }
 
     private async Task CollectNetworkUsageAsync(Node node, NodeResourceOverview overview)
@@ -1470,52 +1431,6 @@ public class NodeResourceServiceImpl : INodeResourceService
                node.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
                node.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
                string.IsNullOrEmpty(node.SshUsername);
-    }
-
-    private NetworkUsage CollectLocalNetworkUsage()
-    {
-        try
-        {
-            var interfaces = NetworkInterface.GetAllNetworkInterfaces()
-                .Where(ni => ni.OperationalStatus == OperationalStatus.Up &&
-                             ni.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
-                             ni.NetworkInterfaceType != NetworkInterfaceType.Tunnel)
-                .ToList();
-
-            double bytesIn = 0;
-            double bytesOut = 0;
-            double packetsIn = 0;
-            double packetsOut = 0;
-            double errorsIn = 0;
-            double errorsOut = 0;
-
-            foreach (var networkInterface in interfaces)
-            {
-                var stats = networkInterface.GetIPv4Statistics();
-                bytesIn += stats.BytesReceived;
-                bytesOut += stats.BytesSent;
-                packetsIn += stats.UnicastPacketsReceived + stats.NonUnicastPacketsReceived;
-                packetsOut += stats.UnicastPacketsSent + stats.NonUnicastPacketsSent;
-                errorsIn += stats.IncomingPacketsWithErrors;
-                errorsOut += stats.OutgoingPacketsWithErrors;
-            }
-
-            return new NetworkUsage
-            {
-                PacketsIn = packetsIn,
-                PacketsOut = packetsOut,
-                BandwidthUsed = Math.Round((bytesIn + bytesOut) / 1024, 2),
-                BandwidthTotal = interfaces.Sum(ni => Math.Max(0, ni.Speed)) / 8.0 / 1024,
-                ConnectionsCount = IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections().Length,
-                ErrorsIn = errorsIn,
-                ErrorsOut = errorsOut
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "获取本地网络统计失败");
-            return new NetworkUsage();
-        }
     }
 
     /// <summary>

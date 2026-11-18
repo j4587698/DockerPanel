@@ -16,6 +16,11 @@ services:
     volumes:
       - ./Backend/DockerPanel.API:/app
       - /var/run/docker.sock:/var/run/docker.sock
+      # 可选：宿主机监控（默认关闭，全部只读）
+      # - /proc:/host/proc:ro
+      # - /sys:/host/sys:ro
+      # - /etc/os-release:/host/etc/os-release:ro
+      # - /:/host/root:ro
       - dockerpanel_dev_data:/app/Data
     networks:
       - dockerpanel-dev-network

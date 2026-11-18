@@ -22,6 +22,14 @@ services:
     volumes:
       # 挂载Docker socket以允许管理Docker容器
       - /var/run/docker.sock:/var/run/docker.sock
+      # ===== 可选：宿主机监控（默认关闭，全部只读） =====
+      # 打开下面几行即可在“概览”页面看到宿主机 CPU/内存/负载/磁盘 I/O/网络。
+      # 不挂载时面板只显示容器指标，并提示宿主机监控未启用。
+      # - /proc:/host/proc:ro
+      # - /sys:/host/sys:ro
+      # - /etc/os-release:/host/etc/os-release:ro
+      # 可选：仅用于读取宿主机磁盘容量（挂载整个根目录）
+      # - /:/host/root:ro
       # 持久化数据存储（含自动生成的 JWT 密钥）
       - dockerpanel_data:/app/Data
       # 日志文件

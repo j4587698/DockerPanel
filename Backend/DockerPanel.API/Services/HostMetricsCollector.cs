@@ -657,7 +657,21 @@ public sealed class HostMetricsCollector
     {
         reason = null;
 
-        foreach (var candidate in EnumerateCandidates(explicitPath, "/host/proc", containerized ? null : "/proc"))
+        // 显式指定 HOST_PROC 时以其为准：路径无效就直接报告不可用，
+        // 不能回退到容器自身的 /proc，否则会把容器进程视图冒充成宿主机数据。
+        if (!string.IsNullOrWhiteSpace(explicitPath))
+        {
+            var explicitCandidate = TrimTrailingSeparator(explicitPath.Trim());
+            if (File.Exists(Path.Combine(explicitCandidate, "stat")))
+            {
+                return explicitCandidate;
+            }
+
+            reason = $"宿主机监控未启用：HOST_PROC 指向的路径不可用（{explicitCandidate}）。";
+            return null;
+        }
+
+        foreach (var candidate in EnumerateCandidates("/host/proc", containerized ? null : "/proc"))
         {
             if (File.Exists(Path.Combine(candidate, "stat")))
             {

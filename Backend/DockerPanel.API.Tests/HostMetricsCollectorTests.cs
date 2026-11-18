@@ -88,6 +88,9 @@ public sealed class HostMetricsCollectorTests : IDisposable
     [Fact]
     public void Collect_WithMissingProcPath_ReportsUnavailable()
     {
+        // 显式指定的 HOST_PROC 无效时必须直接判不可用，不能回退到真实 /proc。
+        // Linux runner 上 /proc 是存在的，回退会把本机进程视图当成宿主机数据，
+        // 所以这条在 CI（Linux）上也是该约束的回归测试。
         var collector = CreateCollector(Path.Combine(_tempRoot, "does-not-exist"));
 
         var snapshot = collector.Collect();
@@ -95,6 +98,22 @@ public sealed class HostMetricsCollectorTests : IDisposable
         Assert.False(collector.IsAvailable);
         Assert.False(snapshot.Available);
         Assert.False(string.IsNullOrWhiteSpace(snapshot.UnavailableReason));
+        Assert.Contains("HOST_PROC", snapshot.UnavailableReason);
+    }
+
+    [Fact]
+    public void Collect_WithExplicitProcPathMissingStat_ReportsUnavailable()
+    {
+        // 目录存在但缺少 stat（挂载不完整）时同样不可用，避免把空目录当成有效宿主机。
+        var emptyProc = Path.Combine(_tempRoot, "empty-proc");
+        Directory.CreateDirectory(emptyProc);
+        var collector = CreateCollector(emptyProc);
+
+        var snapshot = collector.Collect();
+
+        Assert.False(collector.IsAvailable);
+        Assert.False(snapshot.Available);
+        Assert.Contains("HOST_PROC", snapshot.UnavailableReason);
     }
 
     [Fact]

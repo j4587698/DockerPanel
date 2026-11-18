@@ -415,6 +415,18 @@ namespace DockerPanel.API.Services.Acme
                     if (!allValidated)
                     {
                         _logger.LogError("创建DNS记录失败，终止验证");
+                        // 部分记录可能已创建成功，必须清理，避免残留
+                        foreach (var (_, domain, recordName, _) in validationTasks)
+                        {
+                            try
+                            {
+                                await provider.DeleteAllTxtRecordsByNameAsync(domain, recordName, dnsCredentials?.ToDictionary(kvp => kvp.Key, kvp => (object?)kvp.Value));
+                            }
+                            catch (Exception cleanupEx)
+                            {
+                                _logger.LogWarning(cleanupEx, "清理已创建的 DNS 记录失败: {RecordName}", recordName);
+                            }
+                        }
                         return false;
                     }
 
@@ -600,8 +612,8 @@ namespace DockerPanel.API.Services.Acme
 
                     var success = await FinalizeCertificateAsync(acme, order, progressId);
 
-                    // 如果是DNS-01挑战，验证完成后清理DNS记录
-                    if (success && challengeType == "dns-01")
+                    // DNS-01 挑战的 TXT 记录无论成败都必须清理（Finalize 失败也不能残留）
+                    if (challengeType == "dns-01")
                     {
                         await CleanupDnsRecordsAsync(order, dnsProvider, dnsCredentials, progressId);
                     }
@@ -703,6 +715,12 @@ namespace DockerPanel.API.Services.Acme
                     {
                         _logger.LogInformation("HTTP-01挑战验证成功");
 
+                        // 挑战已结束，立即清理挑战文件（正常也要等 1 小时才自动过期）
+                        if (!string.IsNullOrEmpty(httpChallenge.Token))
+                        {
+                            await _challengeStore.RemoveHttpChallengeAsync(httpChallenge.Token);
+                        }
+
                         if (!string.IsNullOrEmpty(progressId))
                         {
                             await _progressService.CompleteCurrentStepAsync(progressId, "HTTP-01挑战验证成功");
@@ -723,6 +741,12 @@ namespace DockerPanel.API.Services.Acme
 
                         _logger.LogError("HTTP-01挑战验证失败: {Error}, 完整错误: {@ErrorDetail}", errorMessage, error);
 
+                        // 挑战已结束，立即清理挑战文件
+                        if (!string.IsNullOrEmpty(httpChallenge.Token))
+                        {
+                            await _challengeStore.RemoveHttpChallengeAsync(httpChallenge.Token);
+                        }
+
                         if (!string.IsNullOrEmpty(progressId))
                         {
                             await _progressService.AddErrorAsync(progressId, $"HTTP-01挑战验证失败: {errorMessage}");
@@ -734,6 +758,12 @@ namespace DockerPanel.API.Services.Acme
                     // 超时
                     _logger.LogWarning("HTTP-01挑战验证超时");
 
+                    // 挑战已结束，立即清理挑战文件
+                    if (!string.IsNullOrEmpty(httpChallenge.Token))
+                    {
+                        await _challengeStore.RemoveHttpChallengeAsync(httpChallenge.Token);
+                    }
+
                     if (!string.IsNullOrEmpty(progressId))
                     {
                         await _progressService.AddErrorAsync(progressId, "HTTP-01挑战验证超时");
@@ -744,6 +774,11 @@ namespace DockerPanel.API.Services.Acme
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "通知Let's Encrypt验证HTTP-01挑战失败");
+                    // 异常路径同样立即清理挑战文件
+                    if (!string.IsNullOrEmpty(httpChallenge.Token))
+                    {
+                        await _challengeStore.RemoveHttpChallengeAsync(httpChallenge.Token);
+                    }
                     if (!string.IsNullOrEmpty(progressId))
                     {
                         await _progressService.AddErrorAsync(progressId, $"通知Let's Encrypt验证HTTP-01挑战失败: {ex.Message}");

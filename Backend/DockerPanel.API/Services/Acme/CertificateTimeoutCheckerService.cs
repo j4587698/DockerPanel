@@ -24,6 +24,7 @@ namespace DockerPanel.API.Services
         private readonly Timer? _timer;
         private readonly TinyDbEngine _db;
         private readonly TimeSpan _certificateTimeout = TimeSpan.FromMinutes(10); // 证书申请10分钟超时
+        private readonly TimeSpan _failedOrderRetention = TimeSpan.FromHours(24); // 失败订单保留24小时后自动清理
 
         public CertificateTimeoutCheckerService(
             ILogger<CertificateTimeoutCheckerService> logger,
@@ -105,6 +106,36 @@ namespace DockerPanel.API.Services
                         _logger.LogWarning("证书订单已标记为超时失败: {OrderId}, 域名: {Domains}, 创建时间: {CreatedAt}",
                             order.Id, string.Join(", ", order.Domains ?? new List<string>()), order.CreatedAt);
                     }
+                }
+
+                // 清理超过保留期的失败订单（未被任何证书记录引用），避免失败记录无限堆积
+                try
+                {
+                    var retentionCutoff = now.Subtract(_failedOrderRetention);
+                    var certificatesCollection = _db.GetCollection<CertificateRecord>(DbCollections.Certificates);
+                    var staleFailedOrders = ordersCollection.Find(o =>
+                        o.Status == "failed" &&
+                        o.CreatedAt < retentionCutoff
+                    ).ToList();
+
+                    foreach (var staleOrder in staleFailedOrders)
+                    {
+                        // 被证书记录引用的失败订单不清理，避免破坏关联
+                        var referenced = certificatesCollection.Find(c =>
+                            c.OrderId == staleOrder.Id || c.CertificateId == staleOrder.Id).Any();
+                        if (referenced)
+                        {
+                            continue;
+                        }
+
+                        ordersCollection.Delete(staleOrder.Id);
+                        _logger.LogInformation("已清理过期失败订单: {OrderId}, 域名: {Domains}",
+                            staleOrder.Id, string.Join(", ", staleOrder.Domains ?? new List<string>()));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "清理过期失败订单失败");
                 }
             }
             catch (Exception ex)

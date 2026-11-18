@@ -409,6 +409,22 @@ namespace DockerPanel.API.Services.Acme
             _clients[providerKey] = context;
         }
 
+        /// <summary>
+        /// 丢弃指定账户的缓存客户端（包括静态缓存），用于清退缺少 KID 的坏缓存
+        /// </summary>
+        private void DiscardCachedAcmeContext(string accountId)
+        {
+            if (string.IsNullOrWhiteSpace(accountId))
+            {
+                return;
+            }
+
+            _clients.Remove(accountId, out _);
+            _clients.Remove(accountId.ToLowerInvariant(), out _);
+            _staticClients.TryRemove(accountId, out _);
+            _staticClients.TryRemove(accountId.ToLowerInvariant(), out _);
+        }
+
         private async Task<(string Url, AcmeForge.Resources.AcmeAuthorization Resource)?> ResolveAuthorizationContextAsync(
             IEnumerable<(string Url, AcmeForge.Resources.AcmeAuthorization Resource)> authorizationContexts,
             string? authorizationId,
@@ -489,6 +505,18 @@ namespace DockerPanel.API.Services.Acme
                 }
 
                 var acmeContext = CreateAcmeClient(directoryUrl, accountKey);
+
+                // 缓存前必须先完成账户注册拿到 KID，否则缓存里会留下
+                // 没有 KID 的客户端，后续 GetOrderAsync/PostAsGet 全部报"账户尚未注册"
+                try
+                {
+                    await acmeContext.NewAccountAsync(Array.Empty<string>(), true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("账户验证失败（可能需 EAB）: {ProviderOrAccountId}, Error: {Error}", providerOrAccountId, ex.Message);
+                    return null;
+                }
 
                 CacheAcmeContext(cacheAccountKey, providerOrAccountId, acmeContext);
                 return acmeContext;
@@ -898,8 +926,16 @@ namespace DockerPanel.API.Services.Acme
             // 尝试从缓存获取
             if (TryGetCachedAcmeContext(accountId, out var cachedContext))
             {
-                _logger.LogInformation("找到现有的 ACME 客户端: {AccountId}", accountId);
-                return (AcmeClient?)cachedContext;
+                // 缓存的客户端必须已完成账户注册（有 KID）。
+                // 历史上 GetAcmeContextAsync 曾缓存过未注册的客户端，继续使用只会报"账户尚未注册"。
+                if (!string.IsNullOrEmpty(cachedContext?.Kid))
+                {
+                    _logger.LogInformation("找到现有的 ACME 客户端: {AccountId}", accountId);
+                    return (AcmeClient?)cachedContext;
+                }
+
+                _logger.LogWarning("缓存的 ACME 客户端缺少 KID（账户未注册），丢弃缓存并重建: {AccountId}", accountId);
+                DiscardCachedAcmeContext(accountId);
             }
 
             _logger.LogInformation("内存中未找到账户 {AccountId} 的 ACME 客户端，尝试重新创建", accountId);
@@ -963,6 +999,9 @@ namespace DockerPanel.API.Services.Acme
                     throw new InvalidOperationException($"无法为账户 {accountId} 创建 ACME 客户端");
                 }
                 _logger.LogInformation("成功为账户 {AccountId} 重新创建 ACME 客户端", accountId);
+                // CreateAcmeContextWithAccountAsync 只缓存 provider 键，
+                // 这里补上 accountId 键，覆盖掉可能残留的未注册客户端
+                CacheAcmeContext(accountId, dbAccount.Provider, context);
                 return context;
             }
             else

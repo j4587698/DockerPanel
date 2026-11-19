@@ -1396,9 +1396,9 @@ namespace DockerPanel.API.Services.Acme
             var stats = new WildcardCertificateStatistics
             {
                 TotalWildcardCertificates = certificates.Count,
-                ActiveCertificates = certificates.Count(c => c.Status == "active"),
-                ExpiredCertificates = certificates.Count(c => c.Status == "expired"),
-                RevokedCertificates = certificates.Count(c => c.Status == "revoked"),
+                ActiveCertificates = certificates.Count(c => CertificateValidity.HasStatus(c.Status, "active")),
+                ExpiredCertificates = certificates.Count(c => CertificateValidity.HasStatus(c.Status, "expired")),
+                RevokedCertificates = certificates.Count(c => CertificateValidity.HasStatus(c.Status, "revoked")),
                 CertificatesExpiringNext30Days = certificates.Count(c => (c.ExpiresAt - now).TotalDays <= _certificateSettings.ExpiringSoonDays),
                 CertificatesExpiringNext7Days = certificates.Count(c => (c.ExpiresAt - now).TotalDays <= 7),
                 LastCertificateIssued = certificates.Any() ? certificates.Max(c => c.IssuedAt) : DateTime.MinValue,

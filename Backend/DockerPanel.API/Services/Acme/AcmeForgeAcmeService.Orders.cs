@@ -1153,7 +1153,7 @@ namespace DockerPanel.API.Services.Acme
                                     var domainMappingsCollection = _dbContext.GetCollection<DomainMapping>("domain_mappings");
                                     var supersededIds = new List<string>();
 
-                                    foreach (var otherRecord in certificatesCollection.Find(c => c.Status == "Active").ToList())
+                                    foreach (var otherRecord in certificatesCollection.FindAll().Where(c => CertificateValidity.HasStatus(c.Status, "Active")).ToList())
                                     {
                                         if (string.Equals(otherRecord.Id, certificateRecord.Id, StringComparison.Ordinal) ||
                                             otherRecord.Domains == null || otherRecord.Domains.Count != domainKey.Count ||
@@ -1202,10 +1202,52 @@ namespace DockerPanel.API.Services.Acme
                         try
                         {
                             var domainMappingsCollection = _dbContext.GetCollection<DomainMapping>("domain_mappings");
-                            var mappingsToUpdate = domainMappingsCollection.Find(m => 
-                                m.CertificateId == order.Id || 
-                                (order.Domains.Contains(m.Domain) && (m.AutoRequestCertificate || string.IsNullOrEmpty(m.CertificateId) || m.CertificateId == order.Id))
-                            ).ToList();
+                            var domainSet = new HashSet<string>(
+                                (order.Domains ?? new List<string>()).Where(d => !string.IsNullOrWhiteSpace(d)).Select(d => d.Trim()),
+                                StringComparer.OrdinalIgnoreCase);
+
+                            var allCertificates = certificatesCollection.FindAll().ToList();
+                            var certificateById = allCertificates
+                                .Where(c => !string.IsNullOrEmpty(c.Id))
+                                .GroupBy(c => c.Id, StringComparer.Ordinal)
+                                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+                            var mappingsToUpdate = domainMappingsCollection.FindAll()
+                                .Where(m =>
+                                {
+                                    // 已经指向本证书记录，无需处理
+                                    if (string.Equals(m.CertificateId, certificateRecord.Id, StringComparison.Ordinal))
+                                    {
+                                        return false;
+                                    }
+
+                                    // 历史数据：映射里错误地存了订单 ID
+                                    if (string.Equals(m.CertificateId, order.Id, StringComparison.Ordinal))
+                                    {
+                                        return true;
+                                    }
+
+                                    if (string.IsNullOrWhiteSpace(m.Domain) || !domainSet.Contains(m.Domain.Trim()))
+                                    {
+                                        return false;
+                                    }
+
+                                    // 自动申请证书的映射，或者尚未绑定证书的映射
+                                    if (m.AutoRequestCertificate || string.IsNullOrEmpty(m.CertificateId))
+                                    {
+                                        return true;
+                                    }
+
+                                    // 当前绑定的证书已不存在或已失效（过期/撤销/被覆盖）→ 改绑到刚签发的新证书，
+                                    // 否则过期证书记录会一直被域名映射"占用"，无法删除
+                                    if (!certificateById.TryGetValue(m.CertificateId!, out var bound))
+                                    {
+                                        return true;
+                                    }
+
+                                    return !CertificateValidity.IsServing(bound);
+                                })
+                                .ToList();
 
                             if (mappingsToUpdate.Count > 0)
                             {

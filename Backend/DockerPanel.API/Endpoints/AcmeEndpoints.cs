@@ -1094,7 +1094,7 @@ namespace DockerPanel.API.Endpoints
             }
         }
 
-        private static IResult DeleteCertificate(string certificateId, bool force, TinyDbContext dbContext, ILocalizationService localization, ILogger<LoggingTag> logger)
+        private static async Task<IResult> DeleteCertificate(string certificateId, bool force, TinyDbContext dbContext, ILocalizationService localization, IReverseProxyFactory reverseProxyFactory, SniCertificateSelector sniCertificateSelector, ILogger<LoggingTag> logger)
         {
             try
             {
@@ -1163,25 +1163,71 @@ namespace DockerPanel.API.Endpoints
 
                     if (usingMappings.Count > 0)
                     {
-                        var usedByDomains = string.Join(", ", usingMappings.Select(m => m.Domain));
-                        logger.LogWarning("无法删除证书 {CertificateId}，被 {Count} 个域名映射使用: {Domains}",
-                            certificateId, usingMappings.Count, usedByDomains);
-
-                        return TypedResults.BadRequest(new CertificateDeletionResult
+                        // 被删除的证书若已不再承载 TLS（过期/撤销/被覆盖），绑定它的域名映射实际上早已回落到
+                        // 其它有效证书（SNI 选择器会按域名重新挑选）。此时不应阻止删除，而是把映射就地改绑到
+                        // 真正承载该域名的有效证书；找不到替代证书才解绑。
+                        if (!CertificateValidity.IsServing(completedCertificate))
                         {
-                            Success = false,
-                            Message = localization.GetMessage("acme.certificateInUse", $"无法删除证书，正在被 {usingMappings.Count} 个域名映射使用。请先解除域名绑定后再删除证书。"),
-                            CertificateId = certificateId,
-                            DeletedAt = DateTime.UtcNow,
-                            DeletionSteps = deletionSteps,
-                            Errors = new List<string> { localization.GetMessage("acme.certificateUsedByDomains", $"证书正在被以下域名使用: {usedByDomains}") },
-                            Warnings = warnings,
-                            DeletionDetails = new Dictionary<string, object>
+                            var allCertificates = certificatesCollection.FindAll().ToList();
+
+                            foreach (var mapping in usingMappings)
                             {
-                                ["InUseByDomains"] = usingMappings.Select(m => m.Domain).ToList(),
-                                ["MappingIds"] = usingMappings.Select(m => m.Id).ToList()
+                                var replacement = CertificateValidity.FindBestForDomain(allCertificates, mapping.Domain, certificateId);
+
+                                mapping.CertificateId = replacement?.Id;
+                                mapping.EnableSsl = replacement != null;
+                                mapping.UpdatedAt = DateTime.UtcNow;
+                                domainMappingsCollection.Update(mapping);
+
+                                var note = replacement != null
+                                    ? $"{localization.GetMessage("acme.staleCertificateAutoRebind")}: {mapping.Domain} -> {replacement.Name}"
+                                    : $"{localization.GetMessage("acme.staleCertificateAutoUnbind")}: {mapping.Domain}";
+                                warnings.Add(note);
+
+                                logger.LogInformation("删除失效证书时自动处理域名映射: Domain={Domain}, Replacement={Replacement}",
+                                    mapping.Domain, replacement?.Id ?? "(已解绑)");
                             }
-                        });
+
+                            deletionSteps.Add(localization.GetMessage("acme.staleCertificateHandled"));
+
+                            // 绑定关系已变化，刷新 SNI 缓存与代理配置，避免继续使用旧绑定
+                            try
+                            {
+                                sniCertificateSelector.ClearCache();
+                                await reverseProxyFactory.ReloadConfigAsync();
+                            }
+                            catch (Exception reloadEx)
+                            {
+                                logger.LogWarning(reloadEx, "删除失效证书后刷新证书缓存/代理配置失败");
+                            }
+                        }
+                        else
+                        {
+                            var usedByDomains = string.Join(", ", usingMappings.Select(m => m.Domain));
+                            logger.LogWarning("无法删除证书 {CertificateId}，被 {Count} 个域名映射使用: {Domains}",
+                                certificateId, usingMappings.Count, usedByDomains);
+
+                            // 注意：localization.GetMessage 在 key 存在时会忽略 defaultValue，
+                            // 因此域名列表必须自行拼接，否则前端只能看到一句没有域名的提示
+                            var inUseMessage = $"{localization.GetMessage("acme.certificateInUse")} {usedByDomains}";
+                            var domainsMessage = $"{localization.GetMessage("acme.certificateUsedByDomains")}: {usedByDomains}";
+
+                            return TypedResults.BadRequest(new CertificateDeletionResult
+                            {
+                                Success = false,
+                                Message = inUseMessage,
+                                CertificateId = certificateId,
+                                DeletedAt = DateTime.UtcNow,
+                                DeletionSteps = deletionSteps,
+                                Errors = new List<string> { domainsMessage },
+                                Warnings = warnings,
+                                DeletionDetails = new Dictionary<string, object>
+                                {
+                                    ["InUseByDomains"] = usingMappings.Select(m => m.Domain).ToList(),
+                                    ["MappingIds"] = usingMappings.Select(m => m.Id).ToList()
+                                }
+                            });
+                        }
                     }
 
                     deletionSteps.Add(localization.GetMessage("acme.checkUsageStatus"));

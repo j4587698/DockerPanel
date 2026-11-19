@@ -1289,10 +1289,10 @@ namespace DockerPanel.API.Services.Acme
                 var statistics = new CertificateListStatistics
                 {
                     TotalCertificates = allCertificates.Count,
-                    ActiveCertificates = allCertificates.Count(x => x.Status == "active" && x.ExpiresAt > now),
+                    ActiveCertificates = allCertificates.Count(x => CertificateValidity.HasStatus(x.Status, "active") && x.ExpiresAt > now),
                     ExpiredCertificates = allCertificates.Count(x => x.ExpiresAt <= now),
-                    RevokedCertificates = allCertificates.Count(x => x.Status == "revoked"),
-                    PendingCertificates = allCertificates.Count(x => x.Status == "pending"),
+                    RevokedCertificates = allCertificates.Count(x => CertificateValidity.HasStatus(x.Status, "revoked")),
+                    PendingCertificates = allCertificates.Count(x => CertificateValidity.HasStatus(x.Status, "pending")),
                     WildcardCertificates = allCertificates.Count(x => x.Type == "wildcard"),
                     SingleDomainCertificates = allCertificates.Count(x => x.Type == "single"),
                     MultiDomainCertificates = allCertificates.Count(x => x.Type == "multi-domain"),

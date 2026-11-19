@@ -1257,7 +1257,7 @@ namespace DockerPanel.API.Services.Acme
 
             record.IssuedAt = issuedAt;
             record.ExpiresAt = expiresAt;
-            record.Status = "active";
+            record.Status = "Active";
             if (!string.IsNullOrWhiteSpace(autoResult.CertificateId))
             {
                 record.Fingerprint = autoResult.CertificateId!;

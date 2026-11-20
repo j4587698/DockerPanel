@@ -7,21 +7,28 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { systemApi } from '@/api/system'
-import type { SystemHealth, DockerStats } from '@/types/system'
+import type { DockerStats, HostMetricsSnapshot } from '@/types/system'
 
 export const useSystemStore = defineStore('system', () => {
   // 状态
   const systemInfo = ref(null)
   const settings = ref({})
-  const systemHealth = ref<SystemHealth | null>(null)
   const dockerStats = ref<DockerStats | null>(null)
+  const hostMetrics = ref<HostMetricsSnapshot | null>(null)
   const loading = ref(false)
   const error = ref(null)
 
-  // Historical data for charts (keep last 60 data points)
+  // 宿主机历史数据（用于概览页趋势图，保留最近 60 个采样点）
+  // 仅在宿主机监控可用时累积；未启用时保持为空，避免用容器/进程数据冒充宿主机。
+  const hostCpuHistory = ref<number[]>([])
+  const hostMemoryHistory = ref<number[]>([])
+  const hostRxHistory = ref<number[]>([])
+  const hostTxHistory = ref<number[]>([])
+
+  // 容器聚合历史数据（仅当宿主机监控不可用、概览页回退到容器口径时累积）
   const cpuHistory = ref<number[]>([])
   const memoryHistory = ref<number[]>([])
-  const memoryUsedHistory = ref<number[]>([]) // 内存占用量（字节）
+  const memoryUsedHistory = ref<number[]>([])
   const rxSpeedHistory = ref<number[]>([])
   const txSpeedHistory = ref<number[]>([])
   const maxHistoryPoints = 60
@@ -94,30 +101,48 @@ export const useSystemStore = defineStore('system', () => {
     }
   }
 
-  // 获取系统健康状态
-  const fetchSystemHealth = async () => {
-    try {
-      loading.value = true
-      error.value = null
-      const data = await systemApi.getSystemHealth()
-      systemHealth.value = data
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : '获取系统健康状态失败'
-      ElMessage.error('获取系统健康状态失败')
-    } finally {
-      loading.value = false
-    }
-  }
-
   // 获取Docker统计信息
-  const fetchDockerStats = async () => {
+  // includeStats=true 时会触发后端逐容器 stats 采样（开销较大），仅在宿主机监控不可用、
+  // 概览页需要回退到容器聚合口径时使用；默认 false 只看引擎信息/容器数/镜像数。
+  const fetchDockerStats = async (includeStats = false) => {
     try {
-      const data = await systemApi.getDockerStats()
+      const data = await systemApi.getDockerStats({ includeStats })
       updateDockerStats(data)
     } catch (err) {
       // Don't show error message for stats to avoid spam
       console.error('Failed to fetch Docker stats:', err)
     }
+  }
+
+  // 获取宿主机实时指标（未启用 /host/proc 时返回 available=false）
+  const fetchHostMetrics = async () => {
+    try {
+      const data = await systemApi.getHostMetrics()
+      updateHostMetrics(data)
+    } catch (err) {
+      // 主机监控是可选能力，静默失败，Dashboard 会显示未启用提示
+      console.error('Failed to fetch host metrics:', err)
+    }
+  }
+
+  // 从 SignalR 推送更新宿主机指标
+  const updateHostMetrics = (data: HostMetricsSnapshot | null | undefined) => {
+    if (!data) return
+    hostMetrics.value = data
+
+    // 未启用宿主机监控时清空历史，避免挂载被移除后仍显示旧曲线
+    if (!data.available) {
+      hostCpuHistory.value = []
+      hostMemoryHistory.value = []
+      hostRxHistory.value = []
+      hostTxHistory.value = []
+      return
+    }
+
+    hostCpuHistory.value = [...hostCpuHistory.value, data.cpu?.usagePercent || 0].slice(-maxHistoryPoints)
+    hostMemoryHistory.value = [...hostMemoryHistory.value, data.memory?.usagePercent || 0].slice(-maxHistoryPoints)
+    hostRxHistory.value = [...hostRxHistory.value, data.network?.rxBytesPerSec || 0].slice(-maxHistoryPoints)
+    hostTxHistory.value = [...hostTxHistory.value, data.network?.txBytesPerSec || 0].slice(-maxHistoryPoints)
   }
 
   // 从外部数据更新Docker统计信息 (如SignalR)
@@ -137,7 +162,9 @@ export const useSystemStore = defineStore('system', () => {
       images: dockerStats.value?.images || data.images
     }
 
-    // Update history arrays
+    // 只有真正带资源聚合的数据才累积历史（includeStats=false 不会更新曲线）
+    if (!data.resources && !data.network) return
+
     cpuHistory.value = [...cpuHistory.value, data.resources?.cpuUsagePercent || 0].slice(-maxHistoryPoints)
     memoryHistory.value = [...memoryHistory.value, data.resources?.memoryPercent || 0].slice(-maxHistoryPoints)
     memoryUsedHistory.value = [...memoryUsedHistory.value, data.resources?.memoryUsed || 0].slice(-maxHistoryPoints)
@@ -150,23 +177,18 @@ export const useSystemStore = defineStore('system', () => {
     error.value = null
   }
 
-  // 重置历史数据
-  const resetHistory = () => {
-    cpuHistory.value = []
-    memoryHistory.value = []
-    memoryUsedHistory.value = []
-    rxSpeedHistory.value = []
-    txSpeedHistory.value = []
-  }
-
   return {
     // 状态
     systemInfo,
     settings,
-    systemHealth,
     dockerStats,
+    hostMetrics,
     loading,
     error,
+    hostCpuHistory,
+    hostMemoryHistory,
+    hostRxHistory,
+    hostTxHistory,
     cpuHistory,
     memoryHistory,
     memoryUsedHistory,
@@ -179,13 +201,13 @@ export const useSystemStore = defineStore('system', () => {
 
     // 方法
     fetchSystemInfo,
-    fetchSystemHealth,
     fetchDockerStats,
     updateDockerStats,
+    fetchHostMetrics,
+    updateHostMetrics,
     fetchSettings,
     updateSettings,
     resetSettings,
-    clearError,
-    resetHistory
+    clearError
   }
 })

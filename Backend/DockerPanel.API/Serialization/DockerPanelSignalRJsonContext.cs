@@ -29,6 +29,7 @@ namespace DockerPanel.API.Serialization;
 [JsonSerializable(typeof(Hubs.DockerStatsPushMessage))]
 [JsonSerializable(typeof(Hubs.ContainerStatsPushMessage))]
 [JsonSerializable(typeof(List<Hubs.ContainerStatsPushMessage>))]
+[JsonSerializable(typeof(Models.HostMetricsSnapshot))]
 [JsonSerializable(typeof(Models.ContainerInfo))]
 [JsonSerializable(typeof(Models.ImageInfo))]
 [JsonSerializable(typeof(Models.ImagePullProgress))]

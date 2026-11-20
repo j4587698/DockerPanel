@@ -78,27 +78,134 @@
         </div>
       </div>
 
-      <!-- Resource Charts Card -->
+      <!-- Host Resources Card（可选：需要 /host/proc 只读挂载） -->
+      <div class="saas-card host-card">
+        <div class="saas-card-header">
+          <div class="header-title">
+            <el-icon class="header-icon"><Monitor /></el-icon>
+            <span>{{ t('dashboard.hostMonitor') }}</span>
+            <span class="host-scope">{{ t('dashboard.hostMonitorScope') }}</span>
+          </div>
+          <div class="host-status" :class="hostAvailable ? 'enabled' : 'disabled'">
+            <span class="status-dot"></span>
+            <span>{{ hostAvailable ? t('dashboard.hostMonitorEnabled') : t('dashboard.hostMonitorDisabled') }}</span>
+          </div>
+        </div>
+        <div class="saas-card-body">
+          <template v-if="hostAvailable">
+            <div class="host-meta">
+              <span v-if="hostInfo?.osName">
+                {{ hostInfo.osName }}<template v-if="hostInfo.osVersion"> {{ hostInfo.osVersion }}</template>
+              </span>
+              <span v-if="hostInfo?.kernelVersion">Kernel {{ hostInfo.kernelVersion }}</span>
+              <span v-if="hostInfo?.hostName">{{ hostInfo.hostName }}</span>
+              <span>{{ t('dashboard.hostUptime') }} {{ hostUptime }}</span>
+              <span>{{ t('dashboard.hostLoad') }} {{ hostLoad }}</span>
+            </div>
+            <div class="host-grid">
+              <div class="host-metric">
+                <div class="host-metric-head">
+                  <span>{{ t('dashboard.hostCpu') }}</span>
+                  <strong>{{ hostCpuPercent.toFixed(2) }}%</strong>
+                </div>
+                <el-progress :percentage="hostCpuPercent" :stroke-width="8" :show-text="false" color="#3b82f6" />
+                <span class="host-metric-sub">{{ t('dashboard.hostCores', { count: hostInfo?.cpu?.coreCount || 0 }) }}</span>
+              </div>
+              <div class="host-metric">
+                <div class="host-metric-head">
+                  <span>{{ t('dashboard.hostMemory') }}</span>
+                  <strong>{{ hostInfo?.memory?.usedFormatted }} / {{ hostInfo?.memory?.totalFormatted }}</strong>
+                </div>
+                <el-progress :percentage="hostMemoryPercent" :stroke-width="8" :show-text="false" color="#8b5cf6" />
+                <span class="host-metric-sub">{{ hostMemoryPercent.toFixed(2) }}%</span>
+              </div>
+              <div class="host-metric">
+                <div class="host-metric-head">
+                  <span>{{ t('dashboard.hostDisk') }}</span>
+                  <strong v-if="hostRootFs">{{ hostRootFs.usedFormatted }} / {{ hostRootFs.totalFormatted }}</strong>
+                  <strong v-else>{{ t('dashboard.hostUnavailable') }}</strong>
+                </div>
+                <el-progress v-if="hostRootFs" :percentage="hostRootFs.usagePercent" :stroke-width="8" :show-text="false" color="#f97316" />
+                <span class="host-metric-sub">
+                  {{ hostRootFs
+                    ? `${hostRootFs.mountPoint} · ${hostRootFs.usagePercent.toFixed(2)}%`
+                    : (hostInfo?.fileSystemUnavailableReason || t('dashboard.hostUnavailable')) }}
+                </span>
+              </div>
+              <div class="host-metric">
+                <div class="host-metric-head">
+                  <span>{{ t('dashboard.hostDiskIo') }}</span>
+                  <strong v-if="hostInfo?.disk?.available">{{ hostInfo?.disk?.readSpeedFormatted }} / {{ hostInfo?.disk?.writeSpeedFormatted }}</strong>
+                  <strong v-else>{{ t('dashboard.hostUnavailable') }}</strong>
+                </div>
+                <span class="host-metric-sub">
+                  {{ hostInfo?.disk?.available
+                    ? t('dashboard.hostDiskIoHint')
+                    : (hostInfo?.disk?.unavailableReason || t('dashboard.hostUnavailable')) }}
+                </span>
+              </div>
+              <div class="host-metric">
+                <div class="host-metric-head">
+                  <span>{{ t('dashboard.hostNetwork') }}</span>
+                  <strong v-if="hostInfo?.network?.available">{{ hostInfo.network.rxSpeedFormatted }} / {{ hostInfo.network.txSpeedFormatted }}</strong>
+                  <strong v-else>{{ t('dashboard.hostUnavailable') }}</strong>
+                </div>
+                <span class="host-metric-sub">
+                  {{ hostInfo?.network?.available
+                    ? t('dashboard.hostNetworkHint')
+                    : (hostInfo?.network?.unavailableReason || t('dashboard.hostUnavailable')) }}
+                </span>
+              </div>
+              <div class="host-metric">
+                <div class="host-metric-head">
+                  <span>{{ t('dashboard.hostSwap') }}</span>
+                  <strong>{{ hostSwapText }}</strong>
+                </div>
+                <span class="host-metric-sub">{{ t('dashboard.hostSwapHint') }}</span>
+              </div>
+            </div>
+          </template>
+          <div v-else class="host-disabled">
+            <el-icon class="host-disabled-icon"><Warning /></el-icon>
+            <div class="host-disabled-body">
+              <p class="host-disabled-title">{{ t('dashboard.hostMonitorDisabledTitle') }}</p>
+              <p class="host-disabled-desc">{{ hostUnavailableReason || t('dashboard.hostMonitorDisabledDesc') }}</p>
+              <pre class="host-mount-example">volumes:
+  - /proc:/host/proc:ro
+  - /sys:/host/sys:ro
+  - /etc/os-release:/host/etc/os-release:ro
+  # optional: disk capacity
+  - /:/host/root:ro</pre>
+              <p class="host-disabled-note">{{ t('dashboard.hostMonitorDisabledNote') }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resource Charts Card（宿主机优先；未启用 /host/proc 时回退到容器聚合口径） -->
       <div class="saas-card charts-card">
         <div class="saas-card-header">
           <div class="header-title">
             <el-icon class="header-icon"><TrendCharts /></el-icon>
-            <span>{{ t('dashboard.resourceMonitor') }}</span>
+            <span>{{ chartTitle }}</span>
+            <span class="host-scope">{{ chartScope }}</span>
+            <span class="chart-window">{{ t('dashboard.trendWindow') }}</span>
           </div>
           <div class="live-indicator">
             <span class="status-dot"></span>
-            <span>实时数据</span>
+            <span>{{ t('dashboard.liveData') }}</span>
           </div>
         </div>
         <div class="saas-card-body chart-body">
+          <p class="chart-scope-hint">{{ chartHint }}</p>
           <div class="resource-chart-grid">
             <div class="resource-chart-panel gauge-panel">
               <div class="resource-chart-header">
                 <div>
-                  <span class="resource-label">{{ t('dashboard.cpuLabel') }}</span>
-                  <div class="resource-value">{{ cpuUsage }}<span>%</span></div>
+                  <span class="resource-label">{{ chartCpuLabel }}</span>
+                  <div class="resource-value">{{ chartCpuValue }}<span>%</span></div>
                 </div>
-                <span class="resource-subtitle">{{ dockerStats?.docker?.ncpu ? t('dashboard.cpuCores', { count: dockerStats.docker.ncpu }) : t('dashboard.calculating') }}</span>
+                <span class="resource-subtitle">{{ chartCpuSubtitle }}</span>
               </div>
               <div class="mini-chart-container gauge-chart-container" ref="cpuChartContainer"></div>
             </div>
@@ -106,10 +213,10 @@
             <div class="resource-chart-panel gauge-panel">
               <div class="resource-chart-header">
                 <div>
-                  <span class="resource-label">{{ t('dashboard.memoryLabel') }}</span>
-                  <div class="resource-value resource-value-text">{{ memUsage }}</div>
+                  <span class="resource-label">{{ chartMemoryLabel }}</span>
+                  <div class="resource-value resource-value-text">{{ chartMemoryValue }}</div>
                 </div>
-                <span class="resource-subtitle">{{ t('dashboard.totalMemory', { value: memLimit }) }} · {{ memPercent }}%</span>
+                <span class="resource-subtitle">{{ chartMemorySubtitle }}</span>
               </div>
               <div class="mini-chart-container gauge-chart-container" ref="memoryChartContainer"></div>
             </div>
@@ -117,13 +224,13 @@
             <div class="resource-chart-panel">
               <div class="resource-chart-header network-resource-header">
                 <div>
-                  <span class="resource-label">{{ t('dashboard.networkTraffic') }}</span>
+                  <span class="resource-label">{{ chartNetworkLabel }}</span>
                   <span class="resource-subtitle">{{ t('dashboard.receiveSpeed') }} / {{ t('dashboard.sendSpeed') }}</span>
                 </div>
               </div>
               <div class="network-live-values">
-                <span><i class="legend-dot rx"></i>{{ t('dashboard.receiveLabel') }} {{ rxSpeed }}</span>
-                <span><i class="legend-dot tx"></i>{{ t('dashboard.sendLabel') }} {{ txSpeed }}</span>
+                <span><i class="legend-dot rx"></i>{{ t('dashboard.receiveLabel') }} {{ chartRxText }}</span>
+                <span><i class="legend-dot tx"></i>{{ t('dashboard.sendLabel') }} {{ chartTxText }}</span>
               </div>
               <div class="mini-chart-container" ref="networkChartContainer"></div>
             </div>
@@ -200,7 +307,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { 
   Box, Picture, Cpu, Coin, Refresh, Plus, Download, Setting,
-  TrendCharts, Connection, Folder, ArrowRight, Platform
+  TrendCharts, Connection, Folder, ArrowRight, Platform, Monitor, Warning
 } from '@element-plus/icons-vue'
 import { useContainersStore } from '@/stores/containers'
 import { useImagesStore } from '@/stores/images'
@@ -232,37 +339,114 @@ const cpuChartInstance = shallowRef<ECharts | null>(null)
 const memoryChartInstance = shallowRef<ECharts | null>(null)
 const networkChartInstance = shallowRef<ECharts | null>(null)
 let unsubscribeSignalR: (() => void) | null = null
+let unsubscribeHostSignalR: (() => void) | null = null
 
 // Use Docker stats from store
 const dockerStats = computed(() => sStore.dockerStats)
 
+// Host metrics (optional; available=false when /host/proc is not mounted)
+const hostInfo = computed(() => sStore.hostMetrics)
+const hostAvailable = computed(() => !!hostInfo.value?.available)
+const hostCpuPercent = computed(() => hostInfo.value?.cpu?.usagePercent || 0)
+const hostMemoryPercent = computed(() => hostInfo.value?.memory?.usagePercent || 0)
+const hostRootFs = computed(() => {
+  const fileSystems = hostInfo.value?.fileSystems || []
+  return fileSystems.find(fs => fs.mountPoint === '/') || fileSystems[0] || null
+})
+const hostUnavailableReason = computed(() => hostInfo.value?.unavailableReason || '')
+const hostLoad = computed(() => {
+  const load = hostInfo.value?.load
+  if (!load) return '-'
+  return `${load.load1.toFixed(2)} / ${load.load5.toFixed(2)} / ${load.load15.toFixed(2)}`
+})
+const hostUptime = computed(() => formatDuration(hostInfo.value?.uptimeSeconds || 0))
+const hostSwapText = computed(() => {
+  const memory = hostInfo.value?.memory
+  if (!memory || memory.swapTotalBytes <= 0) return t('dashboard.hostSwapNone')
+  return `${formatBytes(memory.swapUsedBytes)} / ${formatBytes(memory.swapTotalBytes)}`
+})
+
+const formatBytes = (bytes: number) => {
+  if (!bytes || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let index = 0
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024
+    index++
+  }
+  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[index]}`
+}
+
+const formatDuration = (seconds: number) => {
+  if (!seconds || seconds <= 0) return '-'
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
 const runningCount = computed(() => dockerStats.value?.containers?.running || 0)
 const totalImages = computed(() => dockerStats.value?.images?.count || iStore.images.length)
 
-const cpuUsage = computed(() => {
-  return (dockerStats.value?.resources?.cpuUsagePercent || 0).toFixed(2)
+// —— 宿主机口径 ——
+const hostCpuText = computed(() => {
+  if (!hostAvailable.value) return '—'
+  return `${hostCpuPercent.value.toFixed(2)}%`
 })
 
-const memUsage = computed(() => {
-  // 显示内存占用量而非百分比
-  return dockerStats.value?.resources?.memoryUsedFormatted || '0 B'
+const hostMemoryUsed = computed(() => {
+  if (!hostAvailable.value) return '—'
+  return hostInfo.value?.memory?.usedFormatted || '0 B'
 })
 
-const memLimit = computed(() => {
-  return dockerStats.value?.resources?.memoryLimitFormatted || '0 B'
+const hostMemorySubText = computed(() => {
+  if (!hostAvailable.value) return t('dashboard.hostMonitorDisabled')
+  const memory = hostInfo.value?.memory
+  if (!memory) return t('dashboard.hostMonitorDisabled')
+  return `${memory.totalFormatted} · ${hostMemoryPercent.value.toFixed(2)}%`
 })
 
-const memPercent = computed(() => {
-  return (dockerStats.value?.resources?.memoryPercent || 0).toFixed(2)
-})
+const hostRxSpeed = computed(() => hostInfo.value?.network?.rxSpeedFormatted || '0 B/s')
+const hostTxSpeed = computed(() => hostInfo.value?.network?.txSpeedFormatted || '0 B/s')
 
-const rxSpeed = computed(() => {
-  return dockerStats.value?.network?.rxSpeedFormatted || '0 B/s'
-})
+// —— 容器聚合口径（宿主机监控未启用时的回退数据源，始终明确标注为“容器聚合”）——
+const dockerAvailable = computed(() => dockerStats.value?.docker?.status === 'running')
+const containerCpuPercent = computed(() => dockerStats.value?.resources?.cpuUsagePercent || 0)
+const containerMemPercent = computed(() => dockerStats.value?.resources?.memoryPercent || 0)
+const containerMemUsed = computed(() => dockerStats.value?.resources?.memoryUsedFormatted || '0 B')
+const containerMemLimit = computed(() => dockerStats.value?.resources?.memoryLimitFormatted || '0 B')
+const containerRxSpeed = computed(() => dockerStats.value?.network?.rxSpeedFormatted || '0 B/s')
+const containerTxSpeed = computed(() => dockerStats.value?.network?.txSpeedFormatted || '0 B/s')
+const containerCpuCores = computed(() => dockerStats.value?.docker?.ncpu || 0)
 
-const txSpeed = computed(() => {
-  return dockerStats.value?.network?.txSpeedFormatted || '0 B/s'
+// —— 图表口径：有宿主机数据就用宿主机，否则回退到容器聚合 ——
+const chartCpuLabel = computed(() => hostAvailable.value ? t('dashboard.hostCpu') : t('dashboard.cpuUsage'))
+const chartMemoryLabel = computed(() => hostAvailable.value ? t('dashboard.hostMemory') : t('dashboard.memoryUsage'))
+const chartTitle = computed(() => hostAvailable.value ? t('dashboard.hostTrendTitle') : t('dashboard.containerTrendTitle'))
+const chartScope = computed(() => hostAvailable.value ? t('dashboard.hostMonitorScope') : t('dashboard.containerAggregate'))
+const chartHint = computed(() => hostAvailable.value ? t('dashboard.hostTrendHint') : t('dashboard.containerFallbackHint'))
+const chartCpuValue = computed(() => (hostAvailable.value ? hostCpuPercent.value : containerCpuPercent.value).toFixed(2))
+const chartCpuSubtitle = computed(() => {
+  if (hostAvailable.value) {
+    return t('dashboard.hostCores', { count: hostInfo.value?.cpu?.coreCount || 0 })
+  }
+  return containerCpuCores.value
+    ? t('dashboard.cpuCores', { count: containerCpuCores.value })
+    : t('dashboard.containerAggregate')
 })
+const chartMemoryValue = computed(() => hostAvailable.value ? hostMemoryUsed.value : containerMemUsed.value)
+const chartMemorySubtitle = computed(() => {
+  if (hostAvailable.value) {
+    return `${hostInfo.value?.memory?.totalFormatted || '0 B'} · ${hostMemoryPercent.value.toFixed(2)}%`
+  }
+  return `${containerMemLimit.value} · ${containerMemPercent.value.toFixed(2)}%`
+})
+const chartNetworkLabel = computed(() => hostAvailable.value ? t('dashboard.hostNetwork') : t('dashboard.containerNetwork'))
+const chartRxText = computed(() => hostAvailable.value ? hostRxSpeed.value : containerRxSpeed.value)
+const chartTxText = computed(() => hostAvailable.value ? hostTxSpeed.value : containerTxSpeed.value)
 
 const dockerStatus = computed(() => {
   const status = dockerStats.value?.docker?.status
@@ -290,18 +474,23 @@ const metrics = computed(() => [
     glowColor: 'glow-purple'
   },
   {
-    label: t('dashboard.cpuUsage'),
-    value: cpuUsage.value,
-    unit: '%',
-    subText: dockerStats.value?.docker?.ncpu ? t('dashboard.cpuCores', { count: dockerStats.value.docker.ncpu }) : (dockerStats.value?.resources?.cpuUsagePercent ? t('dashboard.basedOnContainers') : t('dashboard.calculating')),
+    label: hostAvailable.value ? t('dashboard.hostCpuCard') : t('dashboard.cpuUsage'),
+    value: hostAvailable.value ? hostCpuText.value : (dockerAvailable.value ? `${containerCpuPercent.value.toFixed(2)}%` : '—'),
+    subText: hostAvailable.value
+      ? t('dashboard.hostCores', { count: hostInfo.value?.cpu?.coreCount || 0 })
+      : (containerCpuCores.value
+        ? `${t('dashboard.cpuCores', { count: containerCpuCores.value })} · ${t('dashboard.containerAggregate')}`
+        : t('dashboard.containerAggregate')),
     icon: Cpu,
     color: 'gradient-orange',
     glowColor: 'glow-orange'
   },
   {
-    label: t('dashboard.memoryUsage'),
-    value: memUsage.value,
-    subText: t('dashboard.totalMemory', { value: memLimit.value }),
+    label: hostAvailable.value ? t('dashboard.hostMemoryCard') : t('dashboard.memoryUsage'),
+    value: hostAvailable.value ? hostMemoryUsed.value : (dockerAvailable.value ? containerMemUsed.value : '—'),
+    subText: hostAvailable.value
+      ? hostMemorySubText.value
+      : `${containerMemLimit.value} · ${containerMemPercent.value.toFixed(2)}% · ${t('dashboard.containerAggregate')}`,
     icon: Coin,
     color: 'gradient-pink',
     glowColor: 'glow-pink'
@@ -351,7 +540,7 @@ const generateTimeLabels = () => {
   const labels: string[] = []
   const now = new Date()
   for (let i = historyPoints - 1; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 3000)
+    const time = new Date(now.getTime() - i * 5000)
     labels.push(formatLocalizedTime(time, '--', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
   }
   return labels
@@ -423,73 +612,37 @@ const lineAreaStyle = (from: string, to: string) => ({
 })
 
 const getNetworkChartData = () => {
-  const maxNetBytes = Math.max(...sStore.rxSpeedHistory, ...sStore.txSpeedHistory, 1)
+  const rxHistory = hostAvailable.value ? sStore.hostRxHistory : sStore.rxSpeedHistory
+  const txHistory = hostAvailable.value ? sStore.hostTxHistory : sStore.txSpeedHistory
+  const maxNetBytes = Math.max(...rxHistory, ...txHistory, 1)
   const divisor = maxNetBytes > 1024 * 1024 ? 1024 * 1024 : 1024
   const unit = divisor === 1024 * 1024 ? 'MB/s' : 'KB/s'
 
   return {
     unit,
-    rxData: padHistory(sStore.rxSpeedHistory.map((value: number) => value / divisor)),
-    txData: padHistory(sStore.txSpeedHistory.map((value: number) => value / divisor))
+    rxData: padHistory(rxHistory.map((value: number) => value / divisor)),
+    txData: padHistory(txHistory.map((value: number) => value / divisor))
   }
 }
 
-const createGaugeOption = (value: number, color: string, trackColor: string, title: string, detailText: string) => ({
-  tooltip: { show: false },
+// CPU / 内存：百分比折线（近 60 个采样点），让「趋势」名副其实
+const createPercentTrendOption = (
+  data: (number | null)[],
+  color: string,
+  areaFrom: string,
+  areaTo: string,
+  seriesName: string
+) => ({
+  ...createChartBaseOption('%', (value: number) => `${value}%`, 100),
   series: [
     {
-      name: title,
-      type: 'gauge',
-      startAngle: 180,
-      endAngle: 0,
-      min: 0,
-      max: 100,
-      radius: '122%',
-      center: ['50%', '72%'],
-      splitNumber: 4,
-      pointer: { show: false },
-      progress: {
-        show: true,
-        roundCap: true,
-        width: 16,
-        itemStyle: { color }
-      },
-      axisLine: {
-        roundCap: true,
-        lineStyle: {
-          width: 16,
-          color: [[1, trackColor]]
-        }
-      },
-      axisTick: { show: false },
-      splitLine: {
-        distance: -20,
-        length: 7,
-        lineStyle: { width: 1, color: getCssVar('--border-color', '#e2e8f0') }
-      },
-      axisLabel: {
-        distance: -4,
-        color: getCssVar('--text-muted', '#94a3b8'),
-        fontSize: 10,
-        formatter: (axisValue: number) => axisValue === 0 || axisValue === 50 || axisValue === 100 ? `${axisValue}` : ''
-      },
-      anchor: { show: false },
-      title: {
-        show: true,
-        offsetCenter: [0, '10%'],
-        color: getCssVar('--text-muted', '#94a3b8'),
-        fontSize: 12,
-        fontWeight: 500
-      },
-      detail: {
-        valueAnimation: true,
-        offsetCenter: [0, '-18%'],
-        formatter: detailText,
-        color: getCssVar('--text-main', '#0f172a'),
-        fontSize: 24,
-        fontWeight: 700
-      },
-      data: [{ value: Number(Math.min(Math.max(value, 0), 100).toFixed(2)), name: title }]
+      name: seriesName,
+      type: 'line',
+      data,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { width: 2, color },
+      areaStyle: lineAreaStyle(areaFrom, areaTo)
     }
   ]
 })
@@ -521,21 +674,26 @@ const handleResize = () => {
 }
 
 const updateCharts = () => {
-  cpuChartInstance.value?.setOption(createGaugeOption(
-    Number(cpuUsage.value),
-    '#3b82f6',
-    'rgba(59, 130, 246, 0.12)',
-    t('dashboard.cpuUsage'),
-    '{value}%'
-  ))
+  // CPU / 内存使用与网络图一致的时间窗口（近 60 个采样点），
+  // 数据源跟随宿主机 / 容器聚合口径切换。
+  const cpuHistory = hostAvailable.value ? sStore.hostCpuHistory : sStore.cpuHistory
+  const memoryHistory = hostAvailable.value ? sStore.hostMemoryHistory : sStore.memoryHistory
 
-  memoryChartInstance.value?.setOption(createGaugeOption(
-    Number(memPercent.value),
+  cpuChartInstance.value?.setOption(createPercentTrendOption(
+    padHistory(cpuHistory),
+    '#3b82f6',
+    'rgba(59, 130, 246, 0.24)',
+    'rgba(59, 130, 246, 0)',
+    chartCpuLabel.value
+  ), { notMerge: true })
+
+  memoryChartInstance.value?.setOption(createPercentTrendOption(
+    padHistory(memoryHistory),
     '#8b5cf6',
-    'rgba(139, 92, 246, 0.12)',
-    t('dashboard.memoryUsage'),
-    '{value}%'
-  ))
+    'rgba(139, 92, 246, 0.24)',
+    'rgba(139, 92, 246, 0)',
+    chartMemoryLabel.value
+  ), { notMerge: true })
 
   const networkChart = getNetworkChartData()
   networkChartInstance.value?.setOption({
@@ -563,32 +721,70 @@ const updateCharts = () => {
   })
 }
 
+const currentNodeId = () => localStorage.getItem('docker-panel-current-node') || undefined
+let systemStatsSubscribed = false
+
+// 首页的容器统计订阅是按需开关的：
+// - 宿主机指标可用：不订阅 systemstats，避免每 5 秒逐容器双采样
+// - 宿主机指标不可用：回退到容器聚合口径，才订阅 systemstats
+const ensureSystemStatsSubscription = async (subscribe: boolean) => {
+  if (subscribe === systemStatsSubscribed) return
+  try {
+    if (subscribe) {
+      await signalrService.subscribeToSystemStats(currentNodeId())
+    } else {
+      await signalrService.unsubscribeFromSystemStats(currentNodeId())
+    }
+    systemStatsSubscribed = subscribe
+  } catch (err) {
+    console.error('切换容器统计订阅失败:', err)
+  }
+}
+
 watch(
   () => [
+    hostAvailable.value,
+    hostInfo.value?.timestamp,
+    hostCpuPercent.value,
+    hostMemoryPercent.value,
     dockerStats.value?.timestamp,
     dockerStats.value?.resources?.cpuUsagePercent,
     dockerStats.value?.resources?.memoryPercent,
+    sStore.hostRxHistory[sStore.hostRxHistory.length - 1],
+    sStore.hostTxHistory[sStore.hostTxHistory.length - 1],
     sStore.rxSpeedHistory[sStore.rxSpeedHistory.length - 1],
     sStore.txSpeedHistory[sStore.txSpeedHistory.length - 1]
   ],
   () => updateCharts()
 )
 
+// 宿主机监控状态变化时切换数据源与订阅：
+// 有宿主机数据 → 停掉容器 stats 采样；没有 → 回退到容器聚合（明确标注）。
+watch(hostAvailable, async (available) => {
+  await ensureSystemStatsSubscription(!available)
+  await sStore.fetchDockerStats(!available)
+  await nextTick()
+  updateCharts()
+})
+
 const loadData = async () => {
   loading.value = true
   try {
+    // 先确认宿主机监控是否可用，再决定 docker-stats 是否需要逐容器 stats 采样
     await Promise.all([
-      cStore.fetchContainers({ all: true }), 
+      cStore.fetchContainers({ all: true }),
       iStore.fetchImages(),
-      sStore.fetchDockerStats()
+      sStore.fetchHostMetrics()
     ])
+    await sStore.fetchDockerStats(!hostAvailable.value)
   } finally { 
     loading.value = false 
   }
 }
 
-// 数据全部由服务端 SignalR 推送驱动：
-// - docker-stats：RealTimeDataPushService 定期推送（有订阅时）
+// 数据由服务端 SignalR 推送驱动：
+// - host-stats：宿主机指标（可选能力）
+// - systemstats：仅在宿主机监控不可用时订阅，用于回退展示容器聚合指标
 // - 容器/镜像列表：DockerEventService 监听 docker events，变化时推送
 const startRealtimeStats = async () => {
   // Ensure SignalR is connected before subscribing
@@ -596,14 +792,21 @@ const startRealtimeStats = async () => {
     await signalrService.connect()
   }
 
-  // Call backend Hub method to register subscription (required for HasConnections check)
-  // 多节点：订阅当前选中节点的系统统计（不传 = 默认节点）
-  await signalrService.subscribeToSystemStats(localStorage.getItem('docker-panel-current-node') || undefined)
+  // 先注册监听，再发起订阅：SubscribeToHostStats 会立即回推一次当前状态，
+  // 监听注册晚于订阅会丢掉这一帧（虽然下一次轮询会补上）。
+  unsubscribeHostSignalR = signalrService.subscribe('host-stats', (message) => {
+    sStore.updateHostMetrics(message.data)
+  })
 
-  // Subscribe to SignalR events for real-time stats
   unsubscribeSignalR = signalrService.subscribe('docker-stats', (message) => {
     sStore.updateDockerStats(message.data)
   })
+
+  // 宿主机指标是可选能力；未挂载 /host/proc 时后端会推送 available=false 的说明
+  await signalrService.subscribeToHostStats()
+
+  // 没有宿主机数据时，回退到容器聚合口径（需要订阅 systemstats 才会推送 DockerStatsUpdated）
+  await ensureSystemStatsSubscription(!hostAvailable.value)
 
   // 容器/镜像列表更新由后端事件推送
   await cStore.startContainerListSync()
@@ -618,12 +821,20 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // 取消系统统计订阅
-  signalrService.unsubscribeFromSystemStats(localStorage.getItem('docker-panel-current-node') || undefined).catch(() => {})
-  
+  // 取消宿主机指标与（可能存在的）容器统计订阅
+  signalrService.unsubscribeFromHostStats().catch(() => {})
+  if (systemStatsSubscribed) {
+    signalrService.unsubscribeFromSystemStats(currentNodeId()).catch(() => {})
+    systemStatsSubscribed = false
+  }
+
   if (unsubscribeSignalR) {
     unsubscribeSignalR()
     unsubscribeSignalR = null
+  }
+  if (unsubscribeHostSignalR) {
+    unsubscribeHostSignalR()
+    unsubscribeHostSignalR = null
   }
   cStore.stopContainerListSync().catch(() => {})
   iStore.stopRealtimeSync().catch(() => {})
@@ -971,6 +1182,173 @@ onUnmounted(() => {
   margin-top: 4px;
 }
 
+/* === Host Resources Card === */
+.host-card {
+  grid-column: 1 / -1;
+}
+
+.host-scope {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--border-radius-full);
+  background: var(--bg-glass-dark);
+  border: 1px solid var(--border-color-light);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* 趋势图的时间窗口标注：说明折线覆盖的是最近 5 分钟，而不是长期趋势 */
+.chart-window {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--border-radius-full);
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #3b82f6;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.host-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--border-radius-full);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.host-status.enabled {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.host-status.disabled {
+  background: var(--bg-glass-dark);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color-light);
+}
+
+.host-status .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.host-status.enabled .status-dot {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.host-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-bottom: 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.host-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.host-metric {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--border-radius-lg);
+  background: var(--bg-glass-dark);
+}
+
+.host-metric-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.host-metric-head strong {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+  word-break: break-word;
+}
+
+.host-metric-sub {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.host-disabled {
+  display: flex;
+  gap: 16px;
+  padding: 18px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius-lg);
+  background: var(--bg-glass-dark);
+}
+
+.host-disabled-icon {
+  color: var(--color-warning, #f59e0b);
+  font-size: 26px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.host-disabled-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.host-disabled-title {
+  margin: 0 0 6px;
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.host-disabled-desc,
+.host-disabled-note {
+  margin: 0 0 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.host-mount-example {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color-light);
+  color: var(--text-main);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.chart-scope-hint {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 /* === Quick Actions === */
 .action-grid {
   display: grid;
@@ -1180,6 +1558,9 @@ onUnmounted(() => {
   .docker-info-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .host-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
@@ -1216,6 +1597,12 @@ onUnmounted(() => {
   }
   .mini-chart-container {
     height: 190px;
+  }
+  .host-grid {
+    grid-template-columns: 1fr;
+  }
+  .host-disabled {
+    flex-direction: column;
   }
 }
 

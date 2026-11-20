@@ -16,6 +16,7 @@ public class RealTimeDataPushService : IHostedService
     private readonly ILogger<RealTimeDataPushService> _logger;
     private readonly IHubContext<DockerPanel.API.Hubs.DockerPanelHub> _hubContext;
     private readonly IServiceProvider _serviceProvider;
+    private readonly HostMetricsCollector _hostMetricsCollector;
     private Timer? _timer;
     private Timer? _systemInfoTimer;
     private DateTime _lastMetricsPushAt = DateTime.MinValue;
@@ -43,11 +44,13 @@ public class RealTimeDataPushService : IHostedService
     public RealTimeDataPushService(
         ILogger<RealTimeDataPushService> logger,
         IHubContext<DockerPanel.API.Hubs.DockerPanelHub> hubContext,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        HostMetricsCollector hostMetricsCollector)
     {
         _logger = logger;
         _hubContext = hubContext;
         _serviceProvider = serviceProvider;
+        _hostMetricsCollector = hostMetricsCollector;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -147,10 +150,11 @@ public class RealTimeDataPushService : IHostedService
             var nodeIds = DockerPanel.API.Hubs.DockerPanelHub.GetSubscribedNodeIds("systemstats")
                 .Union(DockerPanel.API.Hubs.DockerPanelHub.GetSubscribedNodeIds("containerstats"), StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            var hasHostStats = DockerPanel.API.Hubs.DockerPanelHub.HasSubscription("hoststats");
 
-            _logger.LogDebug("推送检查 - 订阅节点数: {Count}", nodeIds.Count);
+            _logger.LogDebug("推送检查 - 订阅节点数: {Count}, 宿主机订阅: {HasHostStats}", nodeIds.Count, hasHostStats);
 
-            if (nodeIds.Count == 0)
+            if (nodeIds.Count == 0 && !hasHostStats)
             {
                 return;
             }
@@ -168,6 +172,11 @@ public class RealTimeDataPushService : IHostedService
 
             _lastMetricsPushAt = DateTime.UtcNow;
 
+            if (hasHostStats)
+            {
+                await PushHostStatsAsync();
+            }
+
             foreach (var nodeId in nodeIds)
             {
                 await PushContainerStats(nodeId);
@@ -180,6 +189,25 @@ public class RealTimeDataPushService : IHostedService
         finally
         {
             Interlocked.Exchange(ref _isRunning, 0);
+        }
+    }
+
+    /// <summary>
+    /// 推送宿主机指标（HostStatsUpdated）。未启用主机监控时推送 Available=false 的说明。
+    /// </summary>
+    private async Task PushHostStatsAsync()
+    {
+        try
+        {
+            var snapshot = _hostMetricsCollector.Collect();
+            foreach (var connectionId in DockerPanel.API.Hubs.DockerPanelHub.GetConnectionsForKind("hoststats"))
+            {
+                await _hubContext.Clients.Client(connectionId).SendAsync("HostStatsUpdated", snapshot);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "推送宿主机指标失败");
         }
     }
 

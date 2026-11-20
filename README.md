@@ -15,7 +15,8 @@ Docker 镜像发布于 Docker Hub：[`j4587698/dockerpanel`](https://hub.docker.
 - **自身一键平滑升级**：内置基于 Sidecar 容器与 Docker Registry Manifest 摘要比对的自升级引擎，数据卷与运行参数 100% 无损继承，一键完成更新重启与健康探活。
 - **容器与 Compose 深度管理**：
   - 容器创建、停止、启动、重启、高级重建（Recreate，保留原有卷、网络与端口参数）、批量更新与回滚；
-  - 实时日志流推送（SignalR）、Web 终端（xterm.js）、容器内文件浏览与管理、CPU/内存/网络/磁盘实时监控；
+  - 实时日志流推送（SignalR）、Web 终端（xterm.js）、容器内文件浏览与管理、容器 CPU/内存/网络/磁盘实时监控；
+  - 可选宿主机监控：通过只读挂载 `/proc`、`/sys` 额外展示宿主机 CPU/内存/负载/磁盘 I/O/网络，未挂载时面板明确提示而不是伪造数据；
   - Docker Compose 项目在线编辑、实时构建与编排部署。
 - **镜像与仓库集成**：
   - 支持 Docker Hub、私有 Harbor、阿里云/腾讯云加速器等多种 Registry 认证；
@@ -174,6 +175,71 @@ DOCKERPANEL_HTTP_HOST_PORT=8080 DOCKERPANEL_HTTPS_HOST_PORT=8443 docker compose 
 
 ---
 
+### 可选：启用宿主机监控（只读挂载）
+
+默认情况下 DockerPanel **只采集 Docker 容器指标**（每个容器的 CPU / 内存 / 网络，在"容器"页查看）。未启用宿主机监控时，"概览"页会回退显示**容器聚合**指标并明确标注口径，绝不把容器数据当成宿主机数据；启用宿主机监控后首页自动切换为宿主机指标（CPU / 内存 / 负载 / 磁盘 / 网络），并停止逐容器采样。
+
+如果希望在同一个面板里看到 **宿主机本身** 的 CPU、内存、负载、磁盘 I/O 与网络，可额外添加以下只读挂载（无需 `--privileged`、无需 `--network=host`、无需 `--pid=host`）：
+
+```yaml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 宿主机监控（全部只读）
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      # 可选：仅用于读取宿主机各挂载点的磁盘容量
+      - /:/host/root:ro
+```
+
+`docker run` 等价写法：
+
+```bash
+docker run -d \
+  --name dockerpanel \
+  --restart unless-stopped \
+  -p 80:80 -p 443:443 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /proc:/host/proc:ro \
+  -v /sys:/host/sys:ro \
+  -v /etc/os-release:/host/etc/os-release:ro \
+  -v /:/host/root:ro \
+  -v /opt/dockerpanel/data:/app/Data \
+  j4587698/dockerpanel:latest
+```
+
+挂载路径也可用环境变量覆盖：`HOST_PROC`、`HOST_SYS`、`HOST_ROOT`、`HOST_OS_RELEASE`。
+
+**能力与限制：**
+
+| 指标 | 需要的挂载 | 说明 |
+|------|-----------|------|
+| CPU / 内存 / 负载 / 运行时长 | `/proc` | 来自 `/host/proc/stat`、`meminfo`、`loadavg`、`uptime` |
+| 磁盘读写速率 | `/proc` | 来自 `/host/proc/diskstats`（与容量无关） |
+| 网络速率与累计流量 | `/proc` | 来自 `/host/proc/1/net/dev`；若该文件不可读则标记为不可用 |
+| 磁盘容量 / 各挂载点使用率 | `/proc` + `/` | 需要 `/host/root`，否则只显示不可用提示 |
+| 发行版名称/版本 | `/etc/os-release` | 也可从 `/host/root/etc/os-release` 回退读取 |
+
+- 网络指标刻意读取 `/host/proc/1/net/dev` 而不是 `/host/proc/net/dev`：后者在容器内会解析到**读取进程自己的网络命名空间**，会得出"把容器网卡当宿主机网卡"的错误结论。因此本功能**不依赖** `--network=host`。
+- 未挂载时面板不会报错，只是在"概览"页显示"宿主机监控未启用"及上面的挂载示例。
+- 首次采集的 CPU/网络/磁盘速率为 0，需要第二次采样（约一个推送周期）后才有速率值。
+- `/proc` 与 `/` 的只读挂载会暴露宿主机进程列表与文件系统结构给容器内进程。DockerPanel 只读取上述固定文件，不会上传任何数据；但如对隔离性要求很高，请保持默认（不挂载），仅使用容器监控。
+
+**平台支持（重要）：**
+
+宿主机指标的数据源是 `/proc`、`/sys`，因此**只支持 Linux 内核**：
+
+| 部署方式 | 宿主机指标 | 说明 |
+|---|---|---|
+| Linux + Docker / Compose | ✅ 可用 | 显示真实宿主机 CPU/内存/磁盘/网络 |
+| Docker Desktop（Windows / macOS） | ⚠️ 显示的是 Linux 虚拟机 | 容器实际运行在 WSL2 / LinuxKit 虚拟机中，挂载到的是**该虚拟机**的 `/proc`，不是 Windows/macOS 宿主本身；CPU/内存/磁盘均为虚拟机口径 |
+| Windows 上直接运行可执行文件 | ❌ 不可用 | 没有 `/proc`，面板回退显示容器聚合指标并标注口径，不会展示伪造的宿主机数据 |
+| 远程节点的资源采集 | ✅ 仅 Linux 节点 | 通过 SSH 执行 `top` / `free` / `df` / `uname`，Windows 远程节点不会被正确采集 |
+
+容器指标（"容器"页的每个容器 CPU / 内存、容器监控弹窗）不受此限制：它走 Docker Engine API，Linux 容器与 Windows 容器均可采集。
+
+---
+
 ### 方式三：一键部署脚本（单文件自举）
 
 无需手动 clone 仓库，直接在终端执行脚本即可全自动部署：
@@ -225,6 +291,10 @@ docker stop dockerpanel && docker rm dockerpanel
 | `DOCKERPANEL_ADMIN_USERNAME` | - | 首次启动预置管理员用户名 |
 | `DOCKERPANEL_ADMIN_PASSWORD` | - | 首次启动预置管理员密码 |
 | `DOCKERPANEL_JWT_SECRET` | 自动持久化 | JWT 签名密钥（建议显式设置 32 位以上强密钥） |
+| `HOST_PROC` | `/host/proc` | 宿主机 `/proc` 只读挂载路径（未挂载时不启用宿主机监控） |
+| `HOST_SYS` | `/host/sys` | 宿主机 `/sys` 只读挂载路径 |
+| `HOST_ROOT` | `/host/root` | 宿主机根目录只读挂载路径（仅用于磁盘容量） |
+| `HOST_OS_RELEASE` | `/host/etc/os-release` | 宿主机 `os-release` 只读挂载路径 |
 | `TinyDb__Path` | `Data/DockerPanel.db` | TinyDb 数据库持久化路径 |
 
 ---

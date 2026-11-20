@@ -32,27 +32,36 @@ public sealed class SystemRegistryAutoUpdateEndpointsTests : IClassFixture<TestW
     }
 
     [Fact]
-    public async Task SystemStatus_AsAdmin_ReturnsOk()
+    public async Task SystemHostMetrics_AsAdmin_ReturnsOk()
     {
         var api = await CreateAuthorizedClientAsync();
-        var response = await api.GetAsync("/api/system/status");
+        var response = await api.GetAsync("/api/system/host-metrics");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // 未挂载 /host/proc 时也必须返回结构化的 available 标记，而不是 4xx/5xx
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"available\"", json);
+        Assert.Contains("\"fileSystemAvailable\"", json);
     }
 
     [Fact]
-    public async Task SystemMetrics_AsAdmin_ReturnsOk()
+    public async Task RemovedFakeSystemEndpoints_DoNotReturnJson()
     {
         var api = await CreateAuthorizedClientAsync();
-        var response = await api.GetAsync("/api/system/metrics");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
+        foreach (var path in new[] { "/api/system/status", "/api/system/metrics", "/api/system/health" })
+        {
+            var response = await api.GetAsync(path);
 
-    [Fact]
-    public async Task SystemHealth_AsAdmin_ReturnsOk()
-    {
-        var api = await CreateAuthorizedClientAsync();
-        var response = await api.GetAsync("/api/system/health");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            // 这些接口已被删除；命中的是 SPA fallback（HTML），不应再返回伪造的 JSON 指标。
+            var mediaType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
+            Assert.False(
+                mediaType.Contains("json", StringComparison.OrdinalIgnoreCase),
+                $"{path} should not expose fabricated JSON data, got {mediaType}");
+
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.DoesNotContain("\"cpuUsage\"", body);
+            Assert.DoesNotContain("\"overall\"", body);
+        }
     }
 
     [Fact]
@@ -61,6 +70,21 @@ public sealed class SystemRegistryAutoUpdateEndpointsTests : IClassFixture<TestW
         var api = await CreateAuthorizedClientAsync();
         var response = await api.GetAsync("/api/system/docker-stats");
         Assert.True(response.StatusCode is HttpStatusCode.OK or HttpStatusCode.InternalServerError, $"unexpected {response.StatusCode}");
+    }
+
+    [Fact]
+    public async Task SystemDockerStats_WithoutStats_AsAdmin_ReturnsOkWithoutAggregates()
+    {
+        var api = await CreateAuthorizedClientAsync();
+        var response = await api.GetAsync("/api/system/docker-stats?includeStats=false");
+        Assert.True(response.StatusCode is HttpStatusCode.OK or HttpStatusCode.InternalServerError, $"unexpected {response.StatusCode}");
+
+        if (response.StatusCode != HttpStatusCode.OK) return;
+
+        var body = await response.Content.ReadAsStringAsync();
+        // includeStats=false 时不应包含容器资源聚合值（Docker 不可用时同样不会出现）
+        Assert.DoesNotContain("cpuUsagePercent", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("rxBytesPerSec", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

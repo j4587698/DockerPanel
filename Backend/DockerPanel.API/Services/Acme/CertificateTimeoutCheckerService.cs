@@ -109,13 +109,18 @@ namespace DockerPanel.API.Services
                     }
                 }
 
-                // 同域名集合的重复 Active 证书记录去重：保留最新一条，旧的标记 Superseded 并改绑域名映射。
+                // 同域名集合的重复"有效"证书记录去重：保留最合适的一条，旧的标记 Superseded 并改绑域名映射。
                 // 历史上 FinalizeCertificateAsync 无幂等保护 + 续期入参歧义，造成同域名多条"有效"记录堆积
                 try
                 {
                     var certificatesCollection = _db.GetCollection<CertificateRecord>(DbCollections.Certificates);
                     var domainMappingsCollection = _db.GetCollection<DomainMapping>("domain_mappings");
-                    var activeCerts = certificatesCollection.Find(c => c.Status == "Active").ToList();
+                    var allCertificates = certificatesCollection.FindAll().ToList();
+
+                    // 状态大小写历史上混用（Active/active），这里统一按大小写无关判定
+                    var activeCerts = allCertificates
+                        .Where(c => CertificateValidity.HasStatus(c.Status, "Active"))
+                        .ToList();
 
                     var duplicateGroups = activeCerts
                         .Where(c => c.Domains != null && c.Domains.Count > 0)
@@ -124,7 +129,12 @@ namespace DockerPanel.API.Services
 
                     foreach (var group in duplicateGroups)
                     {
-                        var keep = group.OrderByDescending(c => c.CreatedAt).First();
+                        // 优先保留仍在承载 TLS 的、到期时间最晚的
+                        var keep = group
+                            .OrderByDescending(c => CertificateValidity.IsServing(c, now))
+                            .ThenByDescending(c => c.ExpiresAt)
+                            .ThenByDescending(c => c.CreatedAt)
+                            .First();
 
                         foreach (var stale in group.Where(c => !string.Equals(c.Id, keep.Id, StringComparison.Ordinal)))
                         {
@@ -144,6 +154,58 @@ namespace DockerPanel.API.Services
                             _logger.LogInformation("重复证书记录已去重: Domain={Domain}, 保留={KeepId}, 覆盖={StaleId}",
                                 keep.Name, keep.Id, stale.Id);
                         }
+                    }
+
+                    // 存量自愈：域名映射指向缺失/过期/撤销/被覆盖的证书时，改绑到同域名下仍有效的证书。
+                    // 没有可用替代证书时保持原样（SNI 选择器会按域名回退），避免误清空绑定。
+                    try
+                    {
+                        var healed = 0;
+                        var certificateById = allCertificates
+                            .Where(c => !string.IsNullOrEmpty(c.Id))
+                            .GroupBy(c => c.Id, StringComparer.Ordinal)
+                            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+                        foreach (var mapping in domainMappingsCollection.FindAll().ToList())
+                        {
+                            if (string.IsNullOrWhiteSpace(mapping.CertificateId))
+                            {
+                                continue;
+                            }
+
+                            if (certificateById.TryGetValue(mapping.CertificateId!, out var bound) &&
+                                CertificateValidity.IsServing(bound, now))
+                            {
+                                continue;
+                            }
+
+                            var replacement = CertificateValidity.FindBestForDomain(
+                                allCertificates, mapping.Domain, mapping.CertificateId, now);
+
+                            if (replacement == null)
+                            {
+                                continue;
+                            }
+
+                            var oldId = mapping.CertificateId;
+                            mapping.CertificateId = replacement.Id;
+                            mapping.EnableSsl = true;
+                            mapping.UpdatedAt = DateTime.UtcNow;
+                            domainMappingsCollection.Update(mapping);
+                            healed++;
+
+                            _logger.LogInformation("域名映射已从失效证书改绑到有效证书: Domain={Domain}, Old={OldId}, New={NewId}",
+                                mapping.Domain, oldId, replacement.Id);
+                        }
+
+                        if (healed > 0)
+                        {
+                            _logger.LogInformation("已自动修复 {Count} 个指向失效证书的域名映射", healed);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "修复域名映射的失效证书绑定失败");
                     }
                 }
                 catch (Exception ex)

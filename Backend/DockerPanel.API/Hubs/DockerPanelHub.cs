@@ -17,6 +17,7 @@ public class DockerPanelHub : Hub
     private readonly IImageService _imageService;
     private readonly INodeResourceService _nodeResourceService;
     private readonly LogStreamingService _logStreamingService;
+    private readonly HostMetricsCollector _hostMetricsCollector;
     private static readonly ConcurrentDictionary<string, HashSet<string>> _subscriptions = new();
     private static int _connectionCount = 0;
 
@@ -81,6 +82,20 @@ public class DockerPanelHub : Hub
     }
 
     /// <summary>
+    /// 获取订阅了某个类型的所有连接 ID（忽略节点维度，例如 hoststats）
+    /// </summary>
+    public static List<string> GetConnectionsForKind(string kind)
+    {
+        var prefix = kind + ":";
+        return _subscriptions
+            .Where(kvp => kvp.Value.Any(key =>
+                key.Equals(kind, StringComparison.Ordinal) ||
+                key.StartsWith(prefix, StringComparison.Ordinal)))
+            .Select(kvp => kvp.Key)
+            .ToList();
+    }
+
+    /// <summary>
     /// 获取当前订阅数量（用于调试）
     /// </summary>
     public static int GetSubscriptionCount()
@@ -112,13 +127,15 @@ public class DockerPanelHub : Hub
         IContainerService containerService,
         IImageService imageService,
         INodeResourceService nodeResourceService,
-        LogStreamingService logStreamingService)
+        LogStreamingService logStreamingService,
+        HostMetricsCollector hostMetricsCollector)
     {
         _logger = logger;
         _containerService = containerService;
         _imageService = imageService;
         _nodeResourceService = nodeResourceService;
         _logStreamingService = logStreamingService;
+        _hostMetricsCollector = hostMetricsCollector;
     }
 
     /// <summary>
@@ -256,6 +273,43 @@ public class DockerPanelHub : Hub
         {
             subs.Remove(SubKey("systemstats", nodeId));
             _logger.LogInformation("客户端 {ConnectionId} 取消订阅系统资源监控, 节点: {NodeId}", connectionId, NormalizeNodeId(nodeId));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 订阅宿主机实时指标（HostStatsUpdated）。
+    /// 宿主机指标与 Docker 节点无关，未启用 /host/proc 时也会推送 Available=false 的说明。
+    /// </summary>
+    public async Task SubscribeToHostStats()
+    {
+        var connectionId = Context.ConnectionId;
+
+        if (!_subscriptions.ContainsKey(connectionId))
+        {
+            _subscriptions[connectionId] = new HashSet<string>();
+        }
+
+        _subscriptions[connectionId].Add("hoststats");
+
+        _logger.LogInformation("客户端 {ConnectionId} 订阅了宿主机实时指标", connectionId);
+
+        // 立即回推当前状态，避免首屏等待下一个轮询周期
+        await Clients.Caller.SendAsync("HostStatsUpdated", _hostMetricsCollector.Collect());
+    }
+
+    /// <summary>
+    /// 取消订阅宿主机实时指标
+    /// </summary>
+    public Task UnsubscribeFromHostStats()
+    {
+        var connectionId = Context.ConnectionId;
+
+        if (_subscriptions.TryGetValue(connectionId, out var subs))
+        {
+            subs.Remove("hoststats");
+            _logger.LogInformation("客户端 {ConnectionId} 取消订阅宿主机实时指标", connectionId);
         }
 
         return Task.CompletedTask;

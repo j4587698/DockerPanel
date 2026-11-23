@@ -4,6 +4,7 @@
  */
 
 import api from "./index"
+import type { HostMetricsSnapshot } from "@/types/system"
 
 // 系统API对象
 export const systemApi = {
@@ -27,11 +28,6 @@ export const systemApi = {
     return api.post("settings/reset")
   },
 
-  // 获取系统状态
-  getStatus: () => {
-    return api.get("system/status")
-  },
-
   // 获取系统日志
   getLogs: (params?: {
     level?: string
@@ -41,29 +37,16 @@ export const systemApi = {
     return api.get("system/logs", { params })
   },
 
-  // 获取系统统计信息
-  getStatistics: () => {
-    return api.get("system/statistics")
-  },
-
-  // 系统健康检查
-  healthCheck: () => {
-    return api.get("system/health")
-  },
-
-  // 获取系统健康状态
-  getSystemHealth: () => {
-    return api.get("system/health")
-  },
-
-  // 获取版本信息
-  getVersion: () => {
-    return api.get("system/version")
-  },
-
   // 获取Docker统计信息
-  getDockerStats: () => {
-    return api.get("system/docker-stats")
+  // includeStats=false 时后端跳过「逐容器 stats 采样」，只返回引擎信息/容器数/镜像数，
+  // 用于不需要容器 CPU/内存/网络聚合的页面（如概览页）。
+  getDockerStats: (params?: { includeStats?: boolean }) => {
+    return api.get("system/docker-stats", { params })
+  },
+
+  // 获取宿主机实时指标（未启用 /host/proc 时返回 available=false）
+  getHostMetrics: () => {
+    return api.get<HostMetricsSnapshot>("system/host-metrics")
   },
 
   // 检查 DockerPanel 自身更新

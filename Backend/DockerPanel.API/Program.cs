@@ -276,6 +276,9 @@ builder.Services.AddSingleton<DockerPanel.API.Utils.ICredentialProtector, Docker
 // SSH 主机密钥校验（TOFU + 指纹比对）
 builder.Services.AddSingleton<SshHostKeyVerifier>();
 
+// 宿主机指标采集器（可选：检测 /host/proc 只读挂载，未启用时返回不可用状态）
+builder.Services.AddSingleton<HostMetricsCollector>();
+
 // 节点资源监控服务
 builder.Services.AddScoped<INodeResourceService, NodeResourceServiceImpl>();
 

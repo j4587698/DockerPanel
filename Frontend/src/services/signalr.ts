@@ -420,6 +420,11 @@ class SignalRService {
       this.emit('docker-stats', { type: 'docker-stats', data, timestamp: new Date().toISOString() })
     })
 
+    // 监听宿主机指标更新（可选能力，未启用时 data.available=false）
+    this.connection.on('HostStatsUpdated', (data) => {
+      this.emit('host-stats', { type: 'host-stats', data, timestamp: new Date().toISOString() })
+    })
+
     // 监听容器统计信息更新
     this.connection.on('ContainerStatsUpdated', (data) => {
       this.emit('container-stats', { type: 'container-stats', data, timestamp: new Date().toISOString() })
@@ -640,6 +645,16 @@ class SignalRService {
   async unsubscribeFromSystemStats(nodeId?: string) {
     this.activeSubscriptions.delete(`SubscribeToSystemStats:${JSON.stringify([nodeId ?? null])}`)
     return await this.invoke('UnsubscribeFromSystemStats', nodeId ?? null)
+  }
+
+  async subscribeToHostStats() {
+    this.trackSubscription('SubscribeToHostStats', [])
+    return await this.invoke('SubscribeToHostStats')
+  }
+
+  async unsubscribeFromHostStats() {
+    this.activeSubscriptions.delete(`SubscribeToHostStats:${JSON.stringify([])}`)
+    return await this.invoke('UnsubscribeFromHostStats')
   }
 
   async subscribeToContainerStats(nodeId?: string) {
